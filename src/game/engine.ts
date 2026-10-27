@@ -46,8 +46,8 @@ export interface BUnit {
   spd: number;
   atkCd: number;
   cd: number;
-  mana: number;
-  maxMana: number;
+  energy: number;
+  maxEnergy: number;
   stun: number;
   vuln: number;
   flash: number;
@@ -233,8 +233,8 @@ function mkUnit(uid: number, bugId: BugId, star: number, side: "ally" | "foe", x
     spd: b.spd,
     atkCd: b.atkCd,
     cd: Math.random() * 0.4,
-    mana: 40,
-    maxMana: 100,
+    energy: 40,
+    maxEnergy: 100,
     stun: 0,
     vuln: 0,
     flash: 0,
@@ -314,7 +314,7 @@ function damage(b: BattleState, _src: BUnit, tgt: BUnit, raw: number, projectile
   const dmg = Math.max(1, Math.round(raw * amp * slipstream));
   tgt.hp -= dmg;
   tgt.flash = 0.3;
-  tgt.mana = Math.min(tgt.maxMana, tgt.mana + 8);
+  tgt.energy = Math.min(tgt.maxEnergy, tgt.energy + 8);
   pop(b, tgt, String(dmg), "dmg");
   if (tgt.hp <= 0) {
     tgt.hp = 0;
@@ -340,7 +340,7 @@ function alliesOf(b: BattleState, side: "ally" | "foe") {
   return b.units.filter((u) => !u.dead && u.side === side);
 }
 
-/** Returns false when the cast fizzles (caller should not spend mana). */
+/** Returns false when the cast fizzles (caller should not spend energy). */
 function castSkill(b: BattleState, u: BUnit, t: BUnit): boolean {
   // Defensive gate: a 1/2-star Dragonfly has Slipstream only, never Airstrike.
   if (!canCastSkill(u.bugId, u.star)) return false;
@@ -349,7 +349,7 @@ function castSkill(b: BattleState, u: BUnit, t: BUnit): boolean {
     // and leave a field whose ticks scale with the whole living team's
     // combined ATK (2.2× total — see airstrike.ts). One dive, one field.
     const cluster = densestFoeCluster(b, u.side);
-    if (!cluster) return false; // no foes to strike — keep the mana
+    if (!cluster) return false; // no foes to strike — keep the energy
     u.cast = AIRSTRIKE_FLIGHT;
     u.dive = {
       id: b.nid++,
@@ -416,35 +416,35 @@ function attack(b: BattleState, u: BUnit, t: BUnit) {
   u.cd = u.atkCd;
   if (u.bugId === "dragonfly") {
     // Airstrike is a 3-star ultimate. Lower tiers make a normal attack even
-    // at full Mana — no cast state, no shots, no pending Airstrike hits.
-    if (u.star >= 3 && u.mana >= u.maxMana && castSkill(b, u, t)) {
-      u.mana = 0;
+    // at full Energy — no cast state, no shots, no pending Airstrike hits.
+    if (u.star >= 3 && u.energy >= u.maxEnergy && castSkill(b, u, t)) {
+      u.energy = 0;
     } else {
       damage(b, u, t, u.atk);
-      u.mana = Math.min(u.maxMana, u.mana + 20);
-      if (!t.dead) t.mana = Math.min(t.maxMana, t.mana + 10);
+      u.energy = Math.min(u.maxEnergy, u.energy + 20);
+      if (!t.dead) t.energy = Math.min(t.maxEnergy, t.energy + 10);
     }
     return;
   }
   if (u.bugId === "bomb") {
-    const skill = u.mana >= u.maxMana;
+    const skill = u.energy >= u.maxEnergy;
     if (skill) {
-      u.mana = 0;
+      u.energy = 0;
       u.cast = 0.55;
       pop(b, t, "BURST", "skill");
     } else {
-      u.mana = Math.min(u.maxMana, u.mana + 20);
+      u.energy = Math.min(u.maxEnergy, u.energy + 20);
     }
     fireShell(b, u, t, skill);
     return;
   }
-  if (u.mana >= u.maxMana) {
-    u.mana = 0;
+  if (u.energy >= u.maxEnergy) {
+    u.energy = 0;
     castSkill(b, u, t);
   } else {
     damage(b, u, t, u.atk);
-    u.mana = Math.min(u.maxMana, u.mana + 20);
-    if (!t.dead) t.mana = Math.min(t.maxMana, t.mana + 10);
+    u.energy = Math.min(u.maxEnergy, u.energy + 20);
+    if (!t.dead) t.energy = Math.min(t.maxEnergy, t.energy + 10);
   }
 }
 
@@ -453,7 +453,7 @@ function glow(b: BattleState, side: "ally" | "foe") {
   if (!a.length) return;
   const wounded = a.slice().sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0];
   heal(b, wounded, wounded.maxHp * 0.12);
-  wounded.mana = Math.min(wounded.maxMana, wounded.mana + 25);
+  wounded.energy = Math.min(wounded.maxEnergy, wounded.energy + 25);
   pop(b, wounded, "GLOW", "skill");
 }
 
@@ -585,7 +585,7 @@ function stepAirstrikeDives(b: BattleState) {
     }
     if (!dive.targetLocked && b.t >= dive.startAt + dive.duration * AIRSTRIKE_LOCK_PROGRESS) {
       // Recheck from the top of the climb, while the unit is still over its
-      // takeoff point. Enemies may have moved since Mana filled.
+      // takeoff point. Enemies may have moved since Energy filled.
       const cluster = densestFoeCluster(b, unit.side);
       if (cluster) {
         dive.toX = cluster.x;
@@ -715,7 +715,7 @@ export function stepBattle(b: BattleState, dt: number): BattleState {
     }
     if (!t) continue;
     // A charged 3-star Dragonfly can take off before reaching melee range.
-    if (u.bugId === "dragonfly" && canCastSkill(u.bugId, u.star) && u.mana >= u.maxMana && u.cd <= 0) {
+    if (u.bugId === "dragonfly" && canCastSkill(u.bugId, u.star) && u.energy >= u.maxEnergy && u.cd <= 0) {
       attack(b, u, t);
     } else if (best <= u.range) {
       if (u.cd <= 0) attack(b, u, t);

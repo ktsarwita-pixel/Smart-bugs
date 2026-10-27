@@ -61,7 +61,7 @@ interface UnitObj {
   el: HTMLElement;
   hpEl: HTMLElement;
   hpSegEl: HTMLElement;
-  manaEl: HTMLElement;
+  energyEl: HTMLElement;
   pipsEl: HTMLElement;
   nameEl: HTMLElement;
   // cached DOM state to eliminate redundant layout/style writes
@@ -69,7 +69,7 @@ interface UnitObj {
   ly: number;
   lhp: number;
   lmaxHp: number;
-  lmana: number;
+  lenergy: number;
   lvis: number;
   lsel: boolean;
   lfoe: boolean;
@@ -161,7 +161,9 @@ export function Scene3D({
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({
-        antialias: true,
+        // MSAA is redundant once the DPR is high (and one of the priciest
+        // states on mobile GPUs mid-battle) — keep it only for low-DPR screens.
+        antialias: (window.devicePixelRatio || 1) < 1.75,
         alpha: true,
         powerPreference: "high-performance",
       });
@@ -315,6 +317,8 @@ export function Scene3D({
       tilesMesh = new THREE.InstancedMesh(tileGeo, tileMat, COLS * ROWS);
       tilesMesh.receiveShadow = true;
       tilesMesh.castShadow = false;
+      tilesMesh.matrixAutoUpdate = false; // static board furniture
+      tilesMesh.updateMatrix();
 
       const rimGeo = track(new THREE.RingGeometry(0.555, 0.605, 4));
       rimGeo.rotateZ(Math.PI / 4);
@@ -331,6 +335,8 @@ export function Scene3D({
         })
       );
       tileRimsMesh = new THREE.InstancedMesh(rimGeo, rimMat, 21);
+      tileRimsMesh.matrixAutoUpdate = false; // static board furniture
+      tileRimsMesh.updateMatrix();
       tileRimsMesh.renderOrder = 1;
 
       for (let r = 0; r < ROWS; r++) {
@@ -536,16 +542,22 @@ export function Scene3D({
 
       const brassTrim = new THREE.Mesh(track(new THREE.CylinderGeometry(2.68, 2.74, 0.08, 8)), brass);
       brassTrim.position.set(0, -0.07, 0);
+      brassTrim.matrixAutoUpdate = false; // static furniture
+      brassTrim.updateMatrix();
       scene.add(brassTrim);
 
       const stage = new THREE.Mesh(track(new THREE.CylinderGeometry(2.52, 2.58, 0.08, 16)), slate);
       stage.position.set(0, -0.02, 0);
       stage.receiveShadow = true;
+      stage.matrixAutoUpdate = false; // static furniture
+      stage.updateMatrix();
       scene.add(stage);
 
       const innerRing = new THREE.Mesh(track(new THREE.RingGeometry(1.45, 1.52, 32)), brass);
       innerRing.rotation.x = -Math.PI / 2;
       innerRing.position.y = 0.024;
+      innerRing.matrixAutoUpdate = false; // static furniture
+      innerRing.updateMatrix();
       scene.add(innerRing);
 
       turntable = new THREE.Group();
@@ -570,6 +582,8 @@ export function Scene3D({
         holder.add(model.group);
 
         holder.position.set(Math.sin(baseAngle) * radius, 0, Math.cos(baseAngle) * radius);
+        holder.matrixAutoUpdate = false; // local pose is final; parent rotates
+        holder.updateMatrix();
         turntable!.add(holder);
         showcaseItems.push({ id, model, holder, baseAngle });
       });
@@ -1215,7 +1229,7 @@ export function Scene3D({
     let ftEma = 16.7;
     let ftWarmup = 0;
     let qualityClock = 0;
-    let shadowFlip = 0;
+    let shadowPhase = 0;
     // Flips once init completes. After that, frame() repaints immediately
     // after every canvas resize — resizing a WebGL buffer clears it, and
     // without this repaint the cleared frame shows as a dark flash exactly
@@ -1508,14 +1522,14 @@ export function Scene3D({
       const el = document.createElement("div");
       el.className = "ov-unit";
       el.innerHTML =
-        '<div class="ov-bars"><div class="ov-hp"><i></i><b class="ov-hp-seg"></b></div><div class="ov-mana"><i></i></div></div>' +
+        '<div class="ov-bars"><div class="ov-hp"><i></i><b class="ov-hp-seg"></b></div><div class="ov-energy"><i></i></div></div>' +
         '<div class="ov-pips"></div><div class="ov-name"></div>';
       ovEl.appendChild(el);
       return {
         el,
         hpEl: el.querySelector(".ov-hp i") as HTMLElement,
         hpSegEl: el.querySelector(".ov-hp-seg") as HTMLElement,
-        manaEl: el.querySelector(".ov-mana i") as HTMLElement,
+        energyEl: el.querySelector(".ov-energy i") as HTMLElement,
         pipsEl: el.querySelector(".ov-pips") as HTMLElement,
         nameEl: el.querySelector(".ov-name") as HTMLElement,
       };
@@ -1624,7 +1638,7 @@ export function Scene3D({
         ly: -999,
         lhp: -1,
         lmaxHp: -1,
-        lmana: -1,
+        lenergy: -1,
         lvis: -1,
         lsel: false,
         lfoe: false,
@@ -1839,7 +1853,7 @@ export function Scene3D({
       ry: number,
       hp: number,
       maxHp: number,
-      mana: number,
+      energy: number,
       dead: boolean,
       fade: number,
       cast: number,
@@ -2138,11 +2152,11 @@ export function Scene3D({
           u.lhp = hpPct;
           u.hpEl.style.width = hpPct + "%";
         }
-        const mPct = Math.round(Math.max(0, Math.min(100, mana)));
-        if (mPct !== u.lmana) {
-          u.lmana = mPct;
-          u.manaEl.style.width = mPct + "%";
-          u.manaEl.classList.toggle("full", mPct >= 99);
+        const mPct = Math.round(Math.max(0, Math.min(100, energy)));
+        if (mPct !== u.lenergy) {
+          u.lenergy = mPct;
+          u.energyEl.style.width = mPct + "%";
+          u.energyEl.classList.toggle("full", mPct >= 99);
         }
         const nm = flight
           ? flight.phase === "climb" ? "CLIMB" : flight.phase === "approach" ? "LOCK ON" : flight.phase === "dive" ? "DIVE" : "LANDED"
@@ -2184,9 +2198,11 @@ export function Scene3D({
       t += dt;
       const p = P.current;
 
-      // Half-rate shadow refresh (see shadowMap.autoUpdate above).
-      shadowFlip ^= 1;
-      if (shadowFlip) renderer.shadowMap.needsUpdate = true;
+      // Third-rate shadow refresh (see shadowMap.autoUpdate above): ~20Hz,
+      // imperceptible for units that glide a few px per frame, and removes
+      // two of every three depth passes mid-battle.
+      shadowPhase = (shadowPhase + 1) % 3;
+      if (shadowPhase === 0) renderer.shadowMap.needsUpdate = true;
 
       // Adaptive resolution governor. The first ~30 frames are ignored so
       // one-off shader-compile spikes never trigger a downgrade.
@@ -2442,7 +2458,7 @@ export function Scene3D({
             r.y,
             r.hp,
             r.maxHp,
-            r.mana,
+            r.energy,
             r.dead,
             r.fade,
             r.cast,

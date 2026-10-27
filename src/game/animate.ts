@@ -272,7 +272,10 @@ export function animateInsectRig(
         // narrow, BACK-biased yaw: tips never sweep forward over the head
         const sway = Math.sin(phase * 0.5) * 0.18;
         p.rootY = hover * 0.075 + 0.045;
-        p.torsoX = 0.03 + Math.sin(t * 2.1 + uid) * 0.035;
+        // body dips a hair against each down-stroke and rolls with the sway —
+        // real odonates tilt while hovering, not just the wings
+        p.torsoX = 0.03 + Math.sin(t * 2.1 + uid) * 0.035 + flap * 0.05;
+        p.torsoZ = Math.sin(phase * 0.5) * 0.03;
         p.torsoY = Math.sin(t * 1.5 + uid) * 0.055;
         p.torsoZ = Math.sin(t * 2.3 + uid) * 0.04;
         p.headX = Math.sin(t * 1.6 + uid) * 0.055;

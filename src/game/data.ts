@@ -306,7 +306,7 @@ export const COMMANDERS: CmdDef[] = [
     latin: "Photinus pyralis",
     accent: "#7FE0C0",
     perk: "Night Signal",
-    desc: "Every 5s your most wounded bug heals 12% max HP and gains +25 mana.",
+    desc: "Every 5s your most wounded bug heals 12% max HP and gains +25 energy.",
     pal: {
       a: "#A69470",
       k: "#1C241A",

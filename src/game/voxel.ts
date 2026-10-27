@@ -580,6 +580,7 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     torsoS.box(-2, 6, -3, 2, 6, -2, bodyLite); // pronotum collar rim
     torsoS.sym(3, 6, -1, glow, true); // luminous shoulder plates
     torsoS.box(-1, 7, -3, 1, 7, 2, bodyLite); // dorsal wing-process ridge
+    torsoS.box(-1, 8, -3, 1, 8, 0, bodyLite); // fairing rises to the wing plane
 
     // Eight abdominal ring segments tapering to the tail — alternating enamel
     // bands, a dark annulus on each joint, amber dorsal pinstripe studs.
@@ -600,6 +601,7 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     torsoS.symLine(1, 4, 11.4, 2, 5, 13.2, bodyLite);
     torsoS.set(0, 5, 12, glint, true);
     torsoS.set(0, 5, 13, glow, true);
+    torsoS.set(0, 5, 14, glow, true);
 
     // Head: broad teal dome under a heavy brow, chunky glowing eye clusters
     // (three facets per side like the stag's), short antenna clubs.
@@ -639,11 +641,16 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
         const wx = side * (1 + i);
         const wz = zr + Math.round(i * 0.5); // one shared sweep rate
         const wy = 8 + (i >= len - 1 ? 1 : 0); // blade row one voxel clear of the shell crest
-        const half = i < 2 ? 1 : 0; // taper: 3-wide root -> 1-wide blade
+        // chord: 2-wide near the root tapering to a single vein row — the old
+        // taper marked every outer cell as leading edge, flattening the whole
+        // blade to one bright white plane.
+        const half = i < 3 ? 1 : 0;
         for (let dz = -half; dz <= half; dz++) {
-          const lead = dz === -half; // the forward edge cuts the breeze
+          const lead = half > 0 && dz === -half; // forward cell cuts the breeze
+          const trail = half > 0 && dz === half; // trailing edge takes the tint
           const vein = (i + Math.abs(dz)) % 3 === 0;
-          S.set(wx, wy, wz + dz, lead ? "#EFFDFF" : vein ? "#9FDCEC" : "#DFF7FF", lead && i === 2);
+          const hex = lead ? "#EFFDFF" : trail ? "#C9EEF9" : vein ? "#9FDCEC" : "#DFF7FF";
+          S.set(wx, wy, wz + dz, hex, lead && i <= 2);
         }
         if (i === len - 2) S.set(wx, wy, wz - half, amber, true); // stigma
       }
@@ -920,6 +927,15 @@ const FINISH: Record<string, { roughness: number; metalness: number }> = {
   dragonfly: { roughness: 0.38, metalness: 0.25 }, // iridescent dasher carapace
 };
 
+/** Shared glow material for every voxel model (see buildVoxelModel). */
+const sharedGlowMat = new THREE.MeshBasicMaterial({
+  vertexColors: true,
+  toneMapped: false,
+});
+sharedGlowMat.polygonOffset = true;
+sharedGlowMat.polygonOffsetFactor = -2;
+sharedGlowMat.polygonOffsetUnits = -2;
+
 export function buildVoxelModel(id: string, star = 1): VoxModel {
   const rig = getCompiledRig(id, star);
   const group = new THREE.Group();
@@ -941,13 +957,11 @@ export function buildVoxelModel(id: string, star = 1): VoxModel {
   });
   if (tier === 2) bodyMat.emissive.setRGB(emissiveBase[0], emissiveBase[1], emissiveBase[2]);
 
-  const glowMat = new THREE.MeshBasicMaterial({
-    vertexColors: true,
-    toneMapped: false,
-  });
-  glowMat.polygonOffset = true;
-  glowMat.polygonOffsetFactor = -2;
-  glowMat.polygonOffsetUnits = -2;
+  // One glow material shared by every unit and specimen: the configuration
+  // is identical for all of them, and sharing removes a material + program
+  // switch per rendered part mid-battle. Never disposed (lives for the
+  // session); dispose() below only retires the per-model body material.
+  const glowMat = sharedGlowMat;
 
   const torso = assemblePartGroup(rig.torso, bodyMat, glowMat);
   const head = assemblePartGroup(rig.head, bodyMat, glowMat);
@@ -1003,8 +1017,7 @@ export function buildVoxelModel(id: string, star = 1): VoxModel {
     species: id,
     star,
     dispose() {
-      bodyMat.dispose();
-      glowMat.dispose();
+      bodyMat.dispose(); // glowMat is shared — never disposed here
     },
   };
 }

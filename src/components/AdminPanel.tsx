@@ -93,7 +93,7 @@ const COMMAND_HELP = [
   "gold [amount] · gold set <n> · hp set <1-100> · foehp set <1-100>",
   "heal · hurt [amount] · level <1-6>",
   "give <stag|bomb|mantis|dragonfly|random> [1-3] · shop [bug] · lock",
-  "starup · remove · mana · manaall · win · lose · next · speed <1|2|3> · reset · help",
+  "starup · remove · energy · energyall · win · lose · next · speed <1|2|3> · reset · help",
 ];
 
 const clampN = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.round(n)));
@@ -473,14 +473,14 @@ export function AdminPanel({ open, onClose, snapshot, onCommand, initiallyUnlock
                 )}
               </section>
 
-              {/* Battle mana */}
-              <section aria-label={t("Battle mana")}>
-                <h3 className="label mb-1.5 text-[7.5px] text-[#56DCA8]">{t('During battle — mana')}</h3>
+              {/* Battle energy */}
+              <section aria-label={t("Battle energy")}>
+                <h3 className="label mb-1.5 text-[7.5px] text-[#56DCA8]">{t('During battle — energy')}</h3>
                 <div className="grid grid-cols-2 gap-1.5">
-                  <button type="button" className="seg-btn" onClick={() => run("mana")}>
+                  <button type="button" className="seg-btn" onClick={() => run("energy")}>
                     {t('CHARGE DRAGONFLY')}
                   </button>
-                  <button type="button" className="seg-btn" onClick={() => run("manaall")}>
+                  <button type="button" className="seg-btn" onClick={() => run("energyall")}>
                     {t('CHARGE ALL ALLIES')}
                   </button>
                 </div>

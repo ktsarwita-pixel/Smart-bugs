@@ -857,14 +857,14 @@ export default function App() {
         }
         return "Nothing to advance right now. During battle, use win or lose.";
       }
-      case "mana":
+      case "energy":
       case "charge": {
         const cur = battleRef.current;
-        if (phase !== "battle" || !cur) return "Mana can only be charged during a live battle.";
+        if (phase !== "battle" || !cur) return "Energy can only be charged during a live battle.";
         let charged = 0;
         for (const u of cur.units) {
           if (!u.dead && u.side === "ally" && u.bugId === "dragonfly") {
-            u.mana = u.maxMana;
+            u.energy = u.maxEnergy;
             charged++;
           }
         }
@@ -872,19 +872,19 @@ export default function App() {
         setBattleSnap({ ...cur, units: cur.units.map((u) => ({ ...u })) });
         return tf("Charged {n} Dragonflies. At 3 stars, the Dragonfly itself will climb and dive onto the enemy cluster.", { n: charged });
       }
-      case "manaall": {
+      case "energyall": {
         const cur = battleRef.current;
-        if (phase !== "battle" || !cur) return "Mana can only be charged during a live battle.";
+        if (phase !== "battle" || !cur) return "Energy can only be charged during a live battle.";
         let charged = 0;
         for (const u of cur.units) {
           if (!u.dead && u.side === "ally") {
-            u.mana = u.maxMana;
+            u.energy = u.maxEnergy;
             charged++;
           }
         }
         if (!charged) return "No living ally units on the board.";
         setBattleSnap({ ...cur, units: cur.units.map((u) => ({ ...u })) });
-        return tf("Charged all {v} ally units to full mana.", { v: charged });
+        return tf("Charged all {v} ally units to full energy.", { v: charged });
       }
       case "speed": {
         const value = clamp(asNumber(arg1, speed === 1 ? 2 : 1), 1, 3) as 1 | 2 | 3;
@@ -1896,9 +1896,9 @@ export default function App() {
                       <span className="font-pixel text-[9px] text-[#BDF8FF]">
                         {allyDragonfly3.dive && !allyDragonfly3.dive.landed
                           ? t("AIRBORNE")
-                          : allyDragonfly3.mana >= allyDragonfly3.maxMana
+                          : allyDragonfly3.energy >= allyDragonfly3.maxEnergy
                             ? t("ULT READY")
-                            : `MANA ${Math.floor(allyDragonfly3.mana)}/${allyDragonfly3.maxMana}`}
+                            : `ENERGY ${Math.floor(allyDragonfly3.energy)}/${allyDragonfly3.maxEnergy}`}
                       </span>
                     </div>
                     <div className="mt-1 font-mono text-[10px] leading-snug text-[#C9E8D8]">
@@ -1918,9 +1918,9 @@ export default function App() {
                       <span className="font-pixel text-[9px] text-[#FFB1A0]">
                         {foeDragonfly3.dive && !foeDragonfly3.dive.landed
                           ? t("AIRBORNE — INCOMING")
-                          : foeDragonfly3.mana >= foeDragonfly3.maxMana
+                          : foeDragonfly3.energy >= foeDragonfly3.maxEnergy
                             ? t("ULT READY")
-                            : `MANA ${Math.floor(foeDragonfly3.mana)}/${foeDragonfly3.maxMana}`}
+                            : `ENERGY ${Math.floor(foeDragonfly3.energy)}/${foeDragonfly3.maxEnergy}`}
                       </span>
                     </div>
                     <div className="mt-1 font-mono text-[10px] leading-snug text-[#E8C9C0]">
@@ -1942,9 +1942,9 @@ export default function App() {
                         .filter((u) => u.side === side)
                         .map((u) => {
                           const hpPct = Math.max(0, Math.min(100, (u.hp / Math.max(1, u.maxHp)) * 100));
-                          const manaPct = Math.max(0, Math.min(100, (u.mana / Math.max(1, u.maxMana)) * 100));
+                          const energyPct = Math.max(0, Math.min(100, (u.energy / Math.max(1, u.maxEnergy)) * 100));
                           const ultReady =
-                            !u.dead && u.mana >= u.maxMana && u.star >= (BUGS[u.bugId].skillMinStar ?? 1);
+                            !u.dead && u.energy >= u.maxEnergy && u.star >= (BUGS[u.bugId].skillMinStar ?? 1);
                           const airborne = !!u.dive && !u.dive.landed;
                           return (
                             <div
@@ -1976,8 +1976,8 @@ export default function App() {
                                 <div className="bar-shell mt-0.5">
                                   <i style={{ width: `${hpPct}%`, background: side === "ally" ? "#56DCA8" : "#F05A36" }} />
                                 </div>
-                                <div className="bar-shell mana mt-0.5" title={`Mana ${Math.floor(u.mana)}/${u.maxMana}`}>
-                                  <i style={{ width: `${manaPct}%`, background: ultReady ? "#BDF8FF" : "#C9812A" }} />
+                                <div className="bar-shell energy mt-0.5" title={`Energy ${Math.floor(u.energy)}/${u.maxEnergy}`}>
+                                  <i style={{ width: `${energyPct}%`, background: ultReady ? "#BDF8FF" : "#C9812A" }} />
                                 </div>
                               </div>
                             </div>

@@ -393,7 +393,7 @@
   display: flex;
 }
 .ov-hp,
-.ov-mana {
+.ov-energy {
   width: 42px;
   background: #120d09;
   overflow: hidden;
@@ -428,18 +428,18 @@
 .ov-hp {
   position: relative;
 }
-.ov-mana {
+.ov-energy {
   height: 2.5px;
   background: #090705;
 }
-.ov-mana i {
+.ov-energy i {
   display: block;
   height: 100%;
   width: 0%;
   background: linear-gradient(90deg, #c9812a, #ffd98a);
   transition: width 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
-.ov-mana i.full {
+.ov-energy i.full {
   background: #fff0c0;
 }
 .ov-pips {
@@ -878,7 +878,7 @@ html[data-motion="reduced"] * {
   height: 100%;
   transition: width 180ms steps(5);
 }
-.bar-shell.mana {
+.bar-shell.energy {
   height: 4px;
 }
 @keyframes ultReady {
@@ -1194,7 +1194,7 @@ html[data-motion="reduced"] .ult-ready {
   }
 }
 
-/* HP / mana bars: inset glass with a lit top edge */
+/* HP / energy bars: inset glass with a lit top edge */
 .bar-shell {
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
 }
@@ -1233,7 +1233,7 @@ html[data-motion="reduced"] .ult-ready {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.65);
 }
 .ov-hp,
-.ov-mana {
+.ov-energy {
   outline: 1px solid rgba(0, 0, 0, 0.55);
   outline-offset: -1px;
 }

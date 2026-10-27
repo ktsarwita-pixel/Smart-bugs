@@ -1073,29 +1073,32 @@ export default function App() {
                   </span>
                 </div>
 
-                {/* Prev / Next navigation */}
-                <button
-                  onClick={() => stepFocus(-1)}
-                  aria-label={t("Previous specimen")}
-                  className="lift absolute left-2 top-1/2 z-20 grid h-8 w-8 -translate-y-1/2 place-items-center border border-[#4A3828] bg-[#14100C]/90 text-[#EDE2CB] hover:border-[#F0A93B]"
-                >
-                  <IconChevronLeft size={16} />
-                </button>
-                <button
-                  onClick={() => stepFocus(1)}
-                  aria-label={t("Next specimen")}
-                  className="lift absolute right-2 top-1/2 z-20 grid h-8 w-8 -translate-y-1/2 place-items-center border border-[#4A3828] bg-[#14100C]/90 text-[#EDE2CB] hover:border-[#F0A93B]"
-                >
-                  <IconChevronRight size={16} />
-                </button>
-
-                <Scene3D
-                  mode="showcase"
-                  focusId={focusId}
-                  onFocusChange={setFocusId}
-                  className="w-full"
-                  style={{ height: "clamp(200px, 31dvh, 330px)" }}
-                />
+                {/* Prev / Next navigation — anchored to the 3D stage wrapper
+                    (NOT the whole card), so a long dossier (e.g. dragonfly)
+                    growing below can never push the arrows off center. */}
+                <div className="relative">
+                  <Scene3D
+                    mode="showcase"
+                    focusId={focusId}
+                    onFocusChange={setFocusId}
+                    className="w-full"
+                    style={{ height: "clamp(200px, 31dvh, 330px)" }}
+                  />
+                  <button
+                    onClick={() => stepFocus(-1)}
+                    aria-label={t("Previous specimen")}
+                    className="lift absolute left-2 top-1/2 z-20 grid h-8 w-8 -translate-y-1/2 place-items-center border border-[#4A3828] bg-[#14100C]/90 text-[#EDE2CB] hover:border-[#F0A93B]"
+                  >
+                    <IconChevronLeft size={16} />
+                  </button>
+                  <button
+                    onClick={() => stepFocus(1)}
+                    aria-label={t("Next specimen")}
+                    className="lift absolute right-2 top-1/2 z-20 grid h-8 w-8 -translate-y-1/2 place-items-center border border-[#4A3828] bg-[#14100C]/90 text-[#EDE2CB] hover:border-[#F0A93B]"
+                  >
+                    <IconChevronRight size={16} />
+                  </button>
+                </div>
 
                 {/* The selector follows the live unit and commander roster. */}
                 <div className="grid border-t border-[#3B322A] bg-[#16110D]" style={{ gridTemplateColumns: `repeat(${SHOWCASE_IDS.length}, minmax(0, 1fr))` }}>

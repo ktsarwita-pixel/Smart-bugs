@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { IconClose, IconGlobe, IconSettings } from "./CustomIcons";
 import { useSettings, type Lang } from "../i18n";
 
@@ -17,6 +18,15 @@ const LANGS: { id: Lang; native: string; latin: string }[] = [
  */
 export function SettingsModal({ open, onClose }: Props) {
   const { lang, setLang, motion, setMotion, t } = useSettings();
+  // Escape closes the sheet — must sit above the early return (hook order).
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
   if (!open) return null;
 
   return (

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SpecimenIcon, RankBadge } from "./SpecimenIcon";
 import { BOTS, BUGS, BUG_ORDER, COMMANDERS, GAME_INFO, MAX_FIELD_SIZE } from "../game/data";
 import { statsFor } from "../game/engine";
@@ -15,6 +15,18 @@ export function CodexModal({ open, onClose }: Props) {
   const [tab, setTab] = useState<"bugs" | "cmds" | "rules">("bugs");
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [underline, setUnderline] = useState({ left: 0, width: 0 });
+
+  // Escape closes the guide. Without this the page keeps running but the
+  // full-screen backdrop still intercepts every click — the menu reads as
+  // "unresponsive" until the user finds the CLOSE button.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
 
   // The active underline slides between tabs instead of snapping.
   useLayoutEffect(() => {

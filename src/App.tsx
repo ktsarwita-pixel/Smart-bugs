@@ -1081,8 +1081,7 @@ export default function App() {
                     mode="showcase"
                     focusId={focusId}
                     onFocusChange={setFocusId}
-                    className="w-full"
-                    style={{ height: "clamp(200px, 31dvh, 330px)" }}
+                    className="h-[190px] w-full sm:h-[270px] lg:h-[330px]"
                   />
                   <button
                     onClick={() => stepFocus(-1)}
@@ -1237,7 +1236,7 @@ export default function App() {
     return (
       <div className="cabinet-bg safe-t safe-b relative min-h-[100dvh] w-full overflow-x-hidden">
         <Ambience />
-        <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[780px] flex-col justify-between px-4 py-4 sm:px-6 sm:py-7">
+        <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[780px] flex-col justify-between px-4 py-4 pb-28 sm:px-6 sm:py-7 md:pb-7">
           <div>
             <div className="flex items-center justify-between border-b border-[#3B322A] pb-3">
               <button
@@ -1339,13 +1338,31 @@ export default function App() {
             </div>
           </div>
 
+          {/* Mobile: the CTA pins above the safe area — below the fold it read
+              as a dead button (and hid behind the scroll content). Desktop
+              keeps it in flow at the end of the column. */}
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-[#3B322A] bg-[#16110D]/95 px-4 pb-[max(0.8rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-sm md:hidden">
+            <button
+              onClick={() => {
+                setCmd(pick);
+                setMatch(createMatch(pick));
+                setPhase("prep");
+              }}
+              className="lift w-full border-2 border-[#56DCA8] bg-[#1F7A5A] py-3.5 font-pixel text-[12px] text-[#090604] shadow-[0_5px_0_#0D3B2A]"
+            >
+              <span className="flex items-center justify-center gap-2">
+                <span>{t("BEGIN ROUND 1")}</span>
+                <IconArrowRight size={14} />
+              </span>
+            </button>
+          </div>
           <button
             onClick={() => {
               setCmd(pick);
               setMatch(createMatch(pick));
               setPhase("prep");
             }}
-            className="lift mt-5 w-full border-2 border-[#56DCA8] bg-[#1F7A5A] py-3.5 font-pixel text-[12px] text-[#090604] shadow-[0_5px_0_#0D3B2A]"
+            className="lift mt-5 hidden w-full border-2 border-[#56DCA8] bg-[#1F7A5A] py-3.5 font-pixel text-[12px] text-[#090604] shadow-[0_5px_0_#0D3B2A] md:block"
           >
             <span className="flex items-center justify-center gap-2">
               <span>{t("BEGIN ROUND 1")}</span>

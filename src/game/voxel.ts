@@ -25,6 +25,13 @@ interface CompiledRig {
   legsB: PartGeo;
   crown: PartGeo | null;
   height: number;
+  /**
+   * true (default): arms are mouthparts and ride under the HEAD group.
+   * false: arms are WINGS and ride under the TORSO group — the dragonfly's
+   * wing roots must inherit every body tilt exactly, otherwise an independent
+   * head bob drags the roots through the thorax shell while the wings stroke.
+   */
+  armsOnHead?: boolean;
 }
 
 /** Rest-pose joint offsets, so animation can add motion without losing placement */
@@ -581,6 +588,15 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     torsoS.sym(3, 6, -1, glow, true); // luminous shoulder plates
     torsoS.box(-1, 7, -3, 1, 7, 2, bodyLite); // dorsal wing-process ridge
     torsoS.box(-1, 8, -3, 1, 8, 0, bodyLite); // fairing rises to the wing plane
+    // Wing root furniture — STATIC cells in the torso shell. The old basalar
+    // pads were painted into the WING part, so every stroke rotated them
+    // through the thorax crest (the "wings noclip into the body" bug). Now the
+    // shelf (y7) and sockets (y8) are part of the body, and the wing part
+    // holds only the blade, whose root column rests face-down on the sockets.
+    torsoS.box(-2, 7, -3, -2, 7, -1, bodyMid); // left basalar shelf
+    torsoS.box(2, 7, -3, 2, 7, -1, bodyMid); // right basalar shelf
+    torsoS.box(-2, 8, -2, -2, 8, 1, bodyLite); // left root sockets
+    torsoS.box(2, 8, -2, 2, 8, 1, bodyLite); // right root sockets
 
     // Eight abdominal ring segments tapering to the tail — alternating enamel
     // bands, a dark annulus on each joint, amber dorsal pinstripe studs.
@@ -621,26 +637,26 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
 
     // Wings — one mirrored painter, one aligned set, ROSTER-SCALED. The old
     // blades reached |x| = 11 (a huge moth-like canopy overhanging the
-    // turntable neighbours); odonate wings are long but NARROW. Blades now
-    // taper from a 3-wide root to a 1-wide tip (span |x| <= 8), share one
-    // root height and sweep rate, and sprout from pads buried inside the
-    // shell (paintWing paints by shared code, so L/R are exact mirrors).
-    // Pivot at BLADE height (y8): the thorax crest is y≈7.5 and the head
-    // dome y≈7.9, so a blade row at y8 with a ±0.35 rad stroke never dips
-    // into the body — the old y7 plane sheared the shell top every beat.
-    leftArmPivot = [-2, 8, -0.6];
-    rightArmPivot = [2, 8, -0.6];
+    // turntable neighbours); odonate wings are long but NARROW. Blades taper
+    // from a 2-wide root to a 1-wide tip, share one root height and sweep
+    // rate, and sprout from the STATIC sockets painted into the torso above.
+    // Pivot two voxels ABOVE the blade row (y11): the stroke's rotation center
+    // sits over the wing, not through it, so cube corners of the root chord
+    // dip well under a tenth of a voxel at full stroke instead of shearing a
+    // quarter voxel into the sockets. The root column starts AT the pivot x
+    // (±2) and the WHOLE root chord FORWARD of the pivot z (+0.4), so the
+    // twist (laX > 0) can only LIFT the root — no phase of the stroke can
+    // drop, sweep, or twist the root into the shell (verified per-frame by
+    // the continuous OBB audit, pw-clip.mjs).
+    leftArmPivot = [-2, 11, 0.4];
+    rightArmPivot = [2, 11, 0.4];
     const paintWing = (S: VoxSculptor, side: number, zRoot: number, len: number) => {
       const zr = Math.round(zRoot);
-      // Basalar pad buried in the shell + a glinting joint at the root.
-      const xa = side < 0 ? -2 : 1;
-      const xb = side < 0 ? -1 : 2;
-      S.box(xa, 7, zr - 1, xb, 7, zr + 1, bodyMid); // pads stay buried at y7
-      S.set(side * 2, 8, zr, glow, true);
+      S.set(side * 2, 9, zr, glow, true); // glinting joint on the socket
       for (let i = 0; i <= len; i++) {
-        const wx = side * (1 + i);
+        const wx = side * (2 + i);
         const wz = zr + Math.round(i * 0.5); // one shared sweep rate
-        const wy = 8 + (i >= len - 1 ? 1 : 0); // blade row one voxel clear of the shell crest
+        const wy = 9 + (i >= len - 1 ? 1 : 0); // tip row kicks up a voxel
         // chord: 2-wide near the root tapering to a single vein row — the old
         // taper marked every outer cell as leading edge, flattening the whole
         // blade to one bright white plane.
@@ -657,12 +673,12 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     };
     for (const S of [leftArmS, rightArmS]) {
       const side = S === leftArmS ? -1 : 1;
-      paintWing(S, side, -1.6, 7); // fore pair — long blades
-      paintWing(S, side, 1.4, 5);  // hind pair — same plane, same sweep
+      paintWing(S, side, -1.6, 6); // fore pair — long blades
+      paintWing(S, side, 0.4, 4);  // hind pair — same plane, same sweep
     }
 
     crownPivot = [0, 9, -3];
-    maxY = 9;
+    maxY = 10;
   } else if (id === "matriarch") {
     legsAS.singleLeg(-3, 2, -3, -6, 4, -4, -7, -5, "#6E4B2E", "#3D2817");
     legsAS.singleLeg(4, 2, 0, 7, 4, 0, 8, 1, "#6E4B2E", "#3D2817");
@@ -867,6 +883,7 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     legsB: compilePart(legsBS, [0, 2, 0]),
     crown: crownS.map.size > 0 ? compilePart(crownS, crownPivot) : null,
     height: maxY * V,
+    armsOnHead: id !== "dragonfly",
   };
 }
 
@@ -969,21 +986,46 @@ export function buildVoxelModel(id: string, star = 1): VoxModel {
   const legsB = assemblePartGroup(rig.legsB, bodyMat, glowMat);
 
   const hp = rig.head.pivot;
+  const tp = rig.torso.pivot;
   const leftArm = rig.leftArm
-    ? attachToHead(assemblePartGroup(rig.leftArm, bodyMat, glowMat), hp)
+    ? assemblePartGroup(rig.leftArm, bodyMat, glowMat)
     : new THREE.Group();
   const rightArm = rig.rightArm
-    ? attachToHead(assemblePartGroup(rig.rightArm, bodyMat, glowMat), hp)
+    ? assemblePartGroup(rig.rightArm, bodyMat, glowMat)
     : new THREE.Group();
+
+  // Arms ride under the head by default (mandibles, scythes, clubs — they
+  // must track the head's look/bite motion). The dragonfly's WINGS ride under
+  // the TORSO instead: wing roots must inherit every body tilt and breath
+  // scale exactly, or an independent head bob drags the roots through the
+  // thorax shell mid-stroke (the noclip the wing audits kept missing).
+  if (rig.armsOnHead === false) {
+    leftArm.position.set(
+      leftArm.position.x - tp[0],
+      leftArm.position.y - tp[1],
+      leftArm.position.z - tp[2]
+    );
+    rightArm.position.set(
+      rightArm.position.x - tp[0],
+      rightArm.position.y - tp[1],
+      rightArm.position.z - tp[2]
+    );
+    torso.add(leftArm);
+    torso.add(rightArm);
+  } else {
+    attachToHead(leftArm, hp);
+    attachToHead(rightArm, hp);
+    head.add(leftArm);
+    head.add(rightArm);
+  }
 
   const crown = rig.crown
     ? assemblePartGroup(rig.crown, bodyMat, glowMat)
     : new THREE.Group();
 
-  // Hierarchy: root → torso / legsA / legsB / crown, and head → both arms.
-  // Every joint group sits exactly at its sculpt pivot at rest.
-  head.add(leftArm);
-  head.add(rightArm);
+  // Hierarchy: root → torso / legsA / legsB / crown, and head → both arms
+  // (unless the rig mounts its arms on the torso — see above). Every joint
+  // group sits exactly at its sculpt pivot at rest.
   group.add(torso);
   group.add(legsA);
   group.add(legsB);

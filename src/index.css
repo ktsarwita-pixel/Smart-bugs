@@ -1,0 +1,1034 @@
+@import "tailwindcss";
+
+@theme {
+  --font-pixel: "Press Start 2P", ui-monospace, monospace;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-serif: "Newsreader", Georgia, serif;
+  --color-soil: #14100c;
+  --color-panel: #1c1611;
+  --color-felt: #0a0705;
+  --color-bark: #3b322a;
+  --color-bark2: #7b6e5f;
+  --color-bone: #b3a594;
+  --color-paper: #ede2cb;
+  --color-ink: #241b14;
+  --color-elytra: #1f7a5a;
+  --color-elytral: #56dca8;
+  --color-amber: #f0a93b;
+  --color-pin: #e0522f;
+}
+
+@layer base {
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    background: #0a0705;
+    color: #b3a594;
+    font-family: var(--font-mono);
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+    touch-action: manipulation;
+  }
+  button {
+    font-family: var(--font-mono);
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  ::selection {
+    background: #f0a93b;
+    color: #0a0705;
+  }
+  :focus-visible {
+    outline: 2px solid #f0a93b;
+    outline-offset: 2px;
+  }
+}
+
+/* ── Octagonal brass specimen seal ───────────────────────── */
+.spec-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  padding: 2px;
+  /* no clip-path here: the rank badge must be free to overhang the bevel */
+  transition:
+    transform 130ms steps(2),
+    filter 130ms steps(2);
+}
+/* octagonal brass rim — clipped on its own layer */
+.spec-icon::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(27% 0, 73% 0, 100% 27%, 100% 73%, 73% 100%, 27% 100%, 0 73%, 0 27%);
+  background: linear-gradient(158deg, #f0c46a 0%, #e6a53c 22%, #7d5518 52%, #c98526 80%, #f7d98e 100%);
+  transition: background 130ms steps(2);
+}
+.spec-icon__plate {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  clip-path: polygon(27% 0, 73% 0, 100% 27%, 100% 73%, 73% 100%, 27% 100%, 0 73%, 0 27%);
+  background:
+    radial-gradient(78% 62% at 50% 24%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 72%),
+    radial-gradient(120% 110% at 50% 118%, #241a12 0%, #100c09 62%, #080604 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 226, 170, 0.18),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.85),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.spec-icon__sheen {
+  position: absolute;
+  top: -30%;
+  bottom: -30%;
+  left: -70%;
+  width: 42%;
+  background: linear-gradient(100deg, transparent, rgba(255, 240, 200, 0.4), transparent);
+  transform: skewX(-18deg);
+  opacity: 0;
+  pointer-events: none;
+}
+@media (hover: hover) {
+  .lift:hover .spec-icon__sheen,
+  .spec-icon:hover .spec-icon__sheen {
+    opacity: 1;
+    animation: sheenk 520ms steps(7, end) 1;
+  }
+  .lift:hover .spec-icon {
+    transform: translateY(-1px);
+  }
+}
+@keyframes sheenk {
+  0% {
+    left: -70%;
+  }
+  100% {
+    left: 128%;
+  }
+}
+.spec-icon--sel {
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--accent) 70%, transparent));
+}
+.spec-icon--sel::before {
+  background: linear-gradient(158deg, #fff0c0 0%, #f0a93b 42%, #a8701f 74%, #ffe7a3 100%);
+}
+.spec-icon--dim {
+  filter: grayscale(1) brightness(0.55);
+}
+.spec-icon__pips {
+  position: absolute;
+  bottom: 1px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  line-height: 0;
+  pointer-events: none;
+}
+
+/* Crest rail: seats the rank insignia / crown flat on the top band. */
+/* ── Rank badge: a brass escutcheon holding the role glyph ────
+   Reusable anywhere; the seal mounts one on its bevel via .spec-icon__corner,
+   tight cards render it inline next to the unit name instead. */
+.rank-badge {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  line-height: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f4d58a 0%, #c98526 45%, #6a4512 100%);
+  box-shadow:
+    0 0 0 1px #2a1a0a,
+    0 1px 0 rgba(255, 230, 170, 0.35) inset,
+    0 2px 4px rgba(0, 0, 0, 0.75);
+  vertical-align: middle;
+}
+.rank-badge > svg {
+  display: block;
+}
+/* Crown is wider than tall — a lozenge instead of a disc. */
+.rank-badge--crest {
+  border-radius: 40% / 50%;
+}
+.rank-badge--dim {
+  filter: grayscale(1) brightness(0.6);
+}
+
+/* Mount point that overhangs the seal's lower-right bevel. The seal root is
+   unclipped, so the badge reads as a tag clipped onto the frame — never a
+   stamp on the specimen. Offsets are large enough that even 26px medallions
+   clear the sprite ink (verified in-browser at 0px² overlap). */
+.spec-icon__corner {
+  position: absolute;
+  right: -30%;
+  bottom: -22%;
+  z-index: 3;
+  pointer-events: none;
+  line-height: 0;
+}
+/* The crown lozenge is 1.18x wider than a unit disc, so its LEFT edge would
+   reach 2px further back onto the sprite. Push it right by that extra width. */
+.spec-icon__corner:has(.rank-badge--crest) {
+  right: -40%;
+}
+
+/* Wrong-passphrase feedback: a short horizontal rattle. */
+@keyframes gateShake {
+  0%, 100% { transform: translateX(0); }
+  18% { transform: translateX(-6px); }
+  36% { transform: translateX(5px); }
+  54% { transform: translateX(-3px); }
+  72% { transform: translateX(2px); }
+}
+.gate-shake {
+  animation: gateShake 320ms steps(5, end) 1;
+}
+
+/* ── Procedural Archival Specimen Paper & Cabinet Wood (0 images) ── */
+.paper-card {
+  background-color: #eadec5;
+  background-image:
+    radial-gradient(120% 90% at 15% 10%, rgba(255, 250, 238, 0.55), transparent 60%),
+    radial-gradient(90% 90% at 90% 95%, rgba(168, 138, 96, 0.22), transparent 65%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(90, 68, 44, 0.03) 0px,
+      rgba(90, 68, 44, 0.03) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  color: #241b14;
+}
+
+.cabinet-bg {
+  background-color: #0b0806;
+  background-image:
+    radial-gradient(85% 50% at 50% 0%, rgba(240, 169, 59, 0.09), transparent 65%),
+    radial-gradient(90% 70% at 50% 35%, #211812 0%, #130e0a 58%, #090604 100%);
+}
+
+.panel-wood {
+  background: linear-gradient(180deg, #1f1813 0%, #15100c 100%);
+}
+
+/* ── Typography Helpers ──────────────────────────────────── */
+.label {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.latin {
+  font-family: var(--font-serif);
+  font-style: italic;
+  letter-spacing: 0.01em;
+}
+
+/* ── Tactile Stepped Animations ──────────────────────────── */
+@keyframes blinkk {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0.18;
+  }
+}
+.blink {
+  animation: blinkk 1.1s steps(1, end) infinite;
+}
+
+@keyframes risek {
+  0% {
+    transform: translateY(10px) scale(0.985);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+.rise {
+  animation: risek 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes screenIn {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+.screen {
+  animation: screenIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes moultk {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px #f0a93b, 0 3px 0 rgba(0, 0, 0, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(240, 169, 59, 0.55), 0 0 0 1px #fff0c0, 0 3px 0 rgba(0, 0, 0, 0.5);
+  }
+}
+.moult-glow {
+  animation: moultk 1.2s steps(3, end) infinite;
+}
+
+.lift {
+  transition:
+    transform 110ms steps(2),
+    border-color 110ms steps(2);
+}
+@media (hover: hover) {
+  .lift:hover:not(:disabled) {
+    transform: translateY(-2px);
+  }
+}
+.lift:active:not(:disabled) {
+  transform: translateY(2px);
+}
+
+.sold {
+  position: relative;
+}
+.sold::after {
+  content: "PINNED";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  color: #7b6e5f;
+  background: rgba(12, 9, 7, 0.76);
+}
+
+.safe-b {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+.safe-t {
+  padding-top: max(0px, env(safe-area-inset-top));
+}
+
+/* Portrait phone = stacked; Landscape phone & Desktop = side-by-side split */
+.game-grid {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+.game-dock {
+  overflow-y: auto;
+}
+@media (min-width: 1024px) {
+  .game-grid {
+    display: grid;
+    grid-template-columns: 1fr 392px;
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+}
+@media (min-width: 580px) and (max-height: 540px) {
+  .game-grid {
+    display: grid;
+    grid-template-columns: 1fr 308px;
+    gap: 0;
+  }
+}
+
+/* ── 3D Scene & Projected Unit HUD ───────────────────────── */
+.scene-host {
+  isolation: isolate;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.scene-vignette {
+  background:
+    radial-gradient(110% 70% at 50% 0%, rgba(240, 169, 59, 0.1), transparent 55%),
+    radial-gradient(105% 105% at 50% 52%, transparent 48%, rgba(6, 4, 3, 0.72) 100%);
+}
+.ov-layer {
+  font-family: var(--font-mono);
+  contain: layout style paint;
+}
+
+.ov-unit {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  will-change: transform, opacity;
+}
+.ov-bars {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  background: rgba(10, 7, 5, 0.85);
+  padding: 1px;
+  border: 1px solid rgba(237, 226, 203, 0.22);
+}
+.ov-unit.ov-battle .ov-bars {
+  display: flex;
+}
+.ov-hp,
+.ov-mana {
+  width: 42px;
+  background: #120d09;
+  overflow: hidden;
+}
+.ov-hp {
+  height: 5px;
+}
+.ov-hp i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #1f7a5a, #56dca8);
+  transition: width 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ov-foe .ov-hp i {
+  background: linear-gradient(90deg, #962b16, #f05a36);
+}
+.ov-mana {
+  height: 2.5px;
+  background: #090705;
+}
+.ov-mana i {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #c9812a, #ffd98a);
+  transition: width 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ov-mana i.full {
+  background: #fff0c0;
+}
+.ov-pips {
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 1px;
+  color: #f0a93b;
+  text-shadow: 1px 1px 0 #000, -1px 1px 0 #000;
+}
+.ov-unit.ov-sel .ov-pips {
+  color: #fff0c0;
+}
+.ov-name {
+  font-family: var(--font-pixel);
+  font-size: 6.5px;
+  letter-spacing: 0.06em;
+  color: #ede2cb;
+  background: #14100c;
+  border: 1px solid #f0a93b;
+  padding: 2px 4px;
+  white-space: nowrap;
+}
+.ov-name:empty {
+  display: none;
+}
+.ov-unit.ov-vuln .ov-name {
+  border-color: #f0a93b;
+  color: #ffd98a;
+  background: #241708;
+  box-shadow: 0 0 8px rgba(240, 169, 59, 0.45);
+}
+
+.ov-pop {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  color: #fff3dc;
+  text-shadow: 1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;
+  will-change: transform, opacity;
+  white-space: nowrap;
+}
+.ov-pop.ov-heal {
+  color: #56dca8;
+}
+.ov-pop.ov-skill {
+  color: #f0a93b;
+  font-size: 9px;
+}
+.ov-pop.ov-ko {
+  color: #f05a36;
+  font-size: 12px;
+}
+
+/* ── Polish: soft press physics, sheen, focus ────────────── */
+button {
+  transition:
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease,
+    opacity 160ms ease;
+}
+button:not(:disabled):active {
+  transform: translateY(1px) scale(0.99);
+}
+.btn-sheen {
+  position: relative;
+  overflow: hidden;
+}
+.btn-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.22) 48%, transparent 62%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+@media (hover: hover) {
+  .btn-sheen:hover::after {
+    animation: sheen 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+@keyframes sheen {
+  to {
+    transform: translateX(120%);
+  }
+}
+.hole-badge {
+  animation: holePulse 1.6s ease-in-out infinite;
+}
+@keyframes holePulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(232, 160, 168, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(232, 160, 168, 0);
+  }
+}
+/* ── UI polish: toasts, cards, bars, tabs ────────────────── */
+/* Toasts carry an accent bar so intent is readable at a glance. */
+.toast {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.toast::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--toast-accent, #f0a93b);
+  box-shadow: 0 0 8px var(--toast-accent, #f0a93b);
+}
+
+/* Gold earned/spent flashes the counter so economy changes register. */
+@keyframes goldFlash {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+.gold-flash {
+  animation: goldFlash 380ms steps(4, end) 1;
+}
+
+/* Field-guide tabs: the underline slides instead of snapping. */
+.tab-underline {
+  position: absolute;
+  bottom: 0;
+  height: 2px;
+  background: #f0a93b;
+  box-shadow: 0 0 8px rgba(240, 169, 59, 0.8);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), width 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+/* Bench slots: empty racks show their index so placement is unambiguous. */
+.bench-slot__index {
+  position: absolute;
+  left: 2px;
+  top: 1px;
+  font-family: var(--font-mono);
+  font-size: 7px;
+  line-height: 1;
+  color: #4a3828;
+  pointer-events: none;
+}
+.bench-slot--over:after {
+  content: "FULL";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-pixel);
+  font-size: 6px;
+  color: #e0522f;
+  background: rgba(20, 10, 6, 0.6);
+  pointer-events: none;
+}
+
+/* Segmented vitals: notches make partial bars readable without a label. */
+.vital-notches {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0 6px,
+    rgba(6, 4, 3, 0.75) 6px 7px
+  );
+  pointer-events: none;
+}
+
+/* Engage pulses only when the line is actually ready to commit. */
+@keyframes readyPulse {
+  0%, 100% { box-shadow: 0 3px 0 #0d3b2a, 0 0 0 rgba(86, 220, 168, 0); }
+  50% { box-shadow: 0 3px 0 #0d3b2a, 0 0 14px rgba(86, 220, 168, 0.65); }
+}
+.ready-pulse {
+  animation: readyPulse 1.5s ease-in-out infinite;
+}
+
+/* thin, unobtrusive scrollbars for the command dock */
+.svelte-scroll,
+.game-dock {
+  scrollbar-width: thin;
+  scrollbar-color: #4a3828 transparent;
+}
+.game-dock::-webkit-scrollbar {
+  width: 6px;
+}
+.game-dock::-webkit-scrollbar-thumb {
+  background: #4a3828;
+  border-radius: 99px;
+}
+
+/* ── Engaged-opponent wax seal ────────────────────────────── */
+.clash-seal {
+  background: radial-gradient(circle at 35% 30%, #ff8a6a 0%, #c93b1e 45%, #6e1a0c 100%);
+  box-shadow:
+    0 0 0 1px #2a0c06,
+    0 0 0 2px rgba(255, 226, 214, 0.35),
+    0 0 10px rgba(224, 82, 47, 0.55),
+    0 2px 4px rgba(0, 0, 0, 0.7);
+  animation: clashPulse 1.4s ease-in-out infinite;
+}
+@keyframes clashPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow:
+      0 0 0 1px #2a0c06,
+      0 0 0 2px rgba(255, 226, 214, 0.35),
+      0 0 8px rgba(224, 82, 47, 0.45),
+      0 2px 4px rgba(0, 0, 0, 0.7);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow:
+      0 0 0 1px #2a0c06,
+      0 0 0 2px rgba(255, 226, 214, 0.5),
+      0 0 14px rgba(224, 82, 47, 0.8),
+      0 2px 4px rgba(0, 0, 0, 0.7);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .clash-seal {
+    animation: none;
+  }
+}
+
+/* ── Cabinet ambience: lamp haze + drifting motes ─────────── */
+@keyframes lampk {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  38% {
+    opacity: 0.74;
+  }
+  44% {
+    opacity: 0.46;
+  }
+  68% {
+    opacity: 0.66;
+  }
+}
+.lampflicker {
+  animation: lampk 7.5s ease-in-out infinite;
+}
+@keyframes motek {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0;
+  }
+  14% {
+    opacity: 0.75;
+  }
+  86% {
+    opacity: 0.45;
+  }
+  100% {
+    transform: translate3d(16px, -140px, 0);
+    opacity: 0;
+  }
+}
+.mote {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: #f0a93b;
+  box-shadow: 0 0 6px rgba(240, 169, 59, 0.9);
+  animation: motek linear infinite;
+  pointer-events: none;
+}
+.ambient-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blink,
+  .rise,
+  .moult-glow,
+  .mote,
+  .lampflicker,
+  .spec-icon__sheen {
+    animation: none !important;
+  }
+}
+
+
+/* ── User setting: reduced motion ────────────────────────────
+   The in-game setting must be able to quiet the interface even when the OS
+   reports no preference, so it mirrors the media query via a data attribute. */
+html[data-motion="reduced"] .blink,
+html[data-motion="reduced"] .rise,
+html[data-motion="reduced"] .screen,
+html[data-motion="reduced"] .mote,
+html[data-motion="reduced"] .lampflicker,
+html[data-motion="reduced"] .ready-pulse,
+html[data-motion="reduced"] .clash-seal,
+html[data-motion="reduced"] .gold-flash,
+html[data-motion="reduced"] .gate-shake {
+  animation: none !important;
+}
+html[data-motion="reduced"] * {
+  transition-duration: 1ms !important;
+}
+
+/* ════════════════════════════════════════════════════════════
+   FIELD LAB CONSOLE v2 — redesigned HUD & Admin (2026 refresh)
+   One integrated command deck up top, readable battle unit
+   cards, and tap-first admin controls. Same cabinet palette.
+   ════════════════════════════════════════════════════════════ */
+
+/* Integrated top deck: vitals | VS plaque | resources in one slab */
+.deck {
+  background:
+    linear-gradient(180deg, rgba(240, 169, 59, 0.07), transparent 55%),
+    linear-gradient(180deg, #1e1610 0%, #140f0b 100%);
+  border-bottom: 2px solid #3b322a;
+  box-shadow: 0 6px 18px -8px rgba(0, 0, 0, 0.85);
+}
+.deck-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #3b322a;
+  background: #0d0906;
+  padding: 4px 8px;
+  min-height: 34px;
+}
+.deck-stat .deck-num {
+  font-family: var(--font-pixel);
+  font-size: 12px;
+  line-height: 1;
+}
+.deck-stat .deck-cap {
+  font-family: var(--font-mono);
+  font-size: 6.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8c7e6e;
+  line-height: 1.25;
+}
+.vs-plaque {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid #4a3828;
+  background:
+    radial-gradient(120% 160% at 50% -30%, rgba(240, 169, 59, 0.16), transparent 60%),
+    #171008;
+  padding: 3px 10px;
+  min-height: 34px;
+  text-align: center;
+}
+.vs-plaque .vs-word {
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  color: #0a0705;
+  background: #f0a93b;
+  padding: 3px 5px;
+  line-height: 1;
+}
+
+/* Colony ladder: compact ranked rail under the deck */
+.ladder-cell {
+  position: relative;
+  border: 1px solid #3b322a;
+  background: #100c09;
+  padding: 4px 6px 5px;
+  min-width: 0;
+}
+.ladder-cell[data-you="1"] {
+  border-color: #f0a93b;
+  background: #1d150a;
+}
+.ladder-cell[data-foe="1"] {
+  border-color: #e0522f;
+  box-shadow: inset 0 0 0 1px #e0522f;
+  background: #1f0f0a;
+}
+.ladder-cell[data-alive="0"] {
+  opacity: 0.42;
+  filter: grayscale(1);
+}
+.ladder-rank {
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  color: #f0a93b;
+}
+
+/* Battle unit cards (LINE vs LINE) */
+.unit-card {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #3b322a;
+  background: #100c09;
+  padding: 4px 6px;
+  min-width: 0;
+}
+.unit-card[data-dead="1"] {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+.unit-card[data-side="ally"] {
+  border-left: 3px solid #1f7a5a;
+}
+.unit-card[data-side="foe"] {
+  border-right: 3px solid #962b16;
+  flex-direction: row-reverse;
+  text-align: right;
+}
+.bar-shell {
+  position: relative;
+  height: 6px;
+  background: #050302;
+  border: 1px solid #2d231b;
+  overflow: hidden;
+}
+.bar-shell > i {
+  display: block;
+  height: 100%;
+  transition: width 180ms steps(5);
+}
+.bar-shell.mana {
+  height: 4px;
+}
+@keyframes ultReady {
+  0%, 100% { box-shadow: 0 0 0 1px #75d9e8, 0 0 6px rgba(117, 217, 232, 0.35); }
+  50% { box-shadow: 0 0 0 1px #bdf8ff, 0 0 14px rgba(117, 217, 232, 0.85); }
+}
+.ult-ready {
+  animation: ultReady 900ms steps(2, end) infinite;
+  border-color: #75d9e8 !important;
+}
+.forecast {
+  border: 1px solid rgba(117, 217, 232, 0.55);
+  background:
+    radial-gradient(120% 180% at 100% 0%, rgba(117, 217, 232, 0.14), transparent 55%),
+    #07161b;
+  padding: 7px 9px;
+}
+
+/* Admin v2: tap-first controls */
+.seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.seg-btn {
+  min-height: 44px;
+  flex: 1 1 0;
+  border: 1px solid #4a3828;
+  background: #17110c;
+  color: #b3a594;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+}
+.seg-btn[data-on="1"] {
+  border-color: #f0a93b;
+  background: #241708;
+  color: #fff3dc;
+  box-shadow: inset 0 0 0 1px #f0a93b;
+}
+.seg-btn:active { transform: translateY(1px); }
+.admin-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 28px;
+  background: transparent;
+  cursor: pointer;
+}
+.admin-range::-webkit-slider-runnable-track {
+  height: 6px;
+  background: #241b14;
+  border: 1px solid #4a3828;
+}
+.admin-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -9px;
+  background: #f0a93b;
+  border: 2px solid #0a0705;
+  box-shadow: 0 0 0 1px #f0a93b;
+}
+.admin-range::-moz-range-track {
+  height: 6px;
+  background: #241b14;
+  border: 1px solid #4a3828;
+}
+.admin-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 0;
+  background: #f0a93b;
+  border: 2px solid #0a0705;
+}
+.stepper-btn {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid #4a3828;
+  background: #1a120c;
+  color: #fff3dc;
+  font-family: var(--font-pixel);
+  font-size: 12px;
+}
+.stepper-btn:active { transform: translateY(1px); }
+.big-action {
+  min-height: 48px;
+  width: 100%;
+  border: 2px solid #56dca8;
+  background: #1f7a5a;
+  color: #04130d;
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px;
+}
+.big-action:active { transform: translateY(1px); }
+.big-action.warn {
+  border-color: #e0522f;
+  background: #2a120c;
+  color: #f05a36;
+}
+
+html[data-motion="reduced"] .ult-ready {
+  animation: none !important;
+}
+
+/* ── Mobile battle layout (fix: unit UI overlapping / crushing the scene) ──
+   On phones the per-side unit lists become fixed-height horizontal
+   snap-scroll strips instead of tall vertical stacks, and the whole
+   dock is height-capped with its own scroll — the 3D stage always
+   keeps the majority of the screen, no matter if it's 2v2 or 6v6. */
+.unit-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+  -webkit-overflow-scrolling: touch;
+}
+.unit-strip::-webkit-scrollbar {
+  display: none;
+}
+.unit-strip .unit-card {
+  flex: 0 0 140px;
+  scroll-snap-align: start;
+}
+@media (min-width: 1024px) {
+  .unit-strip {
+    flex-direction: column;
+    overflow: visible;
+  }
+  .unit-strip .unit-card {
+    flex: none;
+    width: auto;
+  }
+}
+@media (max-width: 1023.98px) {
+  .game-dock {
+    max-height: 52dvh;
+  }
+  /* slightly larger deck numbers on touch screens */
+  .deck-stat .deck-num {
+    font-size: 13px;
+  }
+}
+@media (max-height: 700px) and (max-width: 1023.98px) {
+  /* short phones in portrait: give the stage priority */
+  .game-dock {
+    max-height: 48dvh;
+  }
+}
+@media (max-width: 719.98px) {
+  .vs-plaque--combat {
+    display: none;
+  }
+}

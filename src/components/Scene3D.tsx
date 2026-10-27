@@ -172,6 +172,11 @@ export function Scene3D({
       return;
     }
 
+    // Shadows refresh at half rate (toggled in tick): the extra depth pass is
+    // one of the two most expensive parts of the frame, and 30Hz shadow
+    // updates are imperceptible for units that glide a few px per frame.
+    renderer.shadowMap.autoUpdate = false;
+
     let alive = true;
     const hostEl: HTMLDivElement = host;
     const ovEl: HTMLDivElement = ov;
@@ -1199,6 +1204,16 @@ export function Scene3D({
     // and resizes the stage mid-session; tick() eases the real distance toward
     // this target so the reframing glides instead of jolting the camera.
     let camDistTarget = 11;
+    // ── Adaptive resolution ──
+    // Sustained slow frames (EMA of frame time) step the render scale down;
+    // sustained headroom steps it back up. Keeps the scene smooth on weak
+    // GPUs instead of dropping to a slideshow.
+    const baseDpr = renderer.getPixelRatio();
+    let pxScale = 1;
+    let ftEma = 16.7;
+    let ftWarmup = 0;
+    let qualityClock = 0;
+    let shadowFlip = 0;
     // Flips once init completes. After that, frame() repaints immediately
     // after every canvas resize — resizing a WebGL buffer clears it, and
     // without this repaint the cleared frame shows as a dark flash exactly
@@ -1647,6 +1662,9 @@ export function Scene3D({
     let isDragging = false;
     let dragMoved = false;
     let dragBaseSpin = 0;
+    // Hover raycasts are throttled to ~30Hz — gaming mice fire 1000Hz
+    // pointermove storms and each raycast traverses every unit sculpt.
+    let lastHoverCast = 0;
 
     function setNdc(clientX: number, clientY: number) {
       const r = renderer.domElement.getBoundingClientRect();
@@ -1720,6 +1738,9 @@ export function Scene3D({
       if (e.pointerType === "mouse") {
         const r = renderer.domElement.getBoundingClientRect();
         parallaxTarget.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+        const nowMs = performance.now();
+        if (nowMs - lastHoverCast < 34) return;
+        lastHoverCast = nowMs;
         const p = P.current;
         setNdc(e.clientX, e.clientY);
         if (p.mode === "prep" && p.interactive) {
@@ -2141,6 +2162,31 @@ export function Scene3D({
       last = now;
       t += dt;
       const p = P.current;
+
+      // Half-rate shadow refresh (see shadowMap.autoUpdate above).
+      shadowFlip ^= 1;
+      if (shadowFlip) renderer.shadowMap.needsUpdate = true;
+
+      // Adaptive resolution governor. The first ~30 frames are ignored so
+      // one-off shader-compile spikes never trigger a downgrade.
+      if (ftWarmup < 30) {
+        ftWarmup++;
+      } else {
+        ftEma += (dt * 1000 - ftEma) * 0.06;
+      }
+      qualityClock += dt;
+      if (qualityClock >= 1.5) {
+        qualityClock = 0;
+        if (ftEma > 22 && pxScale > 0.6) {
+          pxScale = Math.max(0.6, pxScale - 0.15);
+          renderer.setPixelRatio(baseDpr * pxScale);
+          renderer.setSize(W, H, false);
+        } else if (ftEma < 14.5 && pxScale < 1) {
+          pxScale = Math.min(1, pxScale + 0.1);
+          renderer.setPixelRatio(baseDpr * pxScale);
+          renderer.setSize(W, H, false);
+        }
+      }
 
       warm.intensity = (showcase ? 7 : 11) * (0.93 + Math.sin(t * 2.3) * 0.07);
 

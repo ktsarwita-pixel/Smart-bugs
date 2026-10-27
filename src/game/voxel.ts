@@ -924,12 +924,27 @@ export function buildVoxelModel(id: string, star = 1): VoxModel {
   };
 }
 
-/** Pre-warm every rig (all species × all star tiers) so the first battle —
- *  including moulted 2★/3★ units fielded by rival bots — has zero hitch */
+/** Pre-warm rigs so battles never compile mid-frame.
+ *  All 1★ sculpts (title turntable, totems, prep) build synchronously; the
+ *  2★/3★ tiers — only needed once a battle actually starts — are chipped in
+ *  ~6ms idle slices afterwards so the title screen paints instantly. */
 export function warmVoxelCache() {
-  for (const id of ["stag", "bomb", "mantis", "dragonfly", "matriarch", "lampyris", "worm"]) {
-    for (const star of [1, 2, 3]) getCompiledRig(id, star);
+  const ids = ["stag", "bomb", "mantis", "dragonfly", "matriarch", "lampyris", "worm"];
+  for (const id of ids) getCompiledRig(id, 1);
+  const rest: [string, number][] = [];
+  for (const id of ids) {
+    for (const star of [2, 3]) rest.push([id, star]);
   }
+  let i = 0;
+  const step = () => {
+    const budget = performance.now() + 6;
+    while (i < rest.length && performance.now() < budget) {
+      getCompiledRig(rest[i][0], rest[i][1]);
+      i++;
+    }
+    if (i < rest.length) window.setTimeout(step, 60);
+  };
+  window.setTimeout(step, 350);
 }
 
 /** Soft radial dot used by fireflies and ground auras (procedural, no image files) */

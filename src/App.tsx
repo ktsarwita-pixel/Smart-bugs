@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Scene3D } from "./components/Scene3D";
 import { SpecimenIcon, RankBadge } from "./components/SpecimenIcon";
 import { CodexModal } from "./components/CodexModal";
@@ -90,8 +90,9 @@ const MOTES = Array.from({ length: 16 }, (_, i) => ({
   o: 0.3 + ((i * 13) % 5) / 10,
 }));
 
-/** Lamp haze + drifting dust motes — keeps the still screens breathing */
-function Ambience() {
+/** Lamp haze + drifting dust motes — keeps the still screens breathing.
+ *  Memoised: it is 100% static, so battle-HUD ticks skip this subtree. */
+const Ambience = memo(function Ambience() {
   return (
     <div className="ambient-layer">
       <div
@@ -123,7 +124,7 @@ function Ambience() {
       />
     </div>
   );
-}
+});
 
 const rollShop = (): (BugId | null)[] =>
   Array.from({ length: 5 }, () => {

@@ -623,19 +623,22 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     // taper from a 3-wide root to a 1-wide tip (span |x| <= 8), share one
     // root height and sweep rate, and sprout from pads buried inside the
     // shell (paintWing paints by shared code, so L/R are exact mirrors).
-    leftArmPivot = [-2, 6.8, -0.6];
-    rightArmPivot = [2, 6.8, -0.6];
+    // Pivot at BLADE height (y8): the thorax crest is y≈7.5 and the head
+    // dome y≈7.9, so a blade row at y8 with a ±0.35 rad stroke never dips
+    // into the body — the old y7 plane sheared the shell top every beat.
+    leftArmPivot = [-2, 8, -0.6];
+    rightArmPivot = [2, 8, -0.6];
     const paintWing = (S: VoxSculptor, side: number, zRoot: number, len: number) => {
       const zr = Math.round(zRoot);
       // Basalar pad buried in the shell + a glinting joint at the root.
       const xa = side < 0 ? -2 : 1;
       const xb = side < 0 ? -1 : 2;
-      S.box(xa, 7, zr - 1, xb, 7, zr + 1, bodyMid);
-      S.set(side * 2, 7, zr, glow, true);
+      S.box(xa, 7, zr - 1, xb, 7, zr + 1, bodyMid); // pads stay buried at y7
+      S.set(side * 2, 8, zr, glow, true);
       for (let i = 0; i <= len; i++) {
         const wx = side * (1 + i);
         const wz = zr + Math.round(i * 0.5); // one shared sweep rate
-        const wy = 7 + (i >= len - 1 ? 1 : 0); // gentle tip dihedral
+        const wy = 8 + (i >= len - 1 ? 1 : 0); // blade row one voxel clear of the shell crest
         const half = i < 2 ? 1 : 0; // taper: 3-wide root -> 1-wide blade
         for (let dz = -half; dz <= half; dz++) {
           const lead = dz === -half; // the forward edge cuts the breeze
@@ -714,11 +717,11 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     // the body is one continuous mass; the boundary rings shade dark
     // automatically where consecutive ellipsoids meet.
     for (let seg = 0; seg < 9; seg++) {
-      const cz = -4.0 + seg * 1.35;
+      const cz = -4.2 + seg * 1.5;
       const t = seg / 8;
       const swollen = seg === 3 || seg === 4;
-      const rx = 3.4 - t * 1.6 + (swollen ? 0.35 : 0); // 3.4 -> 1.8
-      const ry = 2.4 - t * 0.8;                        // 2.4 -> 1.6
+      const rx = 3.8 - t * 1.8 + (swollen ? 0.35 : 0); // 3.8 -> 2.0
+      const ry = 2.7 - t * 0.9;                        // 2.7 -> 1.8
       const even = seg % 2 === 0;
       const rxi = Math.round(rx);
       torsoS.ellipsoid(0, ry, cz, rx, ry, 1.2, (x, y, z) => {
@@ -745,14 +748,14 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     // Head: broad shovel-faced dome — glowing eye pair and pale face plate
     // painted by the dome painter itself (a glow cell that is not a dome
     // cell cannot exist, so floating parts are structurally impossible).
-    headPivot = [0, 2.1, -4.6];
-    torsoPivot = [0, 2.0, 0.3];
-    headS.ellipsoid(0, 2.1, -4.6, 2.6, 2.0, 2.2, (x, y, z) => {
+    headPivot = [0, 2.4, -5.0];
+    torsoPivot = [0, 2.2, 0.3];
+    headS.ellipsoid(0, 2.4, -5.0, 2.9, 2.2, 2.4, (x, y, z) => {
       if (y < 0) return null;
       // glowing eye pair, set into the dome flanks
-      if (Math.abs(x) === 2 && y === 3 && z <= -4.5) return { hex: "#FFE08C", glow: true };
+      if (Math.abs(x) === 2 && y === 3 && z <= -5.0) return { hex: "#FFE08C", glow: true };
       // pale shovel face + crowned plate
-      if (z <= -6.2 && y >= 1) return { hex: saddle1 };
+      if (z <= -6.8 && y >= 1) return { hex: saddle1 };
       if (y >= 4) return { hex: saddle2 };
       // dark cheek/belly contact
       if (Math.abs(x) >= 2 && y <= 1) return { hex: skinDark };
@@ -762,8 +765,8 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     // Hooked jaw chains — five cells each, the two roots buried INSIDE the
     // dome (multi-face contact), then out, forward, and an upturned pale
     // hook. No single-cell nubs anywhere.
-    leftArmPivot = [-2, 2, -5];
-    rightArmPivot = [2, 2, -5];
+    leftArmPivot = [-2, 2, -5.5];
+    rightArmPivot = [2, 2, -5.5];
     leftArmS.set(-1, 2, -5, skinDark); // interior root
     leftArmS.set(-2, 2, -5, skinDark); // interior root
     leftArmS.set(-3, 2, -5, skinDark);
@@ -782,8 +785,8 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     legsAS.set(0, 2, 0, skinDark);
     legsBS.set(0, 2, 0, skinDark);
 
-    crownPivot = [0, 5.6, -1];
-    maxY = 6;
+    crownPivot = [0, 6.4, -1];
+    maxY = 7;
     } else {
     // lampyris
     legsAS.singleLeg(-3, 2, -3, -5, 4, -4, -7, -5, "#323D2E", "#1B2219");

@@ -224,17 +224,18 @@ export function animateInsectRig(
         const fold = flightPose.wingFold;
         // Odonate stroke: sharper down-stroke via a 2nd harmonic, tilt + twist.
         const beat = phase * 1.35;
-        const flap = (1 - fold) * 0.3 * (Math.sin(beat) + 0.3 * Math.sin(beat * 2));
+        const flap = (1 - fold) * 0.26 * (Math.sin(beat) + 0.3 * Math.sin(beat * 2));
         p.rootY = 0;
         p.torsoX = 0;
         p.torsoY = 0;
         p.torsoZ = 0;
         p.headX = -0.06;
         p.headY = flightPose.phase === "approach" ? Math.sin(t * 7) * 0.18 : 0;
-        p.laX = 0.28 + (1 - fold) * 0.12 * Math.sin(beat + 1.2);
-        p.raX = 0.28 - (1 - fold) * 0.12 * Math.sin(beat + 1.2);
-        p.laY = -0.12 - fold * 0.95;
-        p.raY = 0.12 + fold * 0.95;
+        p.laX = 0.28 + (1 - fold) * 0.1 * Math.sin(beat + 1.2);
+        p.raX = 0.28 - (1 - fold) * 0.1 * Math.sin(beat + 1.2);
+        // sweep BACK when folding (away from the head); exact mirror pair
+        p.laY = 0.12 + fold * 0.95;
+        p.raY = -0.12 - fold * 0.95;
         p.laZ = -0.12 + flap;
         p.raZ = 0.12 - flap;
         p.legsAX = -0.35 - fold * 0.2;
@@ -250,9 +251,9 @@ export function animateInsectRig(
         p.torsoPosZ = -dart * 0.075;
         p.laX = 0.28;
         p.raX = 0.28;
-        p.laY = -0.12 - dart * 0.75;
-        p.raY = 0.12 + dart * 0.75;
-        const flap = 0.22 * (Math.sin(phase) + 0.3 * Math.sin(phase * 2));
+        p.laY = 0.12 + dart * 0.75;
+        p.raY = -0.12 - dart * 0.75;
+        const flap = 0.18 * (Math.sin(phase) + 0.3 * Math.sin(phase * 2));
         p.laZ = -0.12 + flap;
         p.raZ = 0.12 - flap;
         p.legsAX = -dart * 0.2;
@@ -266,9 +267,10 @@ export function animateInsectRig(
         // (2nd harmonic), a tilted stroke plane (constant laX base), and a
         // feathering twist ~90° out of phase — wing tips trace a figure-8,
         // like a real dragonfly, instead of a pendular moth flap.
-        const flap = 0.3 * (Math.sin(phase) + 0.3 * Math.sin(phase * 2));
-        const twist = 0.12 * Math.sin(phase + 1.2);
-        const sway = Math.sin(phase * 0.5) * 0.32;
+        const flap = 0.26 * (Math.sin(phase) + 0.3 * Math.sin(phase * 2));
+        const twist = 0.1 * Math.sin(phase + 1.2);
+        // narrow, BACK-biased yaw: tips never sweep forward over the head
+        const sway = Math.sin(phase * 0.5) * 0.18;
         p.rootY = hover * 0.075 + 0.045;
         p.torsoX = 0.03 + Math.sin(t * 2.1 + uid) * 0.035;
         p.torsoY = Math.sin(t * 1.5 + uid) * 0.055;
@@ -277,8 +279,8 @@ export function animateInsectRig(
         p.headY = Math.sin(t * 1.1 + uid) * 0.12;
         p.laX = 0.28 + twist;
         p.raX = 0.28 - twist;
-        p.laY = -0.16 + sway;
-        p.raY = 0.16 - sway;
+        p.laY = 0.1 + sway;
+        p.raY = -0.1 - sway;
         p.laZ = -0.14 + flap;
         p.raZ = 0.14 - flap;
         p.legsAX = Math.sin(t * 3 + uid) * 0.06;

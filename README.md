@@ -1,4 +1,4 @@
-# Smart Bugs — Pixel Bug Auto-Chess
+# Magic WildLife — Pixel Bug Auto-Chess
 
 A 3D voxel auto-chess battler (React 19 + Vite 7 + Three.js + Tailwind CSS 4 + TypeScript).
 Choose a bug commander, recruit and evolve your army, and fight until only one colony survives.

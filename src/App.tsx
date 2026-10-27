@@ -1171,8 +1171,8 @@ export default function App() {
               </div>
 
               <h1 className="font-pixel leading-[1.14] text-[#EDE2CB] drop-shadow-[3px_3px_0_#090604]">
-                <span className="block text-[clamp(28px,8.5vw,54px)]">SMART</span>
-                <span className="block text-[clamp(28px,8.5vw,54px)] text-[#56DCA8]">BUGS</span>
+                <span className="block text-[clamp(24px,7vw,46px)]">MAGIC</span>
+                <span className="block text-[clamp(24px,7vw,46px)] text-[#56DCA8]">WILDLIFE</span>
               </h1>
 
               <p className="latin mt-2.5 max-w-[38ch] text-[14.5px] leading-snug text-[#C9BCA6] sm:text-[16px]">

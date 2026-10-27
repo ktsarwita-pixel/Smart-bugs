@@ -139,7 +139,7 @@ def main() -> None:
     html = re.sub(r'<link[^>]*href="https://fonts\.googleapis\.com/css2[^>]*>\s*', "", html)
     html = html.replace("</head>", font_style + "\n</head>", 1)
     comment = (
-        "<!-- SMART BUGS — DIRECT RUN FILE (optimized build): all project files "
+        "<!-- MAGIC WILDLIFE — DIRECT RUN FILE (optimized build): all project files "
         "(React, Three.js, Tailwind, subset fonts, game code) are bundled inside "
         "this ONE file. Open it in a browser (double-click). No server/npm/internet "
         "needed. Regenerate with: npm run build && python3 scripts/make-direct.py -->\n"

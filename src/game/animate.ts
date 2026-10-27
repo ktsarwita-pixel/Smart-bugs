@@ -247,21 +247,26 @@ export function animateInsectRig(
         p.laY = -0.12 - dart * 0.75;
         p.raY = 0.12 + dart * 0.75;
         p.laZ = -0.2 + Math.sin(phase) * 0.3;
-        p.raZ = 0.2 - Math.sin(phase + 0.5) * 0.3;
+        p.raZ = 0.2 - Math.sin(phase) * 0.3;
         p.legsAX = -dart * 0.2;
         p.legsBX = -dart * 0.2;
       } else {
         // Stationary hover: wings hum at speed; the rudder abdomen counter-steers.
+        // The two wings are EXACT mirrors (same sine, mirrored sign) — the old
+        // phase offsets left them visibly at different angles on the menu
+        // turntable, reading as mismatched arrows instead of one beating pair.
+        const flap = Math.sin(phase) * 0.5;
+        const sway = Math.sin(phase * 0.5) * 0.32;
         p.rootY = hover * 0.075 + 0.045;
         p.torsoX = 0.03 + Math.sin(t * 2.1 + uid) * 0.035;
         p.torsoY = Math.sin(t * 1.5 + uid) * 0.055;
         p.torsoZ = Math.sin(t * 2.3 + uid) * 0.04;
         p.headX = Math.sin(t * 1.6 + uid) * 0.055;
         p.headY = Math.sin(t * 1.1 + uid) * 0.12;
-        p.laY = -0.16 + Math.sin(phase * 0.5) * 0.32;
-        p.raY = 0.16 - Math.sin(phase * 0.5 + 0.4) * 0.32;
-        p.laZ = -0.26 + Math.sin(phase) * 0.5;
-        p.raZ = 0.26 - Math.sin(phase + 0.55) * 0.5;
+        p.laY = -0.16 + sway;
+        p.raY = 0.16 - sway;
+        p.laZ = -0.26 + flap;
+        p.raZ = 0.26 - flap;
         p.legsAX = Math.sin(t * 3 + uid) * 0.06;
         p.legsBX = -Math.sin(t * 3 + uid) * 0.06;
       }

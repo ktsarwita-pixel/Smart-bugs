@@ -545,83 +545,103 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     crownPivot = [0, 14, -5];
     maxY = 14;
   } else if (id === "dragonfly") {
-    // Six slender legs tuck beneath the thorax. Dragonflies stand clear of
-    // the ground, with the abdomen stretched behind like a striped rudder.
-    legsAS.singleLeg(-2, 4, -2, -4, 5, -3, -6, -3, "#257E93", "#173C59");
-    legsAS.singleLeg(2, 4, 0, 4, 5, 0, 6, 0, "#257E93", "#173C59");
-    legsAS.singleLeg(-2, 4, 2, -4, 5, 3, -6, 4, "#257E93", "#173C59");
-    legsBS.singleLeg(2, 4, -2, 4, 5, -3, 6, -3, "#257E93", "#173C59");
-    legsBS.singleLeg(-2, 4, 0, -4, 5, 0, -6, 0, "#257E93", "#173C59");
-    legsBS.singleLeg(2, 4, 2, 4, 5, 3, 6, 4, "#257E93", "#173C59");
+    // REWORK v3 — "Sky Lancer". House idiom: hunched banded thorax, long
+    // ringed abdomen, chunky glowing eye clusters, six singleLeg legs.
+    // Wings are painted by ONE mirrored helper so left and right are exact
+    // reflections — same size, same anchor, same sweep (the old mix of
+    // differently-sized membranes plus free-floating stroke lines read as
+    // arrows pointing in different directions on the menu turntable).
+    // Torso palette: teal-navy carapace with cyan enamel and a wet glint.
+    const bodyDark = "#0E3A44";
+    const bodyMid = "#177E8C";
+    const bodyLite = "#35C2D6";
+    const glint = "#BDF6FF";
+    const glow = "#8FF0FA";
+    const amber = "#F0A93B";
 
-    // Iridescent thorax, dark dorsal seam and luminous shoulder plates.
-    torsoS.ellipsoid(0, 5, -0.3, 3.25, 2.25, 2.9, (x, y, _z) => {
+    // Six slender legs tucked high, teal over dark tibia.
+    legsAS.singleLeg(-2, 4, -2, -4, 5, -3, -6, -3, bodyMid, bodyDark);
+    legsAS.singleLeg(2, 4, 0, 4, 5, 0, 6, 0, bodyMid, bodyDark);
+    legsAS.singleLeg(-2, 4, 2, -4, 5, 3, -6, 4, bodyMid, bodyDark);
+    legsBS.singleLeg(2, 4, -2, 4, 5, -3, 6, -3, bodyMid, bodyDark);
+    legsBS.singleLeg(-2, 4, 0, -4, 5, 0, -6, 0, bodyMid, bodyDark);
+    legsBS.singleLeg(2, 4, 2, 4, 5, 3, 6, 4, bodyMid, bodyDark);
+
+    // Hunched thorax: dark belly seam, banded carapace, glowing shoulder plates.
+    torsoS.ellipsoid(0, 5.2, -0.4, 3.2, 2.4, 2.7, (x, y, z) => {
       if (y <= 2) return null;
-      if (x === 0 && y >= 5) return { hex: "#102F4C" };
-      if (Math.abs(x) >= 3 && y >= 5) return { hex: "#B8F5FA" };
-      if (y >= 6) return { hex: "#5BD2E3" };
-      if (y >= 4) return { hex: "#278EAA" };
-      return { hex: "#17506F" };
+      if (y <= 3) return { hex: bodyDark };
+      if (x === 0 && y >= 6) return { hex: glint };
+      if (Math.abs(x) >= 3 && y >= 6) return { hex: bodyLite, glow: z < 0 };
+      if (y >= 6) return { hex: bodyLite };
+      if (y >= 5) return { hex: bodyMid };
+      return { hex: bodyMid };
     });
-    torsoS.sym(3, 6, -1, "#FFF1AB", true);
+    torsoS.box(-2, 6, -3, 2, 6, -2, bodyLite); // pronotum collar rim
+    torsoS.sym(3, 6, -1, glow, true); // luminous shoulder plates
 
-    // Eight articulated abdominal segments. Each tergite has a dark ring,
-    // cyan enamel plates and a dorsal pinstripe; the tail ends in forceps.
+    // Eight abdominal ring segments tapering to the tail — alternating enamel
+    // bands, a dark annulus on each joint, amber dorsal pinstripe studs.
     for (let i = 0; i < 8; i++) {
-      const z = 2.2 + i * 1.16;
-      const taper = 1.75 - i * 0.12;
-      torsoS.ellipsoid(0, 4.7 - i * 0.1, z, taper, 1.1 - i * 0.065, 0.9, (_x, y, _z) => {
+      const z = 2.2 + i * 1.15;
+      const taper = 2.0 - i * 0.14;
+      const cy = 4.8 - i * 0.12;
+      const bandLite = i % 2 === 0;
+      torsoS.ellipsoid(0, cy, z, taper, 1.15 - i * 0.055, 0.9, (_x, y) => {
         if (y <= 2) return null;
-        if (y === 4 || y === 5) return { hex: "#102F4C" }; // segmented annulus
-        if (y >= 6) return { hex: "#C7F9FF" }; // dorsal glint
-        if (y >= 5) return { hex: "#75D9E8" };
-        return { hex: i % 2 === 0 ? "#207E9C" : "#276D8C" };
+        if (y >= Math.round(cy) + 1) return { hex: bandLite ? glint : bodyLite };
+        if (y === Math.round(cy)) return { hex: bodyDark };
+        return { hex: bandLite ? bodyMid : "#12324A" };
       });
-      torsoS.set(0, 6, Math.round(z), "#FFF1AB", i % 3 === 0);
+      torsoS.set(0, Math.round(cy) + 1, Math.round(z), amber, i % 3 === 0);
     }
-    // Paired terminal cerci / tail forceps.
-    torsoS.symLine(1, 4, 11, 2, 5, 13, "#8EEAF2");
-    torsoS.symLine(2, 5, 13, 1, 7, 14, "#C7F9FF");
+    // Paired tail cerci + a glowing tip spike.
+    torsoS.symLine(1, 4, 11.4, 2, 5, 13.2, bodyLite);
+    torsoS.set(0, 5, 12, glint, true);
+    torsoS.set(0, 5, 13, glow, true);
 
-    // Oversized, multi-faceted compound eyes, low swept frons and antennae.
-    headPivot = [0, 6, -3.2];
-    torsoPivot = [0, 4.8, 0.4];
-    headS.ellipsoid(0, 6, -4.3, 2.4, 1.8, 1.7, (_x, y) => ({
-      hex: y >= 7 ? "#8EEAF2" : "#207E9C",
+    // Head: broad teal dome under a heavy brow, chunky glowing eye clusters
+    // (three facets per side like the stag's), short antenna clubs.
+    headPivot = [0, 6, -3.4];
+    torsoPivot = [0, 4.9, 0.4];
+    headS.ellipsoid(0, 6, -4.6, 2.7, 1.9, 1.8, (_x, y) => ({
+      hex: y >= 7 ? bodyLite : bodyMid,
     }));
-    headS.sym(2, 7, -4, "#FFF1AB", true);
-    headS.sym(2, 6, -5, "#FFF1AB", true);
-    headS.sym(1, 7, -5, "#E9A352", true); // retinas catch the light
-    headS.sym(3, 7, -4, "#75D9E8", true); // outer facets of the great compound eyes
-    headS.sym(3, 6, -4, "#45BFD0", true);
-    headS.set(0, 5, -6, "#102F4C"); // forward-facing frons
-    headS.symLine(1, 8, -4, 2, 9, -5, "#75D9E8");
+    headS.box(-2, 7, -6, 2, 7, -5, bodyDark); // brow ridge
+    headS.sym(2, 7, -5, glow, true);
+    headS.sym(3, 7, -5, bodyLite, true);
+    headS.sym(3, 6, -5, bodyLite, true);
+    headS.sym(2, 6, -6, glow, true);
+    headS.set(0, 5, -6, bodyDark); // frons
+    headS.symLine(1, 7, -6, 2, 8, -7, bodyLite);
+    headS.sym(2, 8, -7, glint);
 
-    // Two pairs of transparent-looking, veined swept wings. These pivot
-    // independently so the high-frequency dragonfly wing beat reads clearly.
-    leftArmPivot = [-2, 6, -1.0];
-    rightArmPivot = [2, 6, -1.0];
-    const wingPaint = (_x: number, y: number, z: number) => ({
-      hex: y >= 7 ? "#C7F9FF" : z < 0 ? "#45BFD0" : "#75D9E8",
-      glow: y >= 7 && Math.round(z) % 3 === 0,
-    });
-    leftArmS.ellipsoid(-4.8, 7, -2.2, 3.2, 0.32, 2.0, wingPaint);
-    leftArmS.ellipsoid(-4.8, 7, 2.2, 3.1, 0.28, 1.65, wingPaint);
-    leftArmS.line(-2, 7, -1, -8, 7, -3, "#E4FDFF", true); // leading edge
-    leftArmS.line(-2, 7, -1, -7, 7, 0, "#75D9E8");
-    leftArmS.line(-3, 7, -2, -7, 7, -4, "#B8F5FA"); // cross veins
-    leftArmS.line(-3, 7, 0, -7, 7, 3, "#B8F5FA");
-    rightArmS.ellipsoid(4.8, 7, -2.2, 3.2, 0.32, 2.0, wingPaint);
-    rightArmS.ellipsoid(4.8, 7, 2.2, 3.1, 0.28, 1.65, wingPaint);
-    rightArmS.line(2, 7, -1, 8, 7, -3, "#E4FDFF", true);
-    rightArmS.line(2, 7, -1, 7, 7, 0, "#75D9E8");
-    rightArmS.line(3, 7, -2, 7, 7, -4, "#B8F5FA");
-    rightArmS.line(3, 7, 0, 7, 7, 3, "#B8F5FA");
-    // amber stigmas — the dark-cap cell every real dragonfly wing carries
-    leftArmS.set(-7, 7, -4, "#F0A93B", true);
-    leftArmS.set(-7, 7, 2, "#F0A93B", true);
-    rightArmS.set(7, 7, -4, "#F0A93B", true);
-    rightArmS.set(7, 7, 2, "#F0A93B", true);
+    // Wings — mirrored helper. Both sides share one painter, so fore/hind
+    // pairs are exact reflections: solid membrane looms with honeycomb
+    // veins, a bright leading edge, tip dihedral, and an amber stigma.
+    // No free-floating stroke lines — nothing that reads as a loose arrow.
+    leftArmPivot = [-2, 6.2, -0.6];
+    rightArmPivot = [2, 6.2, -0.6];
+    const paintWing = (S: VoxSculptor, side: number, zRoot: number, len: number, sweep: number) => {
+      S.set(side * 1, 7, Math.round(zRoot), glow, true); // root joint glint
+      for (let i = 0; i <= len; i++) {
+        const wx = side * (2 + i);
+        const wz = Math.round(zRoot + sweep * i * 0.35);
+        const wy = 7 + (i >= len - 2 ? 1 : 0); // tip dihedral
+        const half = i < 2 ? 2 : i < len - 2 ? 1 : 0;
+        for (let dz = -half; dz <= half; dz++) {
+          const vein = (i + Math.abs(dz)) % 3 === 0;
+          const edge = i <= 1;
+          S.set(wx, wy, wz + dz, vein ? "#9FDCEC" : edge ? "#EFFDFF" : "#DFF7FF", edge && i === 1 && dz === 0);
+        }
+        if (i === len - 1) S.set(wx, wy, wz - half, amber, true); // stigma
+      }
+    };
+    for (const S of [leftArmS, rightArmS]) {
+      const side = S === leftArmS ? -1 : 1;
+      paintWing(S, side, -2.4, 8, 1.6); // fore pair — long, swept back
+      paintWing(S, side, 1.8, 6, 1.0); // hind pair — shorter, more sweep
+    }
 
     crownPivot = [0, 9, -3];
     maxY = 9;
@@ -663,29 +683,43 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     crownPivot = [0, 9, -2];
     maxY = 9;
   } else if (id === "worm") {
-    // Segmented body climbing out of its burrow — tapered, banded, damp.
+    // REWORK v3 — "Burrow Titan". House idiom: one bold banded column with a
+    // strong taper, groove shading like the other bugs' bellies, a pale
+    // saddle, a tidy dome head with a glowing ocelli arc, and a clean
+    // burrow mound. Fewer, chunkier details than the old spindly sculpt.
+    const fleshDark = "#7E4450";
+    const fleshMid = "#B86C7A";
+    const bandLite = "#D98A96";
+    const shine = "#F6C2C8";
+    const saddle1 = "#EFD0C6";
+    const saddle2 = "#D9A99C";
+
+    // Eight body segments climbing out of the soil, gentle S-curve.
     for (let seg = 0; seg < 8; seg++) {
-      const sy = 0.9 + seg * 1.06;
-      const wide = 4.2 - seg * 0.28;              // tapers toward the head
-      const swollen = seg === 3 || seg === 4;     // clitellum saddle
-      const sw = swollen ? wide + 0.55 : wide;
-      const wob = Math.sin(seg * 0.85) * 0.55;    // gentle S-curve
-      const band = seg % 2 === 0;
-      torsoS.ellipsoid(wob, sy, 0.2 + Math.sin(seg * 0.5) * 0.3, sw, 0.68, sw * 0.82, (x, y) => {
+      const sy = 1.0 + seg * 1.1;
+      const wide = 4.4 - seg * 0.3;
+      const swollen = seg === 3 || seg === 4;
+      const sw = swollen ? wide + 0.7 : wide;
+      const wob = Math.sin(seg * 0.8) * 0.6;
+      const top = Math.round(sy);
+      const even = seg % 2 === 0;
+      torsoS.ellipsoid(wob, sy, 0.2 + Math.sin(seg * 0.5) * 0.3, sw, 0.72, sw * 0.82, (x, y) => {
         if (y < 0) return null;
-        if (x === 0 && y === Math.round(sy)) return { hex: "#8A4A57" }; // dorsal vessel
-        if (Math.abs(x - Math.round(wob)) >= Math.round(sw) - 1 && y === Math.round(sy))
-          return { hex: "#F6C2C8" }; // wet lateral shine
-        if (swollen) return { hex: band ? "#E8A0A8" : "#C77F8C" };
-        if (y === Math.round(sy) - 1) return { hex: band ? "#B06572" : "#9E5A66" }; // groove shading
-        return { hex: band ? (y % 2 ? "#D98A96" : "#C97A88") : "#B86C7A" };
+        if (x === 0 && y === top) return { hex: "#8A4A57" }; // dorsal vessel
+        if (Math.abs(x - Math.round(wob)) >= Math.round(sw) - 1 && y === top)
+          return { hex: shine }; // wet lateral shine
+        if (swollen) return { hex: y >= top ? saddle1 : saddle2 };
+        if (y >= top) return { hex: even ? bandLite : fleshMid };
+        return { hex: even ? "#9E5A66" : fleshDark }; // groove shading
       });
       // paired setae bristles along the flanks
-      torsoS.sym(Math.round(sw) + 1, Math.round(sy), 1, "#8A5560");
-      torsoS.sym(Math.round(sw) + 1, Math.round(sy), -1, "#8A5560");
-      if (seg === 2 || seg === 6) torsoS.sym(Math.round(sw), Math.round(sy) + 1, 0, "#FFE9C4", true); // mucus glint
+      torsoS.sym(Math.round(sw + wob) + 1, top, 1, "#C98A94");
+      torsoS.sym(Math.round(sw + wob) + 1, top, -1, "#C98A94");
+      // one quiet mucus glint on seg 2 and 6
+      if (seg === 2 || seg === 6) torsoS.sym(Math.round(sw + wob), top + 1, 0, "#FFE9C4", true);
     }
-    // heaped burrow mound ringed with soil + pebbles
+
+    // Neat burrow mound: soil ring, two pebbles.
     for (let _a = 0; _a < 12; _a++) {
       const _ang = (_a / 12) * Math.PI * 2;
       const _mx = Math.round(Math.cos(_ang) * 5);
@@ -693,36 +727,36 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
       torsoS.set(_mx, 0, _mz, _a % 2 ? "#4A3324" : "#3A281C");
       if (_a % 3 === 0) torsoS.set(_mx, 1, _mz, "#4A3324");
     }
-    torsoS.set(6, 0, 2, "#6B5F52"); // pebbles
-    torsoS.set(-6, 0, -1, "#6B5F52");
+    torsoS.set(6, 0, 2, "#6B5F52");
+    torsoS.set(-6, 0, -1, "#57503F");
 
-    headPivot = [0, 9.2, 0];
+    // Head: rounded prostomium dome, dark maw ring under a lip band, and a
+    // tidy arc of glowing ocelli. Short palp nubs animate the probe.
+    headPivot = [0, 9.6, 0];
     torsoPivot = [0, 4.4, 0.2];
-    headS.ellipsoid(0, 9.2, 0, 2.9, 1.5, 2.6, (_x, y) => ({
-      hex: y >= 9 ? "#F6C2C8" : "#D98A96",
+    headS.ellipsoid(0, 9.6, 0, 3.0, 1.7, 2.7, (_x, y) => ({
+      hex: y >= 10 ? shine : bandLite,
     }));
-    // pale eyeless head with a round maw
-    headS.ellipsoid(0, 9.0, -1.4, 1.5, 1.0, 1.1, () => ({ hex: "#8A4A57" }));
-    headS.box(-1, 9, -3, 1, 9, -2, "#B06A78"); // prostomial upper lip
-    headS.sym(2, 9, -2, "#8A4A57"); // mouth rim
-    headS.sym(2, 9, -1, "#FFE08C", true); // ocelli light-spots, lower pair
-    headS.sym(2, 10, -1, "#FFE08C", true); // ocelli light-spots, upper pair
-    headS.sym(3, 9, 0, "#FFE08C", true); // ocelli light-spots, flank pair
-    headS.sym(1, 9, -2, "#3D1B23"); // dark mouth pit
+    headS.ellipsoid(0, 9.4, -1.6, 1.6, 0.9, 1.1, () => ({ hex: fleshDark })); // maw pit
+    headS.box(-2, 10, -2, 2, 10, -2, "#B06A78"); // lip band
+    headS.box(-1, 10, -3, 1, 10, -3, "#B06A78");
+    headS.sym(2, 10, -2, "#FFE08C", true); // ocelli arc
+    headS.sym(3, 10, 0, "#FFE08C", true);
+    headS.sym(2, 11, 0, "#FFE08C", true);
 
-    // tiny prostomial bristles stand in for the arm joints
-    leftArmPivot = [-2.0, 9.0, -1.0];
-    rightArmPivot = [2.0, 9.0, -1.0];
-    leftArmS.line(-2, 9, -1, -4, 10, -2, "#B06A78");
-    rightArmS.line(2, 9, -1, 4, 10, -2, "#B06A78");
+    // Sensory palps (the arm groups) — short, symmetric, pale tips.
+    leftArmPivot = [-2.0, 9.6, -1.0];
+    rightArmPivot = [2.0, 9.6, -1.0];
+    leftArmS.line(-2, 9.6, -1, -3.5, 10.4, -2, "#B06A78");
+    leftArmS.set(-3.5, 10.4, -2, shine);
+    rightArmS.line(2, 9.6, -1, 3.5, 10.4, -2, "#B06A78");
+    rightArmS.set(3.5, 10.4, -2, shine);
 
-    // setal nubs on the flanks give the legs group something to twitch
+    // setal nubs on the flanks give the legs groups something to twitch
     for (const seg of [1, 2, 4, 5]) {
       legsAS.set(4 - seg, 1 + seg, 2, "#8A5560");
       legsBS.set(-(4 - seg), 1 + seg, 2, "#8A5560");
     }
-
-    crownPivot = [0, 10.4, 0];
     maxY = 11;
   } else {
     // lampyris

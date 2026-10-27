@@ -1032,3 +1032,219 @@ html[data-motion="reduced"] .ult-ready {
     display: none;
   }
 }
+
+/* ════════════════════════════════════════════════════════════
+   FIELD LAB CONSOLE v3 — cohesion & micro-polish pass
+   Themed scrollbars, tactile deck chips, bevelled unit cards,
+   telemetry scanlines, glass toasts, and a dock swap that glides
+   instead of popping. Same cabinet palette, sharper execution.
+   ════════════════════════════════════════════════════════════ */
+
+/* Themed thin scrollbars everywhere (dock, modals, codex, strips) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #4a3828 rgba(10, 7, 5, 0.35);
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: rgba(10, 7, 5, 0.35);
+}
+*::-webkit-scrollbar-thumb {
+  background: #4a3828;
+  border: 2px solid #0a0705;
+  border-radius: 99px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #6b543a;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Dock content swap (prep ↔ battle): glide in, never pop */
+@keyframes dockIn {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+.dock-in {
+  animation: dockIn 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Screen-in: a touch crisper, tiny settle */
+@keyframes screenIn {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.996);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Command deck: brass top-light across the slab */
+.deck {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 226, 170, 0.07),
+    0 6px 18px -8px rgba(0, 0, 0, 0.85);
+}
+
+/* Stat chips: bevelled tiles that acknowledge the cursor */
+.deck-stat {
+  background: linear-gradient(180deg, #120d09 0%, #0c0805 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(237, 226, 203, 0.05),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6);
+  transition:
+    border-color 160ms ease,
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (hover: hover) {
+  .deck-stat:hover {
+    border-color: #57452f;
+    transform: translateY(-1px);
+  }
+}
+
+/* VS plaque: hazard base-rail + letterpressed word; red rail in combat */
+.vs-plaque {
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 226, 170, 0.08);
+}
+.vs-plaque::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: repeating-linear-gradient(-45deg, rgba(240, 169, 59, 0.85) 0 5px, transparent 5px 10px);
+  opacity: 0.5;
+  pointer-events: none;
+}
+.vs-plaque .vs-word {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 243, 220, 0.35),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+}
+.vs-plaque--combat {
+  border-color: #e0522f;
+}
+.vs-plaque--combat::after {
+  background: repeating-linear-gradient(-45deg, rgba(224, 82, 47, 0.9) 0 5px, transparent 5px 10px);
+  opacity: 0.55;
+}
+
+/* Colony ladder: cells acknowledge hover, dead ones recede gently */
+.ladder-cell {
+  transition:
+    opacity 220ms ease,
+    border-color 160ms ease;
+}
+@media (hover: hover) {
+  .ladder-cell:hover {
+    border-color: #57452f;
+  }
+}
+
+/* Battle unit cards: bevelled slabs with brighter side energy rails */
+.unit-card {
+  background: linear-gradient(180deg, #131009 0%, #0c0906 100%);
+  box-shadow: inset 0 1px 0 rgba(237, 226, 203, 0.05);
+  transition:
+    border-color 160ms ease,
+    opacity 220ms ease;
+}
+.unit-card[data-side="ally"] {
+  border-left-color: #2a9c74;
+}
+.unit-card[data-side="foe"] {
+  border-right-color: #c2412a;
+}
+@media (hover: hover) {
+  .unit-card:not([data-dead="1"]):hover {
+    border-color: #57452f;
+  }
+}
+
+/* HP / mana bars: inset glass with a lit top edge */
+.bar-shell {
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+.bar-shell > i {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Forecast panels: quiet telemetry scanlines */
+.forecast {
+  position: relative;
+  overflow: hidden;
+}
+.forecast::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(117, 217, 232, 0.05) 0 1px, transparent 1px 3px);
+}
+
+/* Toasts: floating glass chips */
+.toast {
+  background: rgba(18, 13, 9, 0.92);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(240, 169, 59, 0.12);
+}
+
+/* Projected 3D unit chips: crisper bars, grounded name tags */
+.ov-bars {
+  border-color: rgba(237, 226, 203, 0.3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.65);
+}
+.ov-hp,
+.ov-mana {
+  outline: 1px solid rgba(0, 0, 0, 0.55);
+  outline-offset: -1px;
+}
+.ov-name {
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.7);
+}
+.ov-foe .ov-name {
+  border-color: #f05a36;
+}
+.ov-unit.ov-vuln .ov-name {
+  border-color: #f0a93b;
+}
+
+/* Bench slots and kbd chips */
+.bench-slot:hover {
+  border-color: #6b543a;
+}
+kbd {
+  font-family: var(--font-mono);
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.55);
+}
+
+/* Reduced motion: the dock swap joins the quiet set */
+@media (prefers-reduced-motion: reduce) {
+  .dock-in {
+    animation: none !important;
+  }
+}
+html[data-motion="reduced"] .dock-in {
+  animation: none !important;
+}

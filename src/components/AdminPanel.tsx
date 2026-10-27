@@ -195,7 +195,7 @@ export function AdminPanel({ open, onClose, snapshot, onCommand, initiallyUnlock
   if (!unlocked) {
     return (
       <div
-        className="fixed inset-0 z-[80] flex items-center justify-center bg-black/85 px-4"
+        className="fixed inset-0 z-[80] flex items-center justify-center bg-black/85 px-4 backdrop-blur-[3px]"
         role="presentation"
         onClick={onClose}
       >
@@ -285,7 +285,7 @@ export function AdminPanel({ open, onClose, snapshot, onCommand, initiallyUnlock
   const pickStats = pickBug !== "random" ? statsFor(pickBug, pickStar) : null;
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/78 sm:items-center sm:p-4" role="presentation" onClick={onClose}>
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/78 backdrop-blur-[3px] sm:items-center sm:p-4" role="presentation" onClick={onClose}>
       <section
         role="dialog"
         aria-modal="true"

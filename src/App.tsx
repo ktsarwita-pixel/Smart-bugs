@@ -1181,7 +1181,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => setGuideOpen(true)}
-                  className="lift flex items-center justify-center gap-2 border-2 border-[#4A3828] bg-[#18120E] px-5 py-3 font-pixel text-[10px] text-[#F0A93B] shadow-[0_5px_0_#0C0906] hover:border-[#F0A93B]"
+                  className="btn-sheen lift flex items-center justify-center gap-2 border-2 border-[#4A3828] bg-[#18120E] px-5 py-3 font-pixel text-[10px] text-[#F0A93B] shadow-[0_5px_0_#0C0906] hover:border-[#F0A93B]"
                 >
                   {t("HOW TO PLAY")}
                 </button>
@@ -1787,7 +1787,7 @@ export default function App() {
 
           {inCombat && battleSnap ? (
             /* ── BATTLE TELEMETRY DOCK ────────────────────────── */
-            <div className="flex flex-1 flex-col justify-between p-2.5 sm:p-3">
+            <div className="dock-in flex flex-1 flex-col justify-between p-2.5 sm:p-3">
               <div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="label text-[8px] text-[#56DCA8]">{t("COMBAT TELEMETRY")}</span>
@@ -1989,7 +1989,7 @@ export default function App() {
             </div>
           ) : (
             /* ── PREP COMMAND DOCK: Bench + Shop + Actions ─────── */
-            <div className="flex flex-1 flex-col justify-end">
+            <div className="dock-in flex flex-1 flex-col justify-end">
               {/* Bench Row (6 Slots) */}
               <div className="px-2 pt-1.5 pb-1.5 sm:px-3">
                 <div className="mb-1 flex items-center justify-between">
@@ -2247,7 +2247,7 @@ export default function App() {
 
       {/* Drawer Result Modal */}
       {phase === "result" && report && (
-        <div className="fixed inset-0 z-40 grid place-items-center bg-black/75 px-4 py-4" role="dialog" aria-modal="true" aria-labelledby="round-result-title">
+        <div className="fixed inset-0 z-40 grid place-items-center bg-black/75 px-4 py-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-labelledby="round-result-title">
           <div className="paper-card rise max-h-[92dvh] w-full max-w-[420px] overflow-y-auto border-2 border-[#241B14] p-4 shadow-[0_12px_0_rgba(0,0,0,.55)]">
             <div className="flex items-center justify-between">
               <span className="label text-[8px] text-[#8E2A16]">{tf("ROUND {n} REPORT", { n: round + 1 })}</span>

@@ -54,6 +54,8 @@ interface UnitObj {
   deadT: number;
   prevCast: number;
   prevCd: number;
+  /** 0→1 deploy pop when the voxel sculpt first mounts (instant if reduced motion) */
+  spawnT: number;
   activeDiveId: number | null;
   scale: number;
   el: HTMLElement;
@@ -1193,6 +1195,15 @@ export function Scene3D({
     const fitH = showcase ? 2.55 : 7.35;
     const elev = showcase ? 0.36 : 0.84;
     let camDist = 11;
+    // Fit distance for the current viewport. Entering a battle swaps the dock
+    // and resizes the stage mid-session; tick() eases the real distance toward
+    // this target so the reframing glides instead of jolting the camera.
+    let camDistTarget = 11;
+    // Flips once init completes. After that, frame() repaints immediately
+    // after every canvas resize — resizing a WebGL buffer clears it, and
+    // without this repaint the cleared frame shows as a dark flash exactly
+    // when the prep dock hands over to the battle dock.
+    let sceneReady = false;
 
     function frame() {
       W = hostEl.clientWidth || 360;
@@ -1201,8 +1212,9 @@ export function Scene3D({
       camera.aspect = W / H;
       const vFov = (camera.fov * Math.PI) / 180;
       const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
-      camDist = Math.max(fitH / 2 / Math.tan(vFov / 2), fitW / 2 / Math.tan(hFov / 2));
+      camDistTarget = Math.max(fitH / 2 / Math.tan(vFov / 2), fitW / 2 / Math.tan(hFov / 2));
       camera.updateProjectionMatrix();
+      if (sceneReady) renderer.render(scene, camera);
     }
     frame();
 
@@ -1586,6 +1598,7 @@ export function Scene3D({
         blurDisc,
         prevPhase: "grounded" as FlightPhase | "grounded",
         streakClock: 0,
+        spawnT: document.documentElement.dataset.motion === "reduced" ? 1 : 0,
         activeDiveId: null,
         scale: sc,
         ...tag,
@@ -1817,6 +1830,25 @@ export function Scene3D({
     ) {
       seen.add(uid);
       const u = ensureUnit(uid, id, star, side, rx, ry, cd);
+      if (u.spawnT < 1) {
+        const was = u.spawnT;
+        u.spawnT = Math.min(1, u.spawnT + dt * 3.4);
+        if (was === 0) {
+          // First frame after the sculpt mounted: a small soil puff, plus a
+          // brighter welcome when a unit materialises straight into battle.
+          if (battleOn) {
+            spawnRing(rx, ry, side === "ally" ? 0x4fd3a0 : 0xe0522f);
+            spawnDust(rx, ry, isCompact ? 6 : 9, 0xcbb596, 0.8);
+          } else {
+            spawnDust(rx, ry, 4, 0xbda98a, 0.5);
+          }
+        }
+        // easeOutBack pop: grows in with a tiny overshoot, then rests exactly
+        // at the unit's natural scale.
+        const k = u.spawnT;
+        const back = 1 + 2.70158 * Math.pow(k - 1, 3) + 1.70158 * Math.pow(k - 1, 2);
+        u.model.group.scale.setScalar(u.scale * (0.18 + 0.82 * back));
+      }
       const flight = id === "dragonfly" && dive && !dead
         ? sampleAirstrikeDive(dive, battleTime, sampledFlight)
         : undefined;
@@ -2130,6 +2162,7 @@ export function Scene3D({
       const el2 = elev - parallax.y * 0.07;
       impactShake = Math.max(0, impactShake - dt * 5.5);
       const shake = impactShake * impactShake;
+      camDist += (camDistTarget - camDist) * (1 - Math.exp(-dt * 4.5));
       camera.position.set(
         target.x + Math.sin(az) * Math.cos(el2) * camDist + Math.sin(t * 91) * shake * 0.075,
         target.y + Math.sin(el2) * camDist + Math.cos(t * 113) * shake * 0.05,
@@ -2439,6 +2472,7 @@ export function Scene3D({
       }
     };
     document.addEventListener("visibilitychange", onVis);
+    sceneReady = true;
     raf = requestAnimationFrame(tick);
 
     return () => {

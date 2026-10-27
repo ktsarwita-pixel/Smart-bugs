@@ -924,10 +924,11 @@ export function buildVoxelModel(id: string, star = 1): VoxModel {
   };
 }
 
-/** Pre-warm all 5 rigs so first battle/menu mount has zero hitch */
+/** Pre-warm every rig (all species × all star tiers) so the first battle —
+ *  including moulted 2★/3★ units fielded by rival bots — has zero hitch */
 export function warmVoxelCache() {
   for (const id of ["stag", "bomb", "mantis", "dragonfly", "matriarch", "lampyris", "worm"]) {
-    getCompiledRig(id, 1);
+    for (const star of [1, 2, 3]) getCompiledRig(id, star);
   }
 }
 

@@ -624,8 +624,8 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     // floated beside the body — "off and disconnected"). Both pairs share
     // one root height and one sweep rate, so all four blades read as a
     // single matched set instead of strokes pointing different ways.
-    leftArmPivot = [-2, 6.4, -0.6];
-    rightArmPivot = [2, 6.4, -0.6];
+    leftArmPivot = [-2, 6.8, -0.6];
+    rightArmPivot = [2, 6.8, -0.6];
     const paintWing = (S: VoxSculptor, side: number, zRoot: number, len: number) => {
       const zr = Math.round(zRoot);
       // Basalar pad: buried in the shell (|x| 1..2), plus a glinting joint.
@@ -637,7 +637,7 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
         const wx = side * (1 + i);
         const wz = zr + Math.round(i * 0.42); // one shared sweep rate
         const wy = 7 + (i >= len - 1 ? 1 : 0); // gentle tip dihedral
-        const half = i < 2 ? 2 : 1;
+        const half = 1;
         for (let dz = -half; dz <= half; dz++) {
           const lead = dz === -half; // the forward edge cuts the breeze
           const vein = (i + Math.abs(dz)) % 3 === 0;
@@ -648,8 +648,8 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     };
     for (const S of [leftArmS, rightArmS]) {
       const side = S === leftArmS ? -1 : 1;
-      paintWing(S, side, -2.2, 9); // fore pair — long blades
-      paintWing(S, side, 1.0, 7);  // hind pair — same plane, same sweep
+      paintWing(S, side, -1.6, 9); // fore pair — long blades
+      paintWing(S, side, 1.4, 7);  // hind pair — same plane, same sweep
     }
 
     crownPivot = [0, 9, -3];
@@ -735,22 +735,24 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     torsoS.ellipsoid(0, 3.0, 9.2, 1.2, 1.0, 1.1, (_x, y) =>
       y >= 3 ? { hex: plateLite } : { hex: skinMid },
     );
-    torsoS.set(0, 4, 10, "#FFE9C4", true);
+    torsoS.set(0, 4, 9, "#FFE9C4", true); // sits directly on the tail dome
 
     // Fresh spoil: a worked soil ring along the body, a lip ahead of the
     // face, and two stray pebbles.
+    // Ring hugs the body (max 1 voxel off the flank) so it reads as worked
+    // soil pushed out of the tunnel, not scattered debris.
     for (let _a = 0; _a < 14; _a++) {
       const _ang = (_a / 14) * Math.PI * 2;
-      const _mx = Math.round(Math.cos(_ang) * 5.5);
-      const _mz = Math.round(Math.sin(_ang) * 3.2) + 2;
+      const _mx = Math.round(Math.cos(_ang) * 4.2);
+      const _mz = Math.round(Math.sin(_ang) * 2.6) + 2;
       torsoS.set(_mx, 0, _mz, _a % 2 ? soilA : soilB);
-      if (_a % 3 === 0) torsoS.set(_mx, 1, _mz, soilA);
+      if (_a % 4 === 0) torsoS.set(_mx, 1, _mz, soilA);
     }
     torsoS.set(2, 0, -8, soilA);
     torsoS.set(-2, 0, -8, soilB);
-    torsoS.set(0, 0, -9, soilA);
-    torsoS.set(5, 0, 3, "#6B5F52");
-    torsoS.set(-5, 0, -2, "#57503F");
+    torsoS.set(0, 0, -8, soilA);
+    torsoS.set(4, 0, 4, "#6B5F52");
+    torsoS.set(-4, 0, -1, "#57503F");
 
     // Head: broad sclerotized capsule with a pale shovel face, a glowing
     // eye pair in dark sockets, and a lip plate — it bulldozes the tunnel.
@@ -763,7 +765,6 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
       if (Math.abs(x) >= 2 && y <= 1) return { hex: skinDark };
       return { hex: skinMid };
     });
-    headS.box(-2, 1, -8, 2, 1, -7, saddle2); // shovel lip
     headS.sym(2, 3, -6, "#FFE08C", true); // glowing eye pair
     headS.sym(2, 3, -5, skinDark); // eye sockets
 

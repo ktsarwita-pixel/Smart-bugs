@@ -222,7 +222,7 @@ export function animateInsectRig(
         // World-space flight lives on the holder. Animate the SAME specimen's
         // wings and legs inside it; never substitute a shell or a glow ball.
         const fold = flightPose.wingFold;
-        const flap = Math.sin(phase * 1.35) * (1 - fold) * 0.55;
+        const flap = Math.sin(phase * 1.35) * (1 - fold) * 0.3;
         p.rootY = 0;
         p.torsoX = 0;
         p.torsoY = 0;
@@ -246,8 +246,8 @@ export function animateInsectRig(
         p.torsoPosZ = -dart * 0.075;
         p.laY = -0.12 - dart * 0.75;
         p.raY = 0.12 + dart * 0.75;
-        p.laZ = -0.2 + Math.sin(phase) * 0.3;
-        p.raZ = 0.2 - Math.sin(phase) * 0.3;
+        p.laZ = -0.14 + Math.sin(phase) * 0.22;
+        p.raZ = 0.14 - Math.sin(phase) * 0.22;
         p.legsAX = -dart * 0.2;
         p.legsBX = -dart * 0.2;
       } else {
@@ -255,7 +255,7 @@ export function animateInsectRig(
         // The two wings are EXACT mirrors (same sine, mirrored sign) — the old
         // phase offsets left them visibly at different angles on the menu
         // turntable, reading as mismatched arrows instead of one beating pair.
-        const flap = Math.sin(phase) * 0.5;
+        const flap = Math.sin(phase) * 0.24;
         const sway = Math.sin(phase * 0.5) * 0.32;
         p.rootY = hover * 0.075 + 0.045;
         p.torsoX = 0.03 + Math.sin(t * 2.1 + uid) * 0.035;
@@ -265,8 +265,8 @@ export function animateInsectRig(
         p.headY = Math.sin(t * 1.1 + uid) * 0.12;
         p.laY = -0.16 + sway;
         p.raY = 0.16 - sway;
-        p.laZ = -0.26 + flap;
-        p.raZ = 0.26 - flap;
+        p.laZ = -0.14 + flap;
+        p.raZ = 0.14 - flap;
         p.legsAX = Math.sin(t * 3 + uid) * 0.06;
         p.legsBX = -Math.sin(t * 3 + uid) * 0.06;
       }

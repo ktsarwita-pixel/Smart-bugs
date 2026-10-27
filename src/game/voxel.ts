@@ -617,27 +617,26 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     headS.symLine(1, 7, -6, 2, 8, -7, bodyLite);
     headS.sym(2, 8, -7, glint);
 
-    // Wings — one mirrored painter, one aligned set. Every blade is rooted
-    // at |x| = 1, INSIDE the thorax shell, with a chunky basalar pad buried
-    // in the carapace, so the membrane visibly sprouts from the body (the
-    // old roots started at |x| = 2, just clear of the shell, so the wings
-    // floated beside the body — "off and disconnected"). Both pairs share
-    // one root height and one sweep rate, so all four blades read as a
-    // single matched set instead of strokes pointing different ways.
+    // Wings — one mirrored painter, one aligned set, ROSTER-SCALED. The old
+    // blades reached |x| = 11 (a huge moth-like canopy overhanging the
+    // turntable neighbours); odonate wings are long but NARROW. Blades now
+    // taper from a 3-wide root to a 1-wide tip (span |x| <= 8), share one
+    // root height and sweep rate, and sprout from pads buried inside the
+    // shell (paintWing paints by shared code, so L/R are exact mirrors).
     leftArmPivot = [-2, 6.8, -0.6];
     rightArmPivot = [2, 6.8, -0.6];
     const paintWing = (S: VoxSculptor, side: number, zRoot: number, len: number) => {
       const zr = Math.round(zRoot);
-      // Basalar pad: buried in the shell (|x| 1..2), plus a glinting joint.
+      // Basalar pad buried in the shell + a glinting joint at the root.
       const xa = side < 0 ? -2 : 1;
       const xb = side < 0 ? -1 : 2;
       S.box(xa, 7, zr - 1, xb, 7, zr + 1, bodyMid);
       S.set(side * 2, 7, zr, glow, true);
       for (let i = 0; i <= len; i++) {
         const wx = side * (1 + i);
-        const wz = zr + Math.round(i * 0.42); // one shared sweep rate
+        const wz = zr + Math.round(i * 0.5); // one shared sweep rate
         const wy = 7 + (i >= len - 1 ? 1 : 0); // gentle tip dihedral
-        const half = 1;
+        const half = i < 2 ? 1 : 0; // taper: 3-wide root -> 1-wide blade
         for (let dz = -half; dz <= half; dz++) {
           const lead = dz === -half; // the forward edge cuts the breeze
           const vein = (i + Math.abs(dz)) % 3 === 0;
@@ -648,8 +647,8 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     };
     for (const S of [leftArmS, rightArmS]) {
       const side = S === leftArmS ? -1 : 1;
-      paintWing(S, side, -1.6, 9); // fore pair — long blades
-      paintWing(S, side, 1.4, 7);  // hind pair — same plane, same sweep
+      paintWing(S, side, -1.6, 7); // fore pair — long blades
+      paintWing(S, side, 1.4, 5);  // hind pair — same plane, same sweep
     }
 
     crownPivot = [0, 9, -3];
@@ -692,12 +691,14 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     crownPivot = [0, 9, -2];
     maxY = 9;
   } else if (id === "worm") {
-    // REWORK v4 — "Deep Delver". A completely different silhouette: a LOW,
-    // HORIZONTAL armored grub tunneling forward on its belly — not the old
-    // upright worm pillar. A broad shovel-headed capsule with glowing eyes
-    // and hooked mandibles (the arm groups), eight plump chitin-plated
-    // segments with groove shading and a pale saddle, flank setae, and a
-    // curled glow-tipped tail, all riding a fresh soil mound.
+    // REWORK v5 — "Deep Delver", ROSTER-SCALED. The v4 grub was twice the
+    // size of every other specimen and its scattered spoil ring read as
+    // loose debris. Now ~60% of the footprint: 8 plated segments sitting ON
+    // a soil skirt that is face-welded to the flanks (nothing loose), a
+    // shovel head with predicate-painted glowing eyes, hooked mandibles
+    // rooted inside the dome, pale saddle, and a tail whose glow is painted
+    // BY the dome painter itself (a glow cell that is not a dome cell
+    // cannot exist — floating parts are structurally impossible).
     const skinDark = "#6E3D4A";
     const skinMid = "#A85E6E";
     const plateLite = "#D98A96";
@@ -707,92 +708,74 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     const soilA = "#4A3324";
     const soilB = "#3A281C";
 
-    // Eight plump segments, belly-down, nose at -z. Alternating plate bands
-    // with darker groove shading between them, a dorsal vessel dash, and a
-    // wet lateral shine. Segments 2-3 swell under the pale saddle.
+    // Eight plump segments, belly-down, nose at -z, alternating plate bands
+    // with groove shading and a wet lateral shine; segs 2-3 swell under the
+    // pale saddle. Setae + soil skirt are fused to the flanks in the same
+    // painter pass, one voxel out, so every added cell has a body neighbor.
     for (let seg = 0; seg < 8; seg++) {
-      const cz = -3.2 + seg * 1.55;
-      const rx = 3.3 - seg * 0.26 + (seg === 2 || seg === 3 ? 0.4 : 0);
+      const cz = -2.4 + seg * 1.12;
+      const rx = 2.35 - seg * 0.17 + (seg === 2 || seg === 3 ? 0.3 : 0);
       const even = seg % 2 === 0;
       const swollen = seg === 2 || seg === 3;
       const rxi = Math.round(rx);
-      torsoS.ellipsoid(0, 1.7, cz, rx, 1.75, 1.35, (x, y) => {
+      torsoS.ellipsoid(0, 1.55, cz, rx, 1.25, 1.0, (x, y) => {
         if (y < 0) return null;
-        if (x === 0 && y === 3 && even) return { hex: "#8A4A57" }; // vessel dash
-        if (y >= 3) return { hex: swollen ? saddle1 : even ? plateLite : skinMid };
-        if (Math.abs(x) >= rxi - 1 && y === 2) return { hex: shine }; // wet flank
-        if (y <= 1) return { hex: skinDark }; // belly ground against the soil
+        if (x === 0 && y === 2 && even) return { hex: "#8A4A57" }; // vessel dash
+        if (y >= 2) return { hex: swollen ? saddle1 : even ? plateLite : skinMid };
+        if (Math.abs(x) >= rxi - 1 && y === 1) return { hex: shine }; // wet flank
+        if (y === 0) return { hex: skinDark }; // belly against the soil
         return { hex: even ? skinMid : skinDark }; // groove shading
       });
-      // flank setae on every other segment — painted into the TORSO mesh so
-      // they are fused to the body. The old legs-mounted studs visibly
-      // detached whenever the legs groups rippled (connectivity audit: the
-      // cluster separated into its own floating component mid-cycle).
       if (seg % 2 === 1) {
-        torsoS.sym(rxi + 1, 2, Math.round(cz), "#8A5560");
+        torsoS.sym(rxi + 1, 1, Math.round(cz), "#8A5560"); // setae (fused)
+        torsoS.sym(rxi + 1, 0, Math.round(cz), seg % 2 ? soilA : soilB); // skirt (fused)
       }
     }
 
-    // Hidden filler cell exactly at each legs pivot — keeps the leg-group
-    // geometry non-empty with zero visible parts (a cell at the pivot cannot
-    // swing, so nothing mounted there can ever detach).
+    // Curled tail hook; the caudal glow is painted inside the dome painter.
+    torsoS.ellipsoid(0, 2.2, 6.6, 1.0, 0.95, 1.3, (_x, y, z) =>
+      y >= 3 && z >= 7
+        ? { hex: "#FFE9C4", glow: true } // caudal light ON the dome surface
+        : y >= 3
+          ? { hex: plateLite }
+          : { hex: skinMid },
+    );
+
+    // Head: broad shovel-faced capsule; eyes painted by predicate so they
+    // are always real dome cells. Face plate reads as the digging shovel.
+    headPivot = [0, 1.6, -4.0];
+    torsoPivot = [0, 1.6, 0.3];
+    headS.ellipsoid(0, 1.6, -4.2, 2.1, 1.55, 1.9, (x, y, z) => {
+      if (y < 0) return null;
+      if (Math.abs(x) === 2 && y === 2 && z <= -4) return { hex: "#FFE08C", glow: true }; // eyes
+      if (z <= -5.6 && y >= 1) return { hex: saddle1 }; // pale shovel face
+      if (y >= 3) return { hex: saddle2 }; // crowned plate
+      if (Math.abs(x) >= 2 && y === 0) return { hex: skinDark };
+      return { hex: skinMid };
+    });
+
+    // Hooked mandibles — rooted INSIDE the dome, then a face-adjacent chain:
+    // root -> out -> forward -> upturned hook tip. No single-cell nubs.
+    leftArmPivot = [-1, 1.6, -5];
+    rightArmPivot = [1, 1.6, -5];
+    leftArmS.set(-1, 2, -5, skinDark); // buried in the dome (interior)
+    leftArmS.set(-2, 2, -5, skinDark);
+    leftArmS.set(-3, 2, -5, skinDark);
+    leftArmS.set(-3, 2, -6, skinDark);
+    leftArmS.set(-3, 3, -6, saddle1); // hardened pale hook
+    rightArmS.set(1, 2, -5, skinDark);
+    rightArmS.set(2, 2, -5, skinDark);
+    rightArmS.set(3, 2, -5, skinDark);
+    rightArmS.set(3, 2, -6, skinDark);
+    rightArmS.set(3, 3, -6, saddle1);
+
+    // Hidden filler exactly at each legs pivot — keeps the leg groups
+    // non-empty with zero visible, swingable parts.
     legsAS.set(0, 2, 0, skinDark);
     legsBS.set(0, 2, 0, skinDark);
 
-    // Curled tail hook with a glowing caudal seta.
-    torsoS.ellipsoid(0, 3.0, 9.2, 1.2, 1.0, 1.1, (_x, y) =>
-      y >= 3 ? { hex: plateLite } : { hex: skinMid },
-    );
-    torsoS.set(0, 4, 9, "#FFE9C4", true); // sits directly on the tail dome
-
-    // Fresh spoil: a worked soil ring along the body, a lip ahead of the
-    // face, and two stray pebbles.
-    // Ring hugs the body (max 1 voxel off the flank) so it reads as worked
-    // soil pushed out of the tunnel, not scattered debris.
-    for (let _a = 0; _a < 14; _a++) {
-      const _ang = (_a / 14) * Math.PI * 2;
-      const _mx = Math.round(Math.cos(_ang) * 4.2);
-      const _mz = Math.round(Math.sin(_ang) * 2.6) + 2;
-      torsoS.set(_mx, 0, _mz, _a % 2 ? soilA : soilB);
-      if (_a % 4 === 0) torsoS.set(_mx, 1, _mz, soilA);
-    }
-    torsoS.set(4, 1, 3, "#6B5F52"); // pebble fused on a ring cell
-    torsoS.set(-4, 1, 1, "#57503F");
-    // Pebbles sit as y=1 bumps directly ON spoil-ring cells (fused). The old
-    // free pebbles and soil lip hovered beside the mound unsupported.
-
-    // Head: broad sclerotized capsule with a pale shovel face, a glowing
-    // eye pair in dark sockets, and a lip plate — it bulldozes the tunnel.
-    headPivot = [0, 2.2, -5.2];
-    torsoPivot = [0, 1.9, 0.4];
-    headS.ellipsoid(0, 2.2, -5.4, 2.7, 2.0, 2.3, (x, y, z) => {
-      if (y < 0) return null;
-      if (z <= -7 && y >= 2) return { hex: saddle1 }; // pale shovel face
-      if (y >= 3) return { hex: saddle2 }; // crowned plate
-      if (Math.abs(x) >= 2 && y <= 1) return { hex: skinDark };
-      return { hex: skinMid };
-    });
-    headS.sym(2, 3, -6, "#FFE08C", true); // glowing eye pair
-    headS.sym(2, 3, -5, skinDark); // eye sockets
-
-    // Hooked mandibles — the arm groups. They snip vertically, grub-style.
-    leftArmPivot = [-1.6, 2.6, -6.9];
-    rightArmPivot = [1.6, 2.6, -6.9];
-    // Two-voxel root seat overlapping the dome surface so the hook cannot
-    // swing free of the face when the head yaws; tip is a fused 2-cell hook.
-    leftArmS.set(-1, 3, -7, skinDark);
-    leftArmS.set(-2, 3, -7, skinDark);
-    leftArmS.line(-2, 3, -7, -3, 3, -8, skinDark);
-    leftArmS.set(-3, 3, -8, saddle1); // hardened pale tip
-    leftArmS.set(-3, 4, -8, skinDark); // upturned hook point
-    rightArmS.set(1, 3, -7, skinDark);
-    rightArmS.set(2, 3, -7, skinDark);
-    rightArmS.line(2, 3, -7, 3, 3, -8, skinDark);
-    rightArmS.set(3, 3, -8, saddle1);
-    rightArmS.set(3, 4, -8, skinDark);
-
-    crownPivot = [0, 5, 0];
-    maxY = 5;
+    crownPivot = [0, 3.6, 0];
+    maxY = 4;
     } else {
     // lampyris
     legsAS.singleLeg(-3, 2, -3, -5, 4, -4, -7, -5, "#323D2E", "#1B2219");

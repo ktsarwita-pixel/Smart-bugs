@@ -1248,3 +1248,64 @@ kbd {
 html[data-motion="reduced"] .dock-in {
   animation: none !important;
 }
+
+/* ── Round-start FIGHT flare ─────────────────────────────── */
+@keyframes fightWord {
+  0% {
+    opacity: 0;
+    transform: scale(2.6) rotate(-4deg);
+  }
+  22% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+  62% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.14);
+  }
+}
+@keyframes fightDim {
+  0% {
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.fight-flare {
+  background: radial-gradient(46% 34% at 50% 46%, rgba(6, 4, 3, 0.55), transparent 75%);
+  animation: fightDim 780ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.fight-flare__word {
+  font-size: clamp(22px, 7vw, 44px);
+  color: #fff3dc;
+  background: #8e2a16;
+  border: 3px solid #f0a93b;
+  padding: 0.5em 0.7em;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-shadow: 0 3px 0 #090604;
+  box-shadow:
+    0 6px 0 #4a150b,
+    0 0 34px rgba(240, 169, 59, 0.5),
+    0 18px 50px rgba(0, 0, 0, 0.85);
+  animation: fightWord 780ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fight-flare {
+    display: none;
+  }
+}
+html[data-motion="reduced"] .fight-flare {
+  display: none;
+}

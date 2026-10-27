@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Scene3D } from "./components/Scene3D";
+import { warmRoster } from "./game/voxel";
 import { SpecimenIcon, RankBadge } from "./components/SpecimenIcon";
 import { CodexModal } from "./components/CodexModal";
 import { RoundResults } from "./components/RoundResults";
@@ -437,6 +438,14 @@ export default function App() {
   const speedRef = useRef(speed);
   speedRef.current = speed;
 
+  /* ── Round pre-roll (MCGG-style) ─────────────────────────
+     ENGAGE builds the battle and hands it to the 3D scene while the sim is
+     still frozen: rigs are pre-warmed, shaders/shadows compile, and every
+     unit plays its materialise pop. Only after the pre-roll does the
+     combat loop start ticking — the fight never stutters at frame one. */
+  const [simLive, setSimLive] = useState(false);
+  const [fightFlash, setFightFlash] = useState(0);
+
   const engage = () => {
     if (phase !== "prep" || hp <= 0 || !roundFixture || match.winnerId) return;
     let activeBoard = boardUnits;
@@ -461,15 +470,19 @@ export default function App() {
     }
     const foe = makeFoeTeam(foeIdx, round);
     const initial = createBattle(activeBoard, foe, cmd ?? "matriarch", BOTS[foeIdx].cmd);
+    // Pre-render pass 1: guarantee every sculpt in this exact matchup exists
+    // BEFORE the scene draws its first frame of the fight.
+    warmRoster(initial.units);
     battleRef.current = initial;
     settledBattleRef.current = null;
     setBattleSnap({ ...initial });
     setSelected(null);
+    setSimLive(false);
     setPhase("battle");
   };
 
   useEffect(() => {
-    if (phase !== "battle") return;
+    if (phase !== "battle" || !simLive) return;
     let raf = 0;
     let acc = 0;
     let last = performance.now();
@@ -499,7 +512,18 @@ export default function App() {
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [phase]);
+  }, [phase, simLive]);
+
+  /* Pre-roll window: the scene renders the frozen battle (spawn pops, camera
+     glide, shader/shadow compile) before the first sim tick. */
+  useEffect(() => {
+    if (phase !== "battle" || simLive) return;
+    const t = window.setTimeout(() => {
+      setSimLive(true);
+      setFightFlash((n) => n + 1);
+    }, 640);
+    return () => window.clearTimeout(t);
+  }, [phase, simLive]);
 
   const over = battleSnap?.over ?? null;
 
@@ -2232,6 +2256,13 @@ export default function App() {
           )}
         </aside>
       </div>
+
+      {/* Round-start FIGHT flare (rendered once the sim actually starts) */}
+      {simLive && fightFlash > 0 && phase === "battle" && (
+        <div key={fightFlash} className="fight-flare pointer-events-none fixed inset-0 z-30 grid place-items-center" aria-hidden="true">
+          <span className="fight-flare__word font-pixel">{t("FIGHT")}</span>
+        </div>
+      )}
 
       {/* Toast Feedback */}
       {toast && (

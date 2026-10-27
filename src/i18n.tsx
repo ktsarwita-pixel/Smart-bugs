@@ -169,6 +169,7 @@ const ID: Record<string, string> = {
   "Colony ladder": "Tangga Koloni",
   "1 survivor wins": "1 koloni menang",
   "YOU": "ANDA",
+  "FIGHT": "BERTARUNG!",
   "FIGHTING": "MELAWAN",
   "VS": "VS",
   "ECHO": "GEMA",

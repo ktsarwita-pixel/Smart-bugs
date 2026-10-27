@@ -2027,9 +2027,14 @@ export function Scene3D({
           u.model.bodyMat.opacity = 1;
         }
         if (flash > 0) {
-          u.model.bodyMat.emissive.setRGB(flash * 2.1, flash * 1.5, flash * 1.0);
-        } else if (u.model.bodyMat.emissive.r !== 0) {
-          u.model.bodyMat.emissive.setRGB(0, 0, 0);
+          const eb = u.model.emissiveBase;
+          u.model.bodyMat.emissive.setRGB(flash * 2.1 + eb[0], flash * 1.5 + eb[1], flash * 1.0 + eb[2]);
+        } else {
+          const eb = u.model.emissiveBase;
+          const e = u.model.bodyMat.emissive;
+          if (e.r !== eb[0] || e.g !== eb[1] || e.b !== eb[2]) {
+            u.model.bodyMat.emissive.setRGB(eb[0], eb[1], eb[2]);
+          }
         }
         if (u.model.glowMat) {
           const pulse = 0.72 + Math.sin(t * 3.5 + uid) * 0.28;
@@ -2519,6 +2524,11 @@ export function Scene3D({
     };
     document.addEventListener("visibilitychange", onVis);
     sceneReady = true;
+    try {
+      renderer.compile(scene, camera);
+    } catch {
+      /* some drivers reject pre-compilation — the first frame will compile instead */
+    }
     raf = requestAnimationFrame(tick);
 
     return () => {

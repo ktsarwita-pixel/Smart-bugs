@@ -50,6 +50,9 @@ export interface VoxModel {
   rest: RigRest;
   bodyMat: THREE.MeshStandardMaterial;
   glowMat: THREE.MeshBasicMaterial | null;
+  /** Base emissive tint (3★ champions carry a warm inner sheen). Hit flashes
+   *  add on top of this and reset back to it — never to flat black. */
+  emissiveBase: [number, number, number];
   height: number;
   species: string;
   star: number;
@@ -851,11 +854,17 @@ export function buildVoxelModel(id: string, star = 1): VoxModel {
   const group = new THREE.Group();
 
   const finish = FINISH[id] ?? { roughness: 0.54, metalness: 0.12 };
+  // Star-tier carapace finish: a fresh moult reads glossier, and a 3★ champion
+  // carries a warm inner sheen — tiers are readable at a glance mid-battle,
+  // beyond the star pips and ground ring. Zero extra GPU cost per frame.
+  const tier = star >= 3 ? 2 : star === 2 ? 1 : 0;
+  const emissiveBase: [number, number, number] = tier === 2 ? [0.1, 0.05, 0.016] : [0, 0, 0];
   const bodyMat = new THREE.MeshStandardMaterial({
     vertexColors: true,
-    roughness: finish.roughness,
-    metalness: finish.metalness,
+    roughness: finish.roughness * (tier === 2 ? 0.62 : tier === 1 ? 0.8 : 1),
+    metalness: Math.min(0.85, finish.metalness + (tier === 2 ? 0.14 : tier === 1 ? 0.07 : 0)),
   });
+  if (tier === 2) bodyMat.emissive.setRGB(emissiveBase[0], emissiveBase[1], emissiveBase[2]);
 
   const glowMat = new THREE.MeshBasicMaterial({
     vertexColors: true,
@@ -914,6 +923,7 @@ export function buildVoxelModel(id: string, star = 1): VoxModel {
     rest,
     bodyMat,
     glowMat,
+    emissiveBase,
     height: rig.height,
     species: id,
     star,
@@ -945,6 +955,13 @@ export function warmVoxelCache() {
     if (i < rest.length) window.setTimeout(step, 60);
   };
   window.setTimeout(step, 350);
+}
+
+/** Build every (species, star) rig a specific battle needs — synchronously.
+ *  Called by ENGAGE with the exact round roster so no sculpt ever compiles
+ *  during the pre-roll; usually a no-op thanks to warmVoxelCache(). */
+export function warmRoster(units: ReadonlyArray<{ bugId: string; star: number }>) {
+  for (const u of units) getCompiledRig(u.bugId, u.star);
 }
 
 /** Soft radial dot used by fireflies and ground auras (procedural, no image files) */

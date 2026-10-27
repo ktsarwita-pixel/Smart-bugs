@@ -60,6 +60,7 @@ interface UnitObj {
   scale: number;
   el: HTMLElement;
   hpEl: HTMLElement;
+  hpSegEl: HTMLElement;
   manaEl: HTMLElement;
   pipsEl: HTMLElement;
   nameEl: HTMLElement;
@@ -67,6 +68,7 @@ interface UnitObj {
   lx: number;
   ly: number;
   lhp: number;
+  lmaxHp: number;
   lmana: number;
   lvis: number;
   lsel: boolean;
@@ -1506,12 +1508,13 @@ export function Scene3D({
       const el = document.createElement("div");
       el.className = "ov-unit";
       el.innerHTML =
-        '<div class="ov-bars"><div class="ov-hp"><i></i></div><div class="ov-mana"><i></i></div></div>' +
+        '<div class="ov-bars"><div class="ov-hp"><i></i><b class="ov-hp-seg"></b></div><div class="ov-mana"><i></i></div></div>' +
         '<div class="ov-pips"></div><div class="ov-name"></div>';
       ovEl.appendChild(el);
       return {
         el,
         hpEl: el.querySelector(".ov-hp i") as HTMLElement,
+        hpSegEl: el.querySelector(".ov-hp-seg") as HTMLElement,
         manaEl: el.querySelector(".ov-mana i") as HTMLElement,
         pipsEl: el.querySelector(".ov-pips") as HTMLElement,
         nameEl: el.querySelector(".ov-name") as HTMLElement,
@@ -1620,6 +1623,7 @@ export function Scene3D({
         lx: -999,
         ly: -999,
         lhp: -1,
+        lmaxHp: -1,
         lmana: -1,
         lvis: -1,
         lsel: false,
@@ -2117,6 +2121,18 @@ export function Scene3D({
         u.el.classList.toggle("ov-battle", battleOn);
       }
       if (battleOn) {
+        // MCGG-style segment ticks: one notch per 100 HP of the full bar.
+        // Rebuilt only when the max actually changes (star-up / new unit).
+        if (u.lmaxHp !== maxHp) {
+          u.lmaxHp = maxHp;
+          const segs = Math.round(maxHp / 100);
+          u.hpSegEl.innerHTML = "";
+          for (let k = 1; k < segs; k++) {
+            const tick = document.createElement("b");
+            tick.style.left = `${(k / segs) * 100}%`;
+            u.hpSegEl.appendChild(tick);
+          }
+        }
         const hpPct = Math.round(Math.max(0, Math.min(100, (hp / Math.max(1, maxHp)) * 100)));
         if (hpPct !== u.lhp) {
           u.lhp = hpPct;

@@ -222,13 +222,17 @@ export function animateInsectRig(
         // World-space flight lives on the holder. Animate the SAME specimen's
         // wings and legs inside it; never substitute a shell or a glow ball.
         const fold = flightPose.wingFold;
-        const flap = Math.sin(phase * 1.35) * (1 - fold) * 0.3;
+        // Odonate stroke: sharper down-stroke via a 2nd harmonic, tilt + twist.
+        const beat = phase * 1.35;
+        const flap = (1 - fold) * 0.3 * (Math.sin(beat) + 0.3 * Math.sin(beat * 2));
         p.rootY = 0;
         p.torsoX = 0;
         p.torsoY = 0;
         p.torsoZ = 0;
         p.headX = -0.06;
         p.headY = flightPose.phase === "approach" ? Math.sin(t * 7) * 0.18 : 0;
+        p.laX = 0.28 + (1 - fold) * 0.12 * Math.sin(beat + 1.2);
+        p.raX = 0.28 - (1 - fold) * 0.12 * Math.sin(beat + 1.2);
         p.laY = -0.12 - fold * 0.95;
         p.raY = 0.12 + fold * 0.95;
         p.laZ = -0.12 + flap;
@@ -244,10 +248,13 @@ export function animateInsectRig(
         p.torsoX = 0.22 + dart * 0.34;
         p.headX = -0.18 + dart * 0.12;
         p.torsoPosZ = -dart * 0.075;
+        p.laX = 0.28;
+        p.raX = 0.28;
         p.laY = -0.12 - dart * 0.75;
         p.raY = 0.12 + dart * 0.75;
-        p.laZ = -0.14 + Math.sin(phase) * 0.22;
-        p.raZ = 0.14 - Math.sin(phase) * 0.22;
+        const flap = 0.22 * (Math.sin(phase) + 0.3 * Math.sin(phase * 2));
+        p.laZ = -0.12 + flap;
+        p.raZ = 0.12 - flap;
         p.legsAX = -dart * 0.2;
         p.legsBX = -dart * 0.2;
       } else {
@@ -255,7 +262,12 @@ export function animateInsectRig(
         // The two wings are EXACT mirrors (same sine, mirrored sign) — the old
         // phase offsets left them visibly at different angles on the menu
         // turntable, reading as mismatched arrows instead of one beating pair.
-        const flap = Math.sin(phase) * 0.24;
+        // Odonate kinematics: fast shallow stroke with a sharper down-stroke
+        // (2nd harmonic), a tilted stroke plane (constant laX base), and a
+        // feathering twist ~90° out of phase — wing tips trace a figure-8,
+        // like a real dragonfly, instead of a pendular moth flap.
+        const flap = 0.3 * (Math.sin(phase) + 0.3 * Math.sin(phase * 2));
+        const twist = 0.12 * Math.sin(phase + 1.2);
         const sway = Math.sin(phase * 0.5) * 0.32;
         p.rootY = hover * 0.075 + 0.045;
         p.torsoX = 0.03 + Math.sin(t * 2.1 + uid) * 0.035;
@@ -263,6 +275,8 @@ export function animateInsectRig(
         p.torsoZ = Math.sin(t * 2.3 + uid) * 0.04;
         p.headX = Math.sin(t * 1.6 + uid) * 0.055;
         p.headY = Math.sin(t * 1.1 + uid) * 0.12;
+        p.laX = 0.28 + twist;
+        p.raX = 0.28 - twist;
         p.laY = -0.16 + sway;
         p.raY = 0.16 - sway;
         p.laZ = -0.14 + flap;

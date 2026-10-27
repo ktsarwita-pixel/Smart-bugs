@@ -724,12 +724,20 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
         if (y <= 1) return { hex: skinDark }; // belly ground against the soil
         return { hex: even ? skinMid : skinDark }; // groove shading
       });
-      // flank setae on every other segment — the legs groups ripple these
+      // flank setae on every other segment — painted into the TORSO mesh so
+      // they are fused to the body. The old legs-mounted studs visibly
+      // detached whenever the legs groups rippled (connectivity audit: the
+      // cluster separated into its own floating component mid-cycle).
       if (seg % 2 === 1) {
-        legsAS.set(rxi + 1, 2, Math.round(cz), "#8A5560");
-        legsBS.set(-(rxi + 1), 2, Math.round(cz), "#8A5560");
+        torsoS.sym(rxi + 1, 2, Math.round(cz), "#8A5560");
       }
     }
+
+    // Hidden filler cell exactly at each legs pivot — keeps the leg-group
+    // geometry non-empty with zero visible parts (a cell at the pivot cannot
+    // swing, so nothing mounted there can ever detach).
+    legsAS.set(0, 2, 0, skinDark);
+    legsBS.set(0, 2, 0, skinDark);
 
     // Curled tail hook with a glowing caudal seta.
     torsoS.ellipsoid(0, 3.0, 9.2, 1.2, 1.0, 1.1, (_x, y) =>
@@ -748,11 +756,10 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
       torsoS.set(_mx, 0, _mz, _a % 2 ? soilA : soilB);
       if (_a % 4 === 0) torsoS.set(_mx, 1, _mz, soilA);
     }
-    torsoS.set(2, 0, -8, soilA);
-    torsoS.set(-2, 0, -8, soilB);
-    torsoS.set(0, 0, -8, soilA);
-    torsoS.set(4, 0, 4, "#6B5F52");
-    torsoS.set(-4, 0, -1, "#57503F");
+    torsoS.set(4, 1, 3, "#6B5F52"); // pebble fused on a ring cell
+    torsoS.set(-4, 1, 1, "#57503F");
+    // Pebbles sit as y=1 bumps directly ON spoil-ring cells (fused). The old
+    // free pebbles and soil lip hovered beside the mound unsupported.
 
     // Head: broad sclerotized capsule with a pale shovel face, a glowing
     // eye pair in dark sockets, and a lip plate — it bulldozes the tunnel.
@@ -771,12 +778,18 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     // Hooked mandibles — the arm groups. They snip vertically, grub-style.
     leftArmPivot = [-1.6, 2.6, -6.9];
     rightArmPivot = [1.6, 2.6, -6.9];
-    leftArmS.line(-1.6, 2.6, -6.9, -2.6, 3.2, -8.2, skinDark);
-    leftArmS.set(-2.6, 3.2, -8.2, saddle1); // hardened pale tip
-    leftArmS.set(-1.4, 3.4, -7.8, skinDark); // inner tooth
-    rightArmS.line(1.6, 2.6, -6.9, 2.6, 3.2, -8.2, skinDark);
-    rightArmS.set(2.6, 3.2, -8.2, saddle1);
-    rightArmS.set(1.4, 3.4, -7.8, skinDark);
+    // Two-voxel root seat overlapping the dome surface so the hook cannot
+    // swing free of the face when the head yaws; tip is a fused 2-cell hook.
+    leftArmS.set(-1, 3, -7, skinDark);
+    leftArmS.set(-2, 3, -7, skinDark);
+    leftArmS.line(-2, 3, -7, -3, 3, -8, skinDark);
+    leftArmS.set(-3, 3, -8, saddle1); // hardened pale tip
+    leftArmS.set(-3, 4, -8, skinDark); // upturned hook point
+    rightArmS.set(1, 3, -7, skinDark);
+    rightArmS.set(2, 3, -7, skinDark);
+    rightArmS.line(2, 3, -7, 3, 3, -8, skinDark);
+    rightArmS.set(3, 3, -8, saddle1);
+    rightArmS.set(3, 4, -8, skinDark);
 
     crownPivot = [0, 5, 0];
     maxY = 5;

@@ -411,6 +411,23 @@
 .ov-foe .ov-hp i {
   background: linear-gradient(90deg, #962b16, #f05a36);
 }
+/* MCGG-style segment notches — one per 100 HP, embossed dark separators */
+.ov-hp-seg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.ov-hp-seg b {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(10, 7, 5, 0.78);
+  box-shadow: 1px 0 0 rgba(237, 226, 203, 0.18);
+}
+.ov-hp {
+  position: relative;
+}
 .ov-mana {
   height: 2.5px;
   background: #090705;

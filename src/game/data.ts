@@ -203,23 +203,31 @@ export const BUGS: Record<BugId, BugDef> = {
       e: "#FFF1AB",
       l: "#273843",
     },
+    // Top-down sprite. Every row is authored as a mirrored LEFT half, so
+    // left/right are exact reflections by construction — the old hand-typed
+    // rows had ragged lengths (14/15 chars) that shifted the padding and
+    // left the whole abdomen jogging off the thorax axis, which read as
+    // mismatched arrows with a detached tail on the menu tab strip.
+    // Wings: one clean horizontal sail pair rooted into the thorax — no
+    // free-floating strokes. pal keys: w/W wing, c/C teal, d/D deep navy,
+    // a amber stigma, e glow (eyes + tail tip).
     art: [
-      "...WW....WW...",
-      "..Www....wwW..",
-      ".Wwwww..wwwwW.",
-      "...ww......ww..",
-      "....WWeeWW....",
-      "....WwDDwW....",
-      "...ccDDDDcc...",
-      "..cccDDDDccc..",
-      "....cdddc......",
-      "....cdddc......",
-      ".....cddc......",
-      ".....cddc......",
-      "......cdc......",
-      "......cdc......",
-      ".......c.......",
-      ".......a.......",
+      "................",
+      "......c..c......",
+      "......cccc......",
+      "..W...ecce...W..",
+      ".aWW..ecce..WWa.",
+      ".wwWWWcDDcWWWww.",
+      "..wWW.cCCc.WWw..",
+      "......CCCC......",
+      "......dCCd......",
+      "......cddc......",
+      "......dCCd......",
+      "......cddc......",
+      ".......dd.......",
+      ".......aa.......",
+      ".......cc.......",
+      ".......ee.......",
     ].map((row) => {
       const pad = Math.max(0, 16 - row.length);
       return `${".".repeat(Math.floor(pad / 2))}${row}${".".repeat(Math.ceil(pad / 2))}`;
@@ -329,6 +337,11 @@ export const COMMANDERS: CmdDef[] = [
     accent: "#E8A0A8",
     perk: "Dig Hole",
     desc: "At battle start, digs a one-tile hole beneath the enemy's strongest bug. Any enemy stepping in is stunned 2s and made Vulnerable 2s, taking 1.5× damage.",
+    // REWORK v4 sprite — the armored grub from the new 3D sculpt: hooked
+    // mandibles (m), pale shovel head plate (P) with glowing eyes (e),
+    // chitin-plated segments (p) with dark rims (n), a pale saddle (h/H),
+    // flank setae (B) and a glowing tail tip. h/H are new pal keys so the
+    // saddle matches the 3D sculpt exactly.
     pal: {
       p: "#D98A96",
       P: "#F6C2C8",
@@ -337,24 +350,26 @@ export const COMMANDERS: CmdDef[] = [
       e: "#FFE08C",
       m: "#3D1B23",
       B: "#4A3324",
+      h: "#EFD0C6",
+      H: "#D9A99C",
     },
     art: [
-      "......pppp......",
-      ".....pPppPp.....",
-      "....ePPeePPe....",
-      "....pPssssPp....",
-      "...spppppppps...",
-      "...nmPmppmPmn...",
-      "...spppppppps...",
-      "....pps..spp....",
-      "...spppppppps...",
-      "....pps..spp....",
-      "...spppppppps...",
+      "................",
+      "...m........m...",
+      "...mmPPPPPPmm...",
+      "....nePPPPen....",
+      "....nPPnnPPn....",
+      "...pppppppppp...",
+      ".BnppppppppppnB.",
+      "..nhhhhhhhhhhn..",
+      "..nHHHhhhhHHHn..",
+      ".BnppppppppppnB.",
+      "...pppppppppp...",
       "....pppppppp....",
-      "...spppppppps...",
-      "..ppppsssspppp..",
-      ".spppppppppppps.",
-      "BBBBBBBBBBBBBBBB",
+      "....pppppppp....",
+      ".....pppppp.....",
+      "......pppp......",
+      ".......ee.......",
     ],
   },
 ];

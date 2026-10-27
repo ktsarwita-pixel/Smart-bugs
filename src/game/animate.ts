@@ -285,18 +285,21 @@ export function animateInsectRig(
         p.torsoS += hymn * 0.07;
       }
     } else if (id === "worm") {
-      // An annelid working its way out of the soil: the whole column sways,
-      // the head probes, the maw opens and closes.
-      const sway = Math.sin(t * 1.15 + uid);
-      p.torsoY = sway * 0.13;
-      p.torsoZ = Math.sin(t * 0.9 + uid * 1.3) * 0.06;
-      p.torsoX = 0.03 + Math.sin(t * 1.4 + uid) * 0.035;
-      p.torsoS = 1 + Math.sin(t * 1.9 + uid) * 0.05;      // body pulses as it moves
-      p.rootY = Math.sin(t * 1.5 + uid) * 0.022 + 0.01;
-      p.headX = Math.sin(t * 1.7 + uid) * 0.16 - 0.04;     // probing
-      p.headY = Math.sin(t * 1.05 + uid) * 0.2;
-      p.laZ = 0.12 + Math.sin(t * 2.2 + uid) * 0.16;
-      p.raZ = -0.12 - Math.sin(t * 2.2 + uid + 1.7) * 0.16;
+      // A low armored grub: peristaltic body pulse, the shovel head lifting
+      // and dropping as it bulldozes, hooked mandibles snipping in exact
+      // mirror, flank setae rippling.
+      const snip = Math.sin(t * 2.6 + uid);
+      p.torsoY = Math.sin(t * 1.15 + uid) * 0.04;
+      p.torsoZ = Math.sin(t * 0.8 + uid * 1.3) * 0.03;
+      p.torsoX = Math.sin(t * 1.3 + uid) * 0.03;
+      p.torsoS = 1 + Math.sin(t * 1.9 + uid) * 0.05; // peristalsis
+      p.rootY = Math.sin(t * 1.5 + uid) * 0.015 + 0.008;
+      p.headX = Math.sin(t * 1.2 + uid) * 0.1; // bulldozing lift
+      p.headY = Math.sin(t * 0.9 + uid) * 0.12;
+      // Mandibles: negative laZ RAISES the left hook, positive raZ the
+      // right — mirrored open/shut around zero.
+      p.laZ = -0.06 + snip * 0.1;
+      p.raZ = 0.06 - snip * 0.1;
       // a worm has no walking legs — its flank setae only ripple, never swing
       p.legsAX = Math.sin(t * 3.1 + uid) * 0.05;
       p.legsBX = -Math.sin(t * 3.1 + uid) * 0.05;
@@ -304,20 +307,22 @@ export function animateInsectRig(
       p.legsBY = 0;
       if (cp > 0) {
         const rear = Math.sin(cp * Math.PI);
-        p.torsoX = -rear * 0.26;                            // rears back to strike
-        p.headX = rear * 0.3;
-        p.rootY = 0.01 + rear * 0.05;
+        p.headX = rear * 0.26; // rears to strike
+        p.torsoPosZ = -rear * 0.05; // lurches forward
+        p.laZ = -0.06 - rear * 0.45; // mandibles gape wide
+        p.raZ = 0.06 + rear * 0.45;
       } else if (ap > 0.01) {
-        // rear up, then slam the maw down
+        // rear up, then chomp the shovel down
         const prog = 1 - ap;
         const wind = Math.min(1, prog / 0.35);
         const slam = prog > 0.35 ? Math.exp(-(prog - 0.35) * 6) : 0;
-        p.torsoX = -wind * 0.3 + slam * 0.38;
-        p.torsoPosZ = -wind * 0.04 + slam * 0.1;
-        p.headX = wind * 0.18 + slam * 0.42;                // drives the maw down
-        p.rootY = wind * 0.03 - slam * 0.02;
+        p.headX = wind * 0.22 + slam * 0.4; // drives the shovel down
+        p.torsoPosZ = -wind * 0.04 + slam * 0.09; // body lunges with it
+        p.laZ = -0.06 - wind * 0.45 + slam * 0.55; // gape wide, then clamp
+        p.raZ = 0.06 + wind * 0.45 - slam * 0.55;
+        p.rootY = wind * 0.02 - slam * 0.015;
       }
-    } else {
+        } else {
       // lampyris — wing covers part and flutter, lantern swells
       const flutter = cp > 0 || ap > 0.1;
       if (flutter) {

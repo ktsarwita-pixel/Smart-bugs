@@ -217,27 +217,31 @@ export const BUGS: Record<BugId, BugDef> = {
     // Wings: one clean horizontal sail pair rooted into the thorax — no
     // free-floating strokes. pal keys: w/W wing, c/C teal, d/D deep navy,
     // a amber stigma, e glow (eyes + tail tip).
+    // Top-down sprite, authored as a mirrored LEFT half (8 cols) so
+    // left/right are exact reflections by construction — hand-typed full
+    // rows caused the old ragged-length drift. v7 matches the Dartwing
+    // sculpt: fore wings swept up-out past the eyes, hind wings swept
+    // down-out (the odonate X), roots touching the thorax columns, long
+    // banded tail, glowing eyes + tail tip. pal keys: w/W wing, c/C teal,
+    // d/D deep navy, a amber stigma, e glow (eyes + tail tip).
     art: [
-      "................",
-      "......c..c......",
-      "......cccc......",
-      "..W...ecce...W..",
-      ".aWW..ecce..WWa.",
-      ".wwWWWcDDcWWWww.",
-      "..wWW.cCCc.WWw..",
-      "......CCCC......",
-      "......dCCd......",
-      "......cddc......",
-      "......dCCd......",
-      "......cddc......",
-      ".......dd.......",
-      ".......aa.......",
-      ".......cc.......",
-      ".......ee.......",
-    ].map((row) => {
-      const pad = Math.max(0, 16 - row.length);
-      return `${".".repeat(Math.floor(pad / 2))}${row}${".".repeat(Math.ceil(pad / 2))}`;
-    }),
+      "........",
+      ".W......",
+      ".wW.....",
+      "..aW..cc",
+      "...wWeCC",
+      "....weCC",
+      ".....wcC",
+      "....wwcc",
+      "...wW.cC",
+      "..aW..cC",
+      ".wW...dD",
+      ".W....cC",
+      ".......d",
+      ".......d",
+      ".......c",
+      ".......e",
+    ].map((half) => half + [...half].reverse().join("")),
   },
 };
 

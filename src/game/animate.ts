@@ -61,8 +61,12 @@ export function animateInsectRig(
     p.legsBX = 0.3 * Math.min(1, deadT * 3) - Math.sin(t * 26) * 0.1 * spasm;
     p.laX = 0.5;
     p.raX = 0.5;
-    p.laZ = -0.4;
-    p.raZ = 0.4;
+    // wings droop with the body but never fold over the spine — a large
+    // wing-local roll compounds with the body roll (~125° total on the
+    // dragonfly) and lays the right wing across its own back
+    const wingDeath = id === "dragonfly" ? 0.12 : 0.4;
+    p.laZ = -wingDeath;
+    p.raZ = wingDeath;
     p.headX = 0.35;
     p.rootY = -Math.min(0.1, deadT * 0.14) + Math.sin(roll) * (id === "worm" ? 0.75 : 0.3);
     p.torsoS = 1;
@@ -241,10 +245,10 @@ export function animateInsectRig(
         // sweep BACK and TILT UP into a V when folding (away from the head);
         // exact mirror pair. A flat back-sweep laid the blades across the
         // spine and through each other — the raised V keeps every cell clear.
-        p.laY = 0.12 + fold * 0.25;
-        p.raY = -0.12 - fold * 0.25;
-        p.laZ = -0.12 + flap - fold * 0.75;
-        p.raZ = 0.12 - flap + fold * 0.75;
+        p.laY = 0.12 + fold * 0.3;
+        p.raY = -0.12 - fold * 0.3;
+        p.laZ = -0.12 + flap - fold * 0.5;
+        p.raZ = 0.12 - flap + fold * 0.5;
         p.legsAX = -0.1 - fold * 0.05;
         p.legsBX = -0.1 - fold * 0.05;
         p.legsAY = 0;
@@ -253,16 +257,16 @@ export function animateInsectRig(
         // Needle-fast interception: folded wings, forward dart, braking flare.
         const dart = Math.sin((1 - ap) * Math.PI);
         p.rootY = hover * 0.035 + dart * 0.12;
-        p.torsoX = 0.22 + dart * 0.34;
+        p.torsoX = 0.16 + dart * 0.18;
         p.headX = -0.18 + dart * 0.12;
         p.torsoPosZ = -dart * 0.075;
         p.laX = 0.24 + dart * 0.1;
         p.raX = 0.24 - dart * 0.1;
-        p.laY = 0.12 + dart * 0.25;
-        p.raY = -0.12 - dart * 0.25;
+        p.laY = 0.12 + dart * 0.3;
+        p.raY = -0.12 - dart * 0.3;
         const flap = 0.18 * (Math.sin(phase) + 0.3 * Math.sin(phase * 2));
-        p.laZ = -0.12 + flap - dart * 0.75;
-        p.raZ = 0.12 - flap + dart * 0.75;
+        p.laZ = -0.12 + flap - dart * 0.5;
+        p.raZ = 0.12 - flap + dart * 0.5;
         p.legsAX = -dart * 0.1;
         p.legsBX = -dart * 0.1;
       } else {

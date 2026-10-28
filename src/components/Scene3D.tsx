@@ -1581,7 +1581,7 @@ export function Scene3D({
           blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
         }),
       );
-      blurDisc.position.y = 8 * V; // wing plane height from the voxel sculpt
+      blurDisc.position.y = 7 * V; // wing plane height from the voxel sculpt
       blurDisc.visible = false;
       inner.add(blurDisc);
 

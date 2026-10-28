@@ -552,142 +552,137 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     crownPivot = [0, 14, -5];
     maxY = 14;
   } else if (id === "dragonfly") {
-    // REWORK v3 — "Sky Lancer". House idiom: hunched banded thorax, long
-    // ringed abdomen, chunky glowing eye clusters, six singleLeg legs.
-    // Wings are painted by ONE mirrored helper so left and right are exact
-    // reflections — same size, same anchor, same sweep (the old mix of
-    // differently-sized membranes plus free-floating stroke lines read as
-    // arrows pointing in different directions on the menu turntable).
-    // Torso palette: teal-navy carapace with cyan enamel and a wet glint.
+    // REWORK v7 — "Dartwing". Every earlier pass pivoted the wings at the
+    // shell SURFACE (|x| = 2, y 8) and rested the root ON TOP of socket
+    // boxes, so attachment was only face-contact: from many camera angles
+    // the blades read as planks floating beside the body, and successive
+    // fixes kept adding boxes (shelves, sockets, caps) that built stepped
+    // towers on the thorax. v7 flips the approach — DEEP ROOT: the pivot
+    // lives INSIDE the thorax mass and the root chord starts at |x| = 1,
+    // so two voxels of every wing are inside the body at rest. No camera
+    // angle, flap phase, dart, or skill fold can detach a root that is
+    // embedded in the volume it flaps against. Blades curve away from the
+    // shoulder (fore pair swept forward, hind pair swept back — a real
+    // odonate X), 3-voxel chords at the root tapering to a single vein
+    // row, gently upswept, in glassy teal instead of flat white.
     const bodyDark = "#0E3A44";
     const bodyMid = "#177E8C";
     const bodyLite = "#35C2D6";
     const glint = "#BDF6FF";
     const glow = "#8FF0FA";
     const amber = "#F0A93B";
+    const membrane = "#C9F2FA";
+    const leading = "#EFFDFF";
 
-    // Six slender legs tucked high, teal over dark tibia.
-    legsAS.singleLeg(-2, 4, -2, -4, 5, -3, -6, -3, bodyMid, bodyDark);
-    legsAS.singleLeg(2, 4, 0, 4, 5, 0, 6, 0, bodyMid, bodyDark);
-    legsAS.singleLeg(-2, 4, 2, -4, 5, 3, -6, 4, bodyMid, bodyDark);
-    legsBS.singleLeg(2, 4, -2, 4, 5, -3, 6, -3, bodyMid, bodyDark);
-    legsBS.singleLeg(-2, 4, 0, -4, 5, 0, -6, 0, bodyMid, bodyDark);
-    legsBS.singleLeg(2, 4, 2, 4, 5, 3, 6, 4, bodyMid, bodyDark);
+    // Six slender legs tucked UNDER the wing plane — knees at y4 with no
+    // upward knee spike (singleLeg's y+1 knee ball would pierce the y6 wing
+    // row and read as clipped wings at rest). Femur + tibia lines only.
+    const dfLeg = (S: VoxSculptor, sx: number, hz: number, fz: number) => {
+      S.line(sx * 2, 3, hz, sx * 4, 3, hz, bodyMid); // horizontal femur
+      S.line(sx * 4, 3, hz, sx * 5, 0, fz, bodyDark); // straight tibia down
+      S.set(sx * 5, 0, fz, bodyDark);
+      S.set(sx * 5 + sx, 0, fz, bodyDark);
+    };
+    dfLeg(legsAS, -1, -2, -3);
+    dfLeg(legsAS, -1, 0, 0);
+    dfLeg(legsAS, -1, 2, 3);
+    dfLeg(legsBS, 1, -2, -3);
+    dfLeg(legsBS, 1, 0, 0);
+    dfLeg(legsBS, 1, 2, 3);
 
-    // Hunched thorax: dark belly seam, banded carapace, glowing shoulder plates.
-    torsoS.ellipsoid(0, 5.2, -0.4, 3.2, 2.4, 2.7, (x, y, z) => {
+    // Thorax: ONE smooth hunched ellipsoid — no collar/ridge/fairing/
+    // shelf/socket/cap stacks to read as a tower under each wing.
+    // Dark belly seam, teal flanks, glazed crest, luminous shoulder lamps.
+    torsoS.ellipsoid(0, 5.0, -0.2, 2.7, 2.2, 2.8, (x, y, _z) => {
       if (y <= 2) return null;
       if (y <= 3) return { hex: bodyDark };
-      if (x === 0 && y >= 6) return { hex: glint };
-      if (Math.abs(x) >= 3 && y >= 6) return { hex: bodyLite, glow: z < 0 };
+      if (x === 0 && y >= 7) return { hex: glint };
       if (y >= 6) return { hex: bodyLite };
-      if (y >= 5) return { hex: bodyMid };
-      return { hex: bodyMid };
+      return { hex: y >= 4 ? bodyMid : bodyDark };
     });
-    torsoS.box(-2, 6, -3, 2, 6, -2, bodyLite); // pronotum collar rim
-    torsoS.sym(3, 6, -1, glow, true); // luminous shoulder plates
-    torsoS.box(-1, 7, -3, 1, 7, 2, bodyLite); // dorsal wing-process ridge
-    torsoS.box(-1, 8, -3, 1, 8, 0, bodyLite); // fairing rises to the wing plane
-    // Wing root furniture — STATIC cells in the torso shell. The old basalar
-    // pads were painted into the WING part, so every stroke rotated them
-    // through the thorax crest (the "wings noclip into the body" bug). Now the
-    // shelf (y7) and sockets (y8) are part of the body, and the wing part
-    // holds only the blade, whose root column rests face-down on the sockets.
-    torsoS.box(-2, 7, -3, -2, 7, -1, bodyMid); // left basalar shelf
-    torsoS.box(2, 7, -3, 2, 7, -1, bodyMid); // right basalar shelf
-    torsoS.box(-2, 8, -2, -2, 8, 1, bodyLite); // left root sockets
-    torsoS.box(2, 8, -2, 2, 8, 1, bodyLite); // right root sockets
-    // Hinge caps (y9 lip over the fore-root zone): the skill's fold/twist
-    // raises the stroke plane and the eased root column lifts ~0.5 voxel off
-    // the sockets mid-airstrike — the cap keeps the lifting root covered by
-    // shell the whole time, so the wings can never read as detached.
-    torsoS.box(-2, 9, -3, -2, 9, -1, bodyLite); // left hinge cap
-    torsoS.box(2, 9, -3, 2, 9, -1, bodyLite); // right hinge cap
+    torsoS.sym(2, 6, -2, glow, true); // shoulder lamps
 
-    // Eight abdominal ring segments tapering to the tail — alternating enamel
-    // bands, a dark annulus on each joint, amber dorsal pinstripe studs.
+    // Eight abdominal rings sliding low behind the wings — alternating
+    // enamel bands, a dark annulus on each joint, amber dorsal studs.
     for (let i = 0; i < 8; i++) {
-      const z = 2.2 + i * 1.15;
-      const taper = 2.0 - i * 0.14;
-      const cy = 4.8 - i * 0.12;
+      const z = 1.8 + i * 1.05;
+      const taper = 2.1 - i * 0.16;
+      const cy = 5.0 - i * 0.13;
       const bandLite = i % 2 === 0;
-      torsoS.ellipsoid(0, cy, z, taper, 1.15 - i * 0.055, 0.9, (_x, y) => {
+      torsoS.ellipsoid(0, cy, z, taper, 1.2 - i * 0.05, 1.0, (_x, y) => {
         if (y <= 2) return null;
         if (y >= Math.round(cy) + 1) return { hex: bandLite ? glint : bodyLite };
         if (y === Math.round(cy)) return { hex: bodyDark };
         return { hex: bandLite ? bodyMid : "#12324A" };
       });
-      torsoS.set(0, Math.round(cy) + 1, Math.round(z), amber, i % 3 === 0);
+      // studs only on rings clear of the wing chord sweep (front rings sit
+      // in the hind-wing trailing arc — a pitched torso swings the stud
+      // into the membrane)
+      if (i >= 3 && i % 3 === 0) torsoS.set(0, Math.round(cy) + 1, Math.round(z), amber, true);
     }
     // Paired tail cerci + a glowing tip spike.
-    torsoS.symLine(1, 4, 11.4, 2, 5, 13.2, bodyLite);
+    torsoS.symLine(1, 4, 11.2, 2, 5, 13.0, bodyLite);
     torsoS.set(0, 5, 12, glint, true);
     torsoS.set(0, 5, 13, glow, true);
     torsoS.set(0, 5, 14, glow, true);
 
-    // Head: broad teal dome under a heavy brow, chunky glowing eye clusters
-    // (three facets per side like the stag's), short antenna clubs.
-    headPivot = [0, 6, -3.4];
+    // Head: broad teal dome under a heavy brow, chunky glowing eye
+    // clusters, short antenna clubs.
+    headPivot = [0, 6, -4.2];
     torsoPivot = [0, 4.9, 0.4];
-    headS.ellipsoid(0, 6, -4.6, 2.7, 1.9, 1.8, (_x, y) => ({
+    headS.ellipsoid(0, 6, -5.4, 2.7, 1.9, 1.8, (_x, y) => ({
       hex: y >= 7 ? bodyLite : bodyMid,
     }));
-    headS.box(-2, 7, -6, 2, 7, -5, bodyDark); // brow ridge
-    headS.sym(2, 7, -5, glow, true);
-    headS.sym(3, 7, -5, bodyLite, true);
-    headS.sym(3, 6, -5, bodyLite, true);
-    headS.sym(2, 6, -6, glow, true);
-    headS.set(0, 5, -6, bodyDark); // frons
-    headS.symLine(1, 7, -6, 2, 8, -7, bodyLite);
-    headS.sym(2, 8, -7, glint);
+    headS.box(-2, 7, -6.8, 2, 7, -5.8, bodyDark); // brow ridge
+    headS.sym(2, 7, -5.8, glow, true);
+    headS.sym(3, 7, -5.8, bodyLite, true);
+    headS.sym(3, 6, -5.8, bodyLite, true);
+    headS.sym(2, 6, -6.8, glow, true);
+    headS.set(0, 5, -6.8, bodyDark); // frons
+    headS.symLine(1, 7, -6.8, 2, 7, -7.6, bodyLite); // low antenna bristles
+    headS.sym(2, 7, -7.8, glint);
 
-    // Wings — one mirrored painter, one aligned set, ROSTER-SCALED. The old
-    // blades reached |x| = 11 (a huge moth-like canopy overhanging the
-    // turntable neighbours); odonate wings are long but NARROW. Blades taper
-    // from a 2-wide root to a 1-wide tip, share one root height and sweep
-    // rate, and sprout from the STATIC sockets painted into the torso above.
-    // BURIED HINGE: the pivot sits IN the blade row (y8 = shell-crest height)
-    // and the whole root chord (|x| = 2, z spanning the sockets) is buried in
-    // the thorax volume — the static sockets/shelves painted into the torso
-    // above. The root therefore cannot show daylight on the up-stroke (it has
-    // no free bottom edge) and cannot visibly slice the shell (any sweep stays
-    // inside the socket/shelf/fairing mass, audited per-frame by pw-clip.mjs).
-    // The blade row itself rides at the crest, one voxel lower than before —
-    // the old y9/y11 stack read as disconnected wings floating above the body.
-    leftArmPivot = [-2, 8, 0.4];
-    rightArmPivot = [2, 8, 0.4];
-    const paintWing = (S: VoxSculptor, side: number, zRoot: number, len: number) => {
+    // DEEP-ROOT WINGS — one mirrored painter so left and right stay exact
+    // reflections. Root cells i = 0..1 are INSIDE the shell (|x| = 1..2,
+    // at the wing row y6 the thorax spans |x| <= 2 for |z| <= ~2), so the
+    // visible blade always grows out of body mass. ROSTER-SCALED: tips
+    // reach |x| = 7, well inside the old |x| = 8+ moth canopy.
+    leftArmPivot = [-1.5, 5.5, -0.4];
+    rightArmPivot = [1.5, 5.5, -0.4];
+    const paintWing = (
+      S: VoxSculptor,
+      side: number,
+      zRoot: number,
+      len: number,
+      sweep: number
+    ) => {
       const zr = Math.round(zRoot);
-      S.set(side * 2, 8, zr, glow, true); // glinting joint on the socket
       for (let i = 0; i <= len; i++) {
-        const wx = side * (2 + i);
-        const wz = zr + Math.round(i * 0.5); // one shared sweep rate
-        const wy = 8 + (i >= len - 1 ? 1 : 0); // tip row kicks up a voxel
-        // chord: 2-wide near the root tapering to a single vein row — the old
-        // taper marked every outer cell as leading edge, flattening the whole
-        // blade to one bright white plane.
-        const half = i < 3 ? 1 : 0;
+        const wx = side * (1 + i); // i = 0 starts inside the shell
+        const wz = zr + Math.round(i * sweep); // curved sweep
+        const wy = 6 + (i >= len - 1 ? 1 : 0); // only the tip cell kicks up
+        // petiole: odonate wings attach via a NARROW stalk then widen —
+        // i = 0 is a single cell, i = 1..2 carry the 3-wide chord, then taper
+        const half = i > 0 && i < 3 ? 1 : 0;
         for (let dz = -half; dz <= half; dz++) {
-          const lead = half > 0 && dz === -half; // forward cell cuts the breeze
-          const trail = half > 0 && dz === half; // trailing edge takes the tint
-          const vein = (i + Math.abs(dz)) % 3 === 0;
-          const hex = lead ? "#EFFDFF" : trail ? "#C9EEF9" : vein ? "#9FDCEC" : "#DFF7FF";
-          S.set(wx, wy, wz + dz, hex, lead && i <= 2);
+          // solid glassy membrane: bright cutwater at the root, leading
+          // edge caught by light, soft teal-dark trailing edge for shape
+          let hex = membrane;
+          if (dz === -half) hex = i <= 2 || i >= len - 2 ? leading : "#DCF6FC";
+          else if (dz === half && half > 0) hex = "#A8E2F0";
+          S.set(wx, wy, wz + dz, hex, i === 0);
         }
-        if (i === len - 2) S.set(wx, wy, wz - half, amber, true); // stigma
+        if (i === len - 2) S.set(wx, wy, wz, amber, true); // stigma
       }
     };
     for (const S of [leftArmS, rightArmS]) {
       const side = S === leftArmS ? -1 : 1;
-      // root post buried one voxel BELOW the blade row, inside the pocket —
-      // keeps the hinge covered through the whole stroke
-      S.box(side * 2, 7, -3, side * 2, 7, 1, bodyMid);
-      paintWing(S, side, -1.6, 6); // fore pair — long blades
-      paintWing(S, side, 0.4, 4);  // hind pair — same plane, same sweep
+      paintWing(S, side, -0.2, 6, 0.35); // fore pair — long, swept gently back
+      paintWing(S, side, 1.4, 5, 0.62); // hind pair — shorter, swept harder back
     }
 
-    crownPivot = [0, 9, -3];
-    maxY = 10;
+    crownPivot = [0, 8, -3];
+    maxY = 8;
   } else if (id === "matriarch") {
     legsAS.singleLeg(-3, 2, -3, -6, 4, -4, -7, -5, "#6E4B2E", "#3D2817");
     legsAS.singleLeg(4, 2, 0, 7, 4, 0, 8, 1, "#6E4B2E", "#3D2817");
@@ -883,6 +878,7 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     crownS.set(0, crownPivot[1] + 3, crownPivot[2] + 1, "#F0A93B");
   }
 
+  (globalThis as any).__sculptDebug = { torsoS, headS, leftArmS, rightArmS, legsAS, legsBS };
   return {
     torso: compilePart(torsoS, torsoPivot),
     head: compilePart(headS, headPivot),

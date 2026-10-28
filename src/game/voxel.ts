@@ -667,7 +667,7 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
         // i = 0 is a single cell, i = 1..2 carry the wide chord, then taper.
         // narrow (hind pair): 2-wide chord, leading-biased — the full-width
         // trailing corners collided with abdomen rings i2/i3 in the death roll.
-        const half = i > 0 && i < 3 ? 1 : 0;
+        const half = i > 0 && i < (narrow ? 3 : 4) ? 1 : 0;
         const trail = half > 0 && !narrow;
         for (let dz = -half; dz <= (trail ? half : half - 1); dz++) {
           // solid glassy membrane: bright cutwater at the root, leading
@@ -685,8 +685,8 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
       // fore pair on row y6, hind pair a full row LOWER (y5) with a clear
       // z-channel between the root chords — the old same-row layout made
       // both blades touch at z1..2 and read as one fused plank
-      paintWing(S, side, -0.4, 6, 0.35, 6); // fore pair — long, swept gently back
-      paintWing(S, side, 1.8, 5, 0.62, 5, true); // hind pair — lower row, swept back
+      paintWing(S, side, -0.4, 7, 0.35, 6); // fore pair — long, swept gently back
+      paintWing(S, side, 1.8, 6, 0.62, 5, true); // hind pair — lower row, swept back
     }
 
     crownPivot = [0, 8, -3];
@@ -759,7 +759,10 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
       const ry = 2.7 - t * 0.9;                        // 2.7 -> 1.8
       const even = seg % 2 === 0;
       const rxi = Math.round(rx);
-      torsoS.ellipsoid(0, ry, cz, rx, ry, 1.2, (x, y, z) => {
+      // deep tail rings: the last three overlap their neighbour by more than
+      // half a cell so the tapering tail never reads as detached blobs
+      const rz = seg >= 6 ? 1.6 : 1.2;
+      torsoS.ellipsoid(0, ry, cz, rx, ry, rz, (x, y, z) => {
         if (y < 0) return null;
         const zz = z - cz;
         // dorsal vessel dash along the spine of even segments
@@ -800,6 +803,18 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
       // dark cheek/belly contact
       if (Math.abs(x) >= 2 && y <= 1) return { hex: skinDark };
       return { hex: skinMid };
+    });
+
+    // Seam seal: drop dome cells in the rear half whose rim lies outside
+    // segment 0's footprint — those slivers poked out of the body flank and
+    // visibly slid against it whenever the head reared or bulldozed. The
+    // neck is now carried by ring0's own surface and every head rotation
+    // happens on sub-surface volume.
+    headS.map.forEach((_cell, k) => {
+      const x = unpackX(k), y = unpackY(k), z = unpackZ(k);
+      if (z < -5.3) return;
+      const dx = x / 3.8, dy = (y - 2.7) / 2.7, dz = (z + 4.2) / 1.2;
+      if (dx * dx + dy * dy + dz * dz > 0.98) headS.map.delete(k);
     });
 
     // Hooked jaw chains — five cells each, the two roots buried INSIDE the

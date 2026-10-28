@@ -15,7 +15,7 @@ interface Pose {
   laX: number; laY: number; laZ: number;
   raX: number; raY: number; raZ: number;
   legsAX: number; legsBX: number; legsAY: number; legsBY: number;
-  crownY: number; rootY: number;
+  crownY: number; rootY: number; rootPosZ: number;
 }
 
 export function animateInsectRig(
@@ -40,7 +40,7 @@ export function animateInsectRig(
     headX: 0, headY: 0, headZ: 0, headPosY: 0, headPosZ: 0,
     laX: 0, laY: 0, laZ: 0, raX: 0, raY: 0, raZ: 0,
     legsAX: 0, legsBX: 0, legsAY: 0, legsBY: 0,
-    crownY: 0, rootY: 0,
+    crownY: 0, rootY: 0, rootPosZ: 0,
   };
 
   const ap = lunge;                                  // attack 1 → 0
@@ -52,7 +52,10 @@ export function animateInsectRig(
        wing tips and curled legs REST on the tile instead of slicing
        through it (the old 99° roll buried the worm's flank and the
        dragonfly's wing tips half a voxel deep in the floor). */
-    const rollCap = id === "worm" ? 0.7 : 0.9;
+    // the worm's 0.7 roll swung the front body ring ~2.9 voxels against the
+    // stationary head dome (slicing the seam open) — the grub now dies with
+    // a tiny settle-tilt inside the seam margin instead
+    const rollCap = id === "worm" ? 0.06 : 0.9;
     const roll = Math.min(rollCap, deadT * 4.4);
     const spasm = Math.max(0, 1 - deadT * 1.6);
     p.torsoZ = roll;
@@ -228,7 +231,7 @@ export function animateInsectRig(
     } else if (id === "dragonfly") {
       // A four-winged hover, not a ground run. The fore and hind wing pairs
       // beat slightly out of phase to give the silhouette a recognizable hum.
-      const phase = t * 42 + uid * 0.41;
+      const phase = t * 36 + uid * 0.41;
       const hover = Math.abs(Math.sin(phase * 0.5));
       if (flightPose) {
         // World-space flight lives on the holder. Animate the SAME specimen's
@@ -281,10 +284,10 @@ export function animateInsectRig(
         // (2nd harmonic), a tilted stroke plane (constant laX base), and a
         // feathering twist ~90° out of phase — wing tips trace a figure-8,
         // like a real dragonfly, instead of a pendular moth flap.
-        const flap = 0.16 * (Math.sin(phase) + 0.3 * Math.sin(phase * 2));
-        const twist = 0.06 * Math.sin(phase + 1.2);
+        const flap = 0.3 * (Math.sin(phase) + 0.25 * Math.sin(phase * 2));
+        const twist = 0.07 * Math.sin(phase + 1.2);
         // narrow, BACK-biased yaw: tips never sweep forward over the head
-        const sway = Math.sin(phase * 0.5) * 0.1;
+        const sway = Math.sin(phase * 0.5) * 0.12;
         p.rootY = hover * 0.075 + 0.045;
         // body dips a hair against each down-stroke and rolls with the sway —
         // real odonates tilt while hovering, not just the wings
@@ -343,18 +346,23 @@ export function animateInsectRig(
       if (cp > 0) {
         const rear = Math.sin(cp * Math.PI);
         p.headX = rear * 0.26; // rears to strike
-        p.torsoPosZ = -rear * 0.05; // lurches forward
-        p.laZ = -0.06 - rear * 0.45; // mandibles gape wide
-        p.raZ = 0.06 + rear * 0.45;
+        p.rootPosZ = -rear * 0.05; // whole-model lurch (torsoPosZ slid the
+        // body forward under the stationary head, ramming ring0 into the dome)
+        // gape OUTWARD (positive laZ swings the left hook out+down; the old
+        // negative sign drove the hooks through the shovel face)
+        p.laZ = -0.06 + rear * 0.45;
+        p.raZ = 0.06 - rear * 0.45;
       } else if (ap > 0.01) {
         // rear up, then chomp the shovel down
         const prog = 1 - ap;
         const wind = Math.min(1, prog / 0.35);
         const slam = prog > 0.35 ? Math.exp(-(prog - 0.35) * 6) : 0;
-        p.headX = wind * 0.22 + slam * 0.4; // drives the shovel down
-        p.torsoPosZ = -wind * 0.04 + slam * 0.09; // body lunges with it
-        p.laZ = -0.06 - wind * 0.45 + slam * 0.55; // gape wide, then clamp
-        p.raZ = 0.06 + wind * 0.45 - slam * 0.55;
+        p.headX = wind * 0.22 + slam * 0.2; // drives the shovel down (pitch
+        // capped — deeper slams swung the dome rim through ring0's face)
+        p.rootPosZ = -wind * 0.04 + slam * 0.09; // whole-model lunge
+        // gape out, then pinch slightly past rest = the chomp
+        p.laZ = -0.06 + wind * 0.45 - slam * 0.55;
+        p.raZ = 0.06 - wind * 0.45 + slam * 0.55;
         p.rootY = wind * 0.02 - slam * 0.015;
       }
         } else {
@@ -390,7 +398,15 @@ export function animateInsectRig(
       p.headPosZ += flash * 0.16;
       // capped so the worm's shovel nose cannot pitch below the tile top
       p.headX -= flash * 0.15;
-      p.torsoX -= flash * 0.18;
+      // the worm flinches as a WHOLE model (rootY bump) — any torso pitch or
+      // head back-slide swings the front ring / dome rear through the seam
+      // (head and torso are sibling groups; nothing carries the seam along)
+      if (id !== "worm") {
+        p.torsoX -= flash * 0.18;
+      } else {
+        p.headPosZ = 0;
+        p.rootY -= flash * 0.035;
+      }
     }
   }
 
@@ -428,4 +444,5 @@ export function animateInsectRig(
 
   m.crown.position.y = R.crown.y + ease(m.crown.position.y - R.crown.y, p.crownY, kBody);
   m.group.position.y = flightPose ? baseY : ease(m.group.position.y, baseY + p.rootY, kBody);
+  m.group.position.z = ease(m.group.position.z, p.rootPosZ, kBody);
 }

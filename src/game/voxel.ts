@@ -597,6 +597,12 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     torsoS.box(2, 7, -3, 2, 7, -1, bodyMid); // right basalar shelf
     torsoS.box(-2, 8, -2, -2, 8, 1, bodyLite); // left root sockets
     torsoS.box(2, 8, -2, 2, 8, 1, bodyLite); // right root sockets
+    // Hinge caps (y9 lip over the fore-root zone): the skill's fold/twist
+    // raises the stroke plane and the eased root column lifts ~0.5 voxel off
+    // the sockets mid-airstrike — the cap keeps the lifting root covered by
+    // shell the whole time, so the wings can never read as detached.
+    torsoS.box(-2, 9, -3, -2, 9, -1, bodyLite); // left hinge cap
+    torsoS.box(2, 9, -3, 2, 9, -1, bodyLite); // right hinge cap
 
     // Eight abdominal ring segments tapering to the tail — alternating enamel
     // bands, a dark annulus on each joint, amber dorsal pinstripe studs.

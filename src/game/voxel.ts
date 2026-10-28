@@ -654,17 +654,22 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
       side: number,
       zRoot: number,
       len: number,
-      sweep: number
+      sweep: number,
+      row: number,
+      narrow = false
     ) => {
       const zr = Math.round(zRoot);
       for (let i = 0; i <= len; i++) {
         const wx = side * (1 + i); // i = 0 starts inside the shell
         const wz = zr + Math.round(i * sweep); // curved sweep
-        const wy = 6 + (i >= len - 1 ? 1 : 0); // only the tip cell kicks up
+        const wy = row + (i >= len - 1 ? 1 : 0); // only the tip cell kicks up
         // petiole: odonate wings attach via a NARROW stalk then widen —
-        // i = 0 is a single cell, i = 1..2 carry the 3-wide chord, then taper
+        // i = 0 is a single cell, i = 1..2 carry the wide chord, then taper.
+        // narrow (hind pair): 2-wide chord, leading-biased — the full-width
+        // trailing corners collided with abdomen rings i2/i3 in the death roll.
         const half = i > 0 && i < 3 ? 1 : 0;
-        for (let dz = -half; dz <= half; dz++) {
+        const trail = half > 0 && !narrow;
+        for (let dz = -half; dz <= (trail ? half : half - 1); dz++) {
           // solid glassy membrane: bright cutwater at the root, leading
           // edge caught by light, soft teal-dark trailing edge for shape
           let hex = membrane;
@@ -677,8 +682,11 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     };
     for (const S of [leftArmS, rightArmS]) {
       const side = S === leftArmS ? -1 : 1;
-      paintWing(S, side, -0.2, 6, 0.35); // fore pair — long, swept gently back
-      paintWing(S, side, 1.4, 5, 0.62); // hind pair — shorter, swept harder back
+      // fore pair on row y6, hind pair a full row LOWER (y5) with a clear
+      // z-channel between the root chords — the old same-row layout made
+      // both blades touch at z1..2 and read as one fused plank
+      paintWing(S, side, -0.4, 6, 0.35, 6); // fore pair — long, swept gently back
+      paintWing(S, side, 1.8, 5, 0.62, 5, true); // hind pair — lower row, swept back
     }
 
     crownPivot = [0, 8, -3];
@@ -775,12 +783,17 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     // Head: broad shovel-faced dome — glowing eye pair and pale face plate
     // painted by the dome painter itself (a glow cell that is not a dome
     // cell cannot exist, so floating parts are structurally impossible).
-    headPivot = [0, 2.4, -5.0];
+    // Dome is now slightly narrower (2.7) and sits 0.4 forward: at the old
+    // size its rear flanks (half-width 2.9) were WIDER than body segment 0
+    // (~2.8 at the seam), so the buried part poked out and visibly slid
+    // against the body whenever the head yawed — the "moving voxels
+    // clipping" report. Inside the body mass, no relative slide can show.
+    headPivot = [0, 2.4, -5.4];
     torsoPivot = [0, 2.2, 0.3];
-    headS.ellipsoid(0, 2.4, -5.0, 2.9, 2.2, 2.4, (x, y, z) => {
+    headS.ellipsoid(0, 2.4, -5.4, 2.7, 2.2, 2.4, (x, y, z) => {
       if (y < 0) return null;
       // glowing eye pair, set into the dome flanks
-      if (Math.abs(x) === 2 && y === 3 && z <= -5.0) return { hex: "#FFE08C", glow: true };
+      if (Math.abs(x) === 2 && y === 3 && z <= -5.4) return { hex: "#FFE08C", glow: true };
       // pale shovel face + crowned plate
       if (z <= -6.8 && y >= 1) return { hex: saddle1 };
       if (y >= 4) return { hex: saddle2 };

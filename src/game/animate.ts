@@ -59,8 +59,11 @@ export function animateInsectRig(
     p.headZ = roll * 1.15;
     p.legsAX = 0.3 * Math.min(1, deadT * 3) + Math.sin(t * 26) * 0.1 * spasm;
     p.legsBX = 0.3 * Math.min(1, deadT * 3) - Math.sin(t * 26) * 0.1 * spasm;
-    p.laX = 0.5;
-    p.raX = 0.5;
+    // dragonfly: fold wings UP at the back in death (negative laX lifts the
+    // +z hind blade; positive swung it DOWN into the abdomen rings — the
+    // root cause of every death-frame wing clip)
+    p.laX = id === "dragonfly" ? -0.45 : 0.5;
+    p.raX = p.laX;
     // wings droop with the body but never fold over the spine — a large
     // wing-local roll compounds with the body roll (~125° total on the
     // dragonfly) and lays the right wing across its own back
@@ -225,7 +228,7 @@ export function animateInsectRig(
     } else if (id === "dragonfly") {
       // A four-winged hover, not a ground run. The fore and hind wing pairs
       // beat slightly out of phase to give the silhouette a recognizable hum.
-      const phase = t * 34 + uid * 0.41;
+      const phase = t * 42 + uid * 0.41;
       const hover = Math.abs(Math.sin(phase * 0.5));
       if (flightPose) {
         // World-space flight lives on the holder. Animate the SAME specimen's
@@ -278,10 +281,10 @@ export function animateInsectRig(
         // (2nd harmonic), a tilted stroke plane (constant laX base), and a
         // feathering twist ~90° out of phase — wing tips trace a figure-8,
         // like a real dragonfly, instead of a pendular moth flap.
-        const flap = 0.26 * (Math.sin(phase) + 0.3 * Math.sin(phase * 2));
-        const twist = 0.08 * Math.sin(phase + 1.2);
+        const flap = 0.16 * (Math.sin(phase) + 0.3 * Math.sin(phase * 2));
+        const twist = 0.06 * Math.sin(phase + 1.2);
         // narrow, BACK-biased yaw: tips never sweep forward over the head
-        const sway = Math.sin(phase * 0.5) * 0.18;
+        const sway = Math.sin(phase * 0.5) * 0.1;
         p.rootY = hover * 0.075 + 0.045;
         // body dips a hair against each down-stroke and rolls with the sway —
         // real odonates tilt while hovering, not just the wings
@@ -324,8 +327,10 @@ export function animateInsectRig(
       p.torsoX = Math.sin(t * 1.3 + uid) * 0.03;
       p.torsoS = 1 + Math.sin(t * 1.9 + uid) * 0.05; // peristalsis
       p.rootY = Math.sin(t * 1.5 + uid) * 0.015 + 0.008;
-      p.headX = Math.sin(t * 1.2 + uid) * 0.1; // bulldozing lift
-      p.headY = Math.sin(t * 0.9 + uid) * 0.12;
+      // +0.02 bias keeps the shovel chin above the floor at the low end
+      // (the old symmetric +-0.1 dug the front face ~0.2 voxel deep)
+      p.headX = 0.02 + Math.sin(t * 1.2 + uid) * 0.07; // bulldozing lift
+      p.headY = Math.sin(t * 0.9 + uid) * 0.08;
       // Mandibles: negative laZ RAISES the left hook, positive raZ the
       // right — mirrored open/shut around zero.
       p.laZ = -0.06 + snip * 0.1;

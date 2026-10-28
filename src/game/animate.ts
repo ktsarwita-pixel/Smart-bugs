@@ -47,19 +47,24 @@ export function animateInsectRig(
   const cp = cast > 0 ? Math.min(1, 1 - cast / 0.55) : 0; // skill 0 → 1
 
   if (dead) {
-    /* ── defeat: legs curl, body convulses, then rolls onto its back ── */
-    const roll = Math.min(Math.PI * 0.55, deadT * 4.4);
+    /* ── defeat: legs curl, body convulses, then rolls onto its side ──
+       The roll is capped and the body is lifted as it rolls, so flanks,
+       wing tips and curled legs REST on the tile instead of slicing
+       through it (the old 99° roll buried the worm's flank and the
+       dragonfly's wing tips half a voxel deep in the floor). */
+    const rollCap = id === "worm" ? 0.7 : 0.9;
+    const roll = Math.min(rollCap, deadT * 4.4);
     const spasm = Math.max(0, 1 - deadT * 1.6);
     p.torsoZ = roll;
     p.headZ = roll * 1.15;
-    p.legsAX = 0.85 * Math.min(1, deadT * 3) + Math.sin(t * 26) * 0.22 * spasm;
-    p.legsBX = 0.85 * Math.min(1, deadT * 3) - Math.sin(t * 26) * 0.22 * spasm;
-    p.laX = 0.7;
-    p.raX = 0.7;
-    p.laZ = -0.5;
-    p.raZ = 0.5;
+    p.legsAX = 0.3 * Math.min(1, deadT * 3) + Math.sin(t * 26) * 0.1 * spasm;
+    p.legsBX = 0.3 * Math.min(1, deadT * 3) - Math.sin(t * 26) * 0.1 * spasm;
+    p.laX = 0.5;
+    p.raX = 0.5;
+    p.laZ = -0.4;
+    p.raZ = 0.4;
     p.headX = 0.35;
-    p.rootY = -Math.min(0.1, deadT * 0.14);
+    p.rootY = -Math.min(0.1, deadT * 0.14) + Math.sin(roll) * (id === "worm" ? 0.75 : 0.3);
     p.torsoS = 1;
   } else {
     /* ── shared life: breathing abdomen + curious head ── */
@@ -240,8 +245,8 @@ export function animateInsectRig(
         p.raY = -0.12 - fold * 0.25;
         p.laZ = -0.12 + flap - fold * 0.75;
         p.raZ = 0.12 - flap + fold * 0.75;
-        p.legsAX = -0.35 - fold * 0.2;
-        p.legsBX = -0.35 - fold * 0.2;
+        p.legsAX = -0.1 - fold * 0.05;
+        p.legsBX = -0.1 - fold * 0.05;
         p.legsAY = 0;
         p.legsBY = 0;
       } else if (ap > 0.01) {
@@ -258,8 +263,8 @@ export function animateInsectRig(
         const flap = 0.18 * (Math.sin(phase) + 0.3 * Math.sin(phase * 2));
         p.laZ = -0.12 + flap - dart * 0.75;
         p.raZ = 0.12 - flap + dart * 0.75;
-        p.legsAX = -dart * 0.2;
-        p.legsBX = -dart * 0.2;
+        p.legsAX = -dart * 0.1;
+        p.legsBX = -dart * 0.1;
       } else {
         // Stationary hover: wings hum at speed; the rudder abdomen counter-steers.
         // The two wings are EXACT mirrors (same sine, mirrored sign) — the old
@@ -374,7 +379,8 @@ export function animateInsectRig(
     /* ── struck: head snaps back along the body ── */
     if (flash > 0) {
       p.headPosZ += flash * 0.16;
-      p.headX -= flash * 0.3;
+      // capped so the worm's shovel nose cannot pitch below the tile top
+      p.headX -= flash * 0.15;
       p.torsoX -= flash * 0.18;
     }
   }

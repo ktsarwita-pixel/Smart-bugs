@@ -640,23 +640,23 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     // turntable neighbours); odonate wings are long but NARROW. Blades taper
     // from a 2-wide root to a 1-wide tip, share one root height and sweep
     // rate, and sprout from the STATIC sockets painted into the torso above.
-    // Pivot two voxels ABOVE the blade row (y11): the stroke's rotation center
-    // sits over the wing, not through it, so cube corners of the root chord
-    // dip well under a tenth of a voxel at full stroke instead of shearing a
-    // quarter voxel into the sockets. The root column starts AT the pivot x
-    // (±2) and the WHOLE root chord FORWARD of the pivot z (+0.4), so the
-    // twist (laX > 0) can only LIFT the root — no phase of the stroke can
-    // drop, sweep, or twist the root into the shell (verified per-frame by
-    // the continuous OBB audit, pw-clip.mjs).
-    leftArmPivot = [-2, 11, 0.4];
-    rightArmPivot = [2, 11, 0.4];
+    // BURIED HINGE: the pivot sits IN the blade row (y8 = shell-crest height)
+    // and the whole root chord (|x| = 2, z spanning the sockets) is buried in
+    // the thorax volume — the static sockets/shelves painted into the torso
+    // above. The root therefore cannot show daylight on the up-stroke (it has
+    // no free bottom edge) and cannot visibly slice the shell (any sweep stays
+    // inside the socket/shelf/fairing mass, audited per-frame by pw-clip.mjs).
+    // The blade row itself rides at the crest, one voxel lower than before —
+    // the old y9/y11 stack read as disconnected wings floating above the body.
+    leftArmPivot = [-2, 8, 0.4];
+    rightArmPivot = [2, 8, 0.4];
     const paintWing = (S: VoxSculptor, side: number, zRoot: number, len: number) => {
       const zr = Math.round(zRoot);
-      S.set(side * 2, 9, zr, glow, true); // glinting joint on the socket
+      S.set(side * 2, 8, zr, glow, true); // glinting joint on the socket
       for (let i = 0; i <= len; i++) {
         const wx = side * (2 + i);
         const wz = zr + Math.round(i * 0.5); // one shared sweep rate
-        const wy = 9 + (i >= len - 1 ? 1 : 0); // tip row kicks up a voxel
+        const wy = 8 + (i >= len - 1 ? 1 : 0); // tip row kicks up a voxel
         // chord: 2-wide near the root tapering to a single vein row — the old
         // taper marked every outer cell as leading edge, flattening the whole
         // blade to one bright white plane.
@@ -673,6 +673,9 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     };
     for (const S of [leftArmS, rightArmS]) {
       const side = S === leftArmS ? -1 : 1;
+      // root post buried one voxel BELOW the blade row, inside the pocket —
+      // keeps the hinge covered through the whole stroke
+      S.box(side * 2, 7, -3, side * 2, 7, 1, bodyMid);
       paintWing(S, side, -1.6, 6); // fore pair — long blades
       paintWing(S, side, 0.4, 4);  // hind pair — same plane, same sweep
     }

@@ -601,6 +601,14 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
       return { hex: y >= 4 ? bodyMid : bodyDark };
     });
     torsoS.sym(2, 6, -2, glow, true); // shoulder lamps
+    // Wing-root fairings: at wing height the ellipsoid flank ends near
+    // |z| ~ 1.7, which left the hind root chord (z 2..3) hanging off the
+    // flank — read as wings noclipping the body. These plates enclose both
+    // root chords in real shell volume (and read as odonate wing-base plates).
+    torsoS.box(-3, 5, -1, -2, 7, 3, bodyMid);
+    torsoS.box(2, 5, -1, 3, 7, 3, bodyMid);
+    torsoS.set(-3, 7, 2, bodyLite); // fairing glints
+    torsoS.set(3, 7, 2, bodyLite);
 
     // Eight abdominal rings sliding low behind the wings — alternating
     // enamel bands, a dark annulus on each joint, amber dorsal studs.
@@ -805,6 +813,19 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
       return { hex: skinMid };
     });
 
+    // Neck-corner shave: ring0's top-front edge cells sit exactly where the
+    // dome's upper rim sweeps on every nod/chomp. Carve the whole corner
+    // band — but ONLY cells the head dome provably covers (same ellipsoid
+    // test), so the silhouette cannot change; the carve is sub-surface.
+    for (let cx = -2; cx <= 2; cx++) {
+      for (let cy = 3; cy <= 4; cy++) {
+        for (let cz = -6; cz <= -4; cz++) {
+          const dx = cx / 2.7, dy = (cy - 2.4) / 2.2, dz = (cz + 5.4) / 2.4;
+          if (dx * dx + dy * dy + dz * dz <= 1) torsoS.map.delete(keyOf(cx, cy, cz));
+        }
+      }
+    }
+
     // Seam seal: drop dome cells in the rear half whose rim lies outside
     // segment 0's footprint — those slivers poked out of the body flank and
     // visibly slid against it whenever the head reared or bulldozed. The
@@ -839,6 +860,44 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     // non-empty with zero visible, swingable parts.
     legsAS.set(0, 2, 0, skinDark);
     legsBS.set(0, 2, 0, skinDark);
+
+    // Neck-corner shave, part 2: the ring0 shoulder-top corner cells stand
+    // proud beside the dome rim and every jaw swing / head bob grazes them
+    // (audit-proven across stun, death and idle). Flanked by the dome rim
+    // (±1,4,−5), the dome flank (±2,3,−5) and the body flank (±3,3,−4),
+    // their removal reads as a smooth neck crease.
+    torsoS.map.delete(keyOf(2, 4, -5));
+    torsoS.map.delete(keyOf(-2, 4, -5));
+    torsoS.map.delete(keyOf(2, 4, -4));
+    torsoS.map.delete(keyOf(-2, 4, -4));
+    torsoS.map.delete(keyOf(1, 4, -4));
+    torsoS.map.delete(keyOf(-1, 4, -4));
+    // Neck-corner shave, part 3: the ring0 y2 corner row interlocks
+    // diagonally with the dome's lower rim and the jaw chains — idle
+    // pulse/roll closed those diagonals (0.05-0.08 vox). Carve the row
+    // (±0..2, 2, −5/−4): every cell is deep-interior (ellipsoid ≤ 0.72)
+    // and sealed — the dome overhangs the column from the front, the belly
+    // row (y1) from below. The neck now parts cleanly: dome rim at z −5/−6,
+    // next body surface at z −3.
+    for (const cx of [-2, -1, 0, 1, 2]) {
+      torsoS.map.delete(keyOf(cx, 2, -5));
+      torsoS.map.delete(keyOf(cx, 2, -4));
+    }
+    // part 4: the belly's top-front corner row (±1..0, 1, −5) sat diagonal
+    // to the dome's lower-front rim — same closure class. Sealed by the
+    // belly row (±1..0, 1, −4) behind, flank (±2,1,−5) beside and the
+    // chin-front (±1,1,−6) ahead; the dome overhangs it from above.
+    for (const cx of [-1, 0, 1]) {
+      torsoS.map.delete(keyOf(cx, 1, -5));
+    }
+
+    // NECK-ANCHOR the torso transform: peristalsis (torsoS) scaled about the
+    // old body-center pivot swung ring0's neck corner ±0.24 vox into the
+    // dome every pulse — the 20-wave "head noclips the body" read. Sculpt
+    // keys are absolute world-vox, so RE-ANCHORING the pivot alone moves no
+    // geometry: the pulse now travels down the segments while the seam
+    // stays still.
+    torsoPivot = [0, 4.2, -4.7];
 
     crownPivot = [0, 6.4, -1];
     maxY = 7;

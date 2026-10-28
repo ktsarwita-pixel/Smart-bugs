@@ -55,7 +55,7 @@ export function animateInsectRig(
     // the worm's 0.7 roll swung the front body ring ~2.9 voxels against the
     // stationary head dome (slicing the seam open) — the grub now dies with
     // a tiny settle-tilt inside the seam margin instead
-    const rollCap = id === "worm" ? 0.06 : 0.9;
+    const rollCap = id === "worm" ? 0.06 : id === "dragonfly" ? 0.55 : 0.9;
     const roll = Math.min(rollCap, deadT * 4.4);
     const spasm = Math.max(0, 1 - deadT * 1.6);
     p.torsoZ = roll;
@@ -65,15 +65,22 @@ export function animateInsectRig(
     // dragonfly: fold wings UP at the back in death (negative laX lifts the
     // +z hind blade; positive swung it DOWN into the abdomen rings — the
     // root cause of every death-frame wing clip)
-    p.laX = id === "dragonfly" ? -0.45 : 0.5;
+    // worm: any death arm pitch (0.5 original, 0.1 later) swung the exposed
+    // hook tips into the body — the grub's mandibles freeze at rest and the
+    // death read is carried by the roll + sink
+    p.laX = id === "worm" ? 0 : id === "dragonfly" ? -0.45 : 0.5;
     p.raX = p.laX;
     // wings droop with the body but never fold over the spine — a large
     // wing-local roll compounds with the body roll (~125° total on the
     // dragonfly) and lays the right wing across its own back
-    const wingDeath = id === "dragonfly" ? 0.12 : 0.4;
+    // worm: the death fold swings the jaw hooks through the dome — the grub
+    // keeps its mandibles near rest; the dragonfly's wings fold a little
+    const wingDeath = id === "dragonfly" ? 0.12 : id === "worm" ? 0 : 0.4;
     p.laZ = -wingDeath;
     p.raZ = wingDeath;
-    p.headX = 0.35;
+    // worm: the 0.35 death nod drove the dome's lower rim through ring0 —
+    // the grub keeps its head inside the sealed socket
+    p.headX = id === "worm" ? 0.06 : 0.35;
     p.rootY = -Math.min(0.1, deadT * 0.14) + Math.sin(roll) * (id === "worm" ? 0.75 : 0.3);
     p.torsoS = 1;
   } else {
@@ -287,7 +294,7 @@ export function animateInsectRig(
         const flap = 0.3 * (Math.sin(phase) + 0.25 * Math.sin(phase * 2));
         const twist = 0.07 * Math.sin(phase + 1.2);
         // narrow, BACK-biased yaw: tips never sweep forward over the head
-        const sway = Math.sin(phase * 0.5) * 0.12;
+        const sway = Math.sin(phase * 0.5) * 0.1;
         p.rootY = hover * 0.075 + 0.045;
         // body dips a hair against each down-stroke and rolls with the sway —
         // real odonates tilt while hovering, not just the wings
@@ -332,12 +339,14 @@ export function animateInsectRig(
       p.rootY = Math.sin(t * 1.5 + uid) * 0.015 + 0.008;
       // +0.02 bias keeps the shovel chin above the floor at the low end
       // (the old symmetric +-0.1 dug the front face ~0.2 voxel deep)
-      p.headX = 0.02 + Math.sin(t * 1.2 + uid) * 0.07; // bulldozing lift
-      p.headY = Math.sin(t * 0.9 + uid) * 0.08;
-      // Mandibles: negative laZ RAISES the left hook, positive raZ the
-      // right — mirrored open/shut around zero.
-      p.laZ = -0.06 + snip * 0.1;
-      p.raZ = 0.06 - snip * 0.1;
+      p.headX = 0.02 + Math.sin(t * 1.2 + uid) * 0.06; // bulldozing lift
+      p.headY = Math.sin(t * 0.9 + uid) * 0.05;
+      // Mandibles snip by flaring OUTWARD from authored rest (positive laZ /
+      // negative raZ = outward). Zero rest offset is load-bearing: the hook
+      // chains sit face-adjacent to the dome flank, so ANY inward phase
+      // grinds them (the old snip drove a tip 0.32 vox through it).
+      p.laZ = Math.max(0, snip) * 0.2;
+      p.raZ = -Math.max(0, snip) * 0.2;
       // a worm has no walking legs — its flank setae only ripple, never swing
       p.legsAX = Math.sin(t * 3.1 + uid) * 0.05;
       p.legsBX = -Math.sin(t * 3.1 + uid) * 0.05;
@@ -345,24 +354,29 @@ export function animateInsectRig(
       p.legsBY = 0;
       if (cp > 0) {
         const rear = Math.sin(cp * Math.PI);
-        p.headX = rear * 0.26; // rears to strike
+        // worm: the seam cells are face-adjacent — ANY rear pitch slides the
+        // dome rim onto ring0 (0.6 vox). The hiss reads through the jaw gape
+        // + whole-model lurch instead, both seam-safe.
+        p.headX = id === "worm" ? 0 : rear * 0.26; // rears to strike
         p.rootPosZ = -rear * 0.05; // whole-model lurch (torsoPosZ slid the
         // body forward under the stationary head, ramming ring0 into the dome)
-        // gape OUTWARD (positive laZ swings the left hook out+down; the old
-        // negative sign drove the hooks through the shovel face)
-        p.laZ = -0.06 + rear * 0.45;
-        p.raZ = 0.06 - rear * 0.45;
+        // gape OUTWARD from authored rest (positive laZ = left hook out;
+        // any negative/inward base ground the chain into the dome flank)
+        p.laZ = rear * 0.45;
+        p.raZ = -rear * 0.45;
       } else if (ap > 0.01) {
         // rear up, then chomp the shovel down
         const prog = 1 - ap;
         const wind = Math.min(1, prog / 0.35);
         const slam = prog > 0.35 ? Math.exp(-(prog - 0.35) * 6) : 0;
-        p.headX = wind * 0.22 + slam * 0.2; // drives the shovel down (pitch
-        // capped — deeper slams swung the dome rim through ring0's face)
-        p.rootPosZ = -wind * 0.04 + slam * 0.09; // whole-model lunge
-        // gape out, then pinch slightly past rest = the chomp
-        p.laZ = -0.06 + wind * 0.45 - slam * 0.55;
-        p.raZ = 0.06 - wind * 0.45 + slam * 0.55;
+        // worm: even the capped pitch slides the dome rim onto ring0's
+        // corner (0.6 vox) — the grub chomps with jaws + lunge only
+        p.headX = id === "worm" ? 0 : wind * 0.18 + slam * 0.06;
+        p.rootPosZ = -wind * 0.04 + slam * (id === "worm" ? 0.13 : 0.09); // whole-model lunge
+        // gape out, then the chomp closes back TO rest — never past it
+        // (the hooks have zero inward clearance against the dome flank)
+        p.laZ = wind * 0.45 * (1 - slam);
+        p.raZ = -wind * 0.45 * (1 - slam);
         p.rootY = wind * 0.02 - slam * 0.015;
       }
         } else {
@@ -386,11 +400,28 @@ export function animateInsectRig(
 
     /* ── stun overrides the head with a dizzy roll ── */
     if (stun > 0) {
-      p.headY = Math.sin(t * 8.5) * 0.38;
-      p.headZ = Math.cos(t * 8.5) * 0.22;
-      p.laZ = Math.sin(t * 22) * 0.14;
-      p.raZ = -Math.sin(t * 22) * 0.14;
-      p.torsoZ = Math.sin(t * 6) * 0.06;
+      const dizzy = Math.sin(t * 8.5);
+      if (id === "worm") {
+        // the dome sits in a sealed neck socket — yaw-swinging it 0.38 rad
+        // ground the rim across ring0's surface (visible noclip). A stunned
+        // grub wobbles as a whole and the head stays inside the seal.
+        p.headY = dizzy * 0.05;
+        p.headZ = 0;
+        // no torso roll here: with the idle head bob it closed the diagonal
+        // gap between the jaw chains and ring0's neck corner (0.08 vox)
+        p.torsoZ = 0;
+        p.rootY = Math.cos(t * 6) * 0.012;
+        // stunned mandibles buzz OUTWARD from authored rest — same rule as
+        // the idle snip: the hook chains have zero inward clearance
+        p.laZ = Math.max(0, Math.sin(t * 22)) * 0.2;
+        p.raZ = -Math.max(0, Math.sin(t * 22)) * 0.2;
+      } else {
+        p.headY = dizzy * 0.38;
+        p.headZ = Math.cos(t * 8.5) * 0.22;
+        p.laZ = Math.sin(t * 22) * 0.14;
+        p.raZ = -Math.sin(t * 22) * 0.14;
+        p.torsoZ = Math.sin(t * 6) * 0.06;
+      }
     }
 
     /* ── struck: head snaps back along the body ── */

@@ -206,7 +206,7 @@ export const BUGS: Record<BugId, BugDef> = {
       d: "#17506F",
       D: "#102F4C",
       a: "#E9A352",
-      e: "#FFF1AB",
+      e: "#A9FFF4",
       l: "#273843",
     },
     // Top-down sprite. Every row is authored as a mirrored LEFT half, so
@@ -225,14 +225,15 @@ export const BUGS: Record<BugId, BugDef> = {
     // banded tail, glowing eyes + tail tip. pal keys: w/W wing, c/C teal,
     // d/D deep navy, a amber stigma, e glow (eyes + tail tip).
     art: [
-      // v8: bold 2px odonate X — fore wings sweep up-out, hind wings
-      // down-out, each with an amber stigma; 4-wide head (glow eyes) and
-      // thorax, banded tail tapering to a glowing tip. Mirrored half.
+      // v9: bold 2px odonate X — fore wings sweep up-out, hind wings
+      // down-out, each with an amber stigma; 4-wide head with a 3-tall
+      // glowing aqua compound eye, banded tail tapering to a glowing
+      // tip. Mirrored half.
       "........",
       ".W......",
       ".aW...eC",
       "..Ww..eC",
-      "...Ww.cC",
+      "...Ww.eC",
       "....WwcC",
       ".....ccC",
       "....wWcC",

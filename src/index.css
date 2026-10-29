@@ -1326,3 +1326,105 @@ html[data-motion="reduced"] .dock-in {
 html[data-motion="reduced"] .fight-flare {
   display: none;
 }
+
+/* ═══ WAVE 26 — UI REWORK: arrows, buttons, responsiveness ═══ */
+
+/* ── Cabinet navigation arrows (main menu 3D stage) ────────────
+   Brass-edged pixel buttons with a real pressed state. The centering
+   uses the `translate` property (NOT a Tailwind transform) so the
+   :active nudge composes instead of fighting the framework. */
+.nav-arrow {
+  top: 50%;
+  translate: 0 -50%;
+  display: grid;
+  place-items: center;
+  height: 40px;
+  width: 40px;
+  color: #ede2cb;
+  background: linear-gradient(180deg, #2a2018 0%, #14100c 62%);
+  border: 2px solid #4a3828;
+  box-shadow:
+    0 3px 0 #090604,
+    inset 0 1px 0 rgba(255, 226, 170, 0.16);
+  transition:
+    translate 80ms steps(2),
+    border-color 110ms steps(2),
+    color 110ms steps(2),
+    box-shadow 80ms steps(2);
+}
+.nav-arrow:active {
+  translate: 0 calc(-50% + 2px);
+  box-shadow:
+    0 1px 0 #090604,
+    inset 0 1px 0 rgba(255, 226, 170, 0.16);
+  color: #f0a93b;
+  border-color: #f0a93b;
+}
+@media (hover: hover) {
+  .nav-arrow:hover {
+    border-color: #f0a93b;
+    color: #f0a93b;
+    box-shadow:
+      0 3px 0 #090604,
+      0 0 14px rgba(240, 169, 59, 0.35),
+      inset 0 1px 0 rgba(255, 226, 170, 0.16);
+  }
+}
+.nav-arrow:focus-visible {
+  outline: 2px solid #f0a93b;
+  outline-offset: 2px;
+}
+@media (min-width: 640px) {
+  .nav-arrow {
+    height: 46px;
+    width: 46px;
+  }
+}
+
+/* ── Tappable control polish: every interactive control answers ──
+   Press feedback for the small label-buttons (scout/lock/tab strip)
+   that only had hover states before. */
+button:not(:disabled).pressable:active,
+.label-btn:active {
+  transform: translateY(1px);
+}
+@media (hover: none) {
+  /* touch devices: no hover — make press states carry the feedback */
+  .lift:active:not(:disabled) {
+    filter: brightness(1.22);
+  }
+}
+
+/* ── Small-screen refinements ────────────────────────────────────
+   The cabinet was desktop-first; these keep phones comfortable:
+   readable dossier text, breathing room in the tab strip, and a
+   taller stage so the specimen fills the viewport. */
+@media (max-width: 640px) {
+  .nav-arrow {
+    height: 44px;
+    width: 44px;
+    /* sit on the lower third on phones — thumbs rest there and the
+       specimen's head stays unobstructed */
+    top: 58%;
+  }
+  /* dossier strip text was 10-11px — bump for readability */
+  .paper-card .font-pixel {
+    font-size: 11px;
+  }
+  .paper-card p {
+    font-size: 12.5px;
+  }
+  .paper-card .latin {
+    font-size: 13px;
+  }
+  /* feature pills wrap tighter */
+  .label {
+    letter-spacing: 0.06em;
+  }
+}
+/* very narrow phones: give the 7-tab strip more icon, less label */
+@media (max-width: 380px) {
+  .paper-card .latin {
+    font-size: 12px;
+  }
+}

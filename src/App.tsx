@@ -1019,6 +1019,18 @@ export default function App() {
     setFocusId(SHOWCASE_IDS[nextIdx]);
   };
 
+  /* ← / → flip the showcase cabinet like a real specimen drawer (desktop). */
+  useEffect(() => {
+    if (phase !== "title") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") stepFocus(-1);
+      else if (e.key === "ArrowRight") stepFocus(1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, focusId]);
+
   /* ════════════════════════════════════════════════════════════
      SCREEN 1 — MAIN MENU (Interactive 3D Specimen Cabinet)
      ════════════════════════════════════════════════════════════ */
@@ -1040,9 +1052,9 @@ export default function App() {
             </div>
             <button
               onClick={() => setGuideOpen(true)}
-              className="lift flex items-center gap-1.5 border border-[#4A3828] bg-[#18120E] px-3 py-1.5 label text-[8.5px] text-[#EDE2CB] hover:border-[#F0A93B]"
+              className="lift flex min-h-[44px] items-center gap-1.5 border border-[#4A3828] bg-[#18120E] px-3 py-1.5 label text-[8.5px] text-[#EDE2CB] hover:border-[#F0A93B]"
             >
-              <IconHelp size={13} className="text-[#F0A93B]" /> <span>{t("FIELD GUIDE")}</span>
+              <IconHelp size={13} className="text-[#F0A93B]" /> <span className="hidden min-[420px]:inline">{t("FIELD GUIDE")}</span>
             </button>
             <button
               type="button"
@@ -1058,8 +1070,8 @@ export default function App() {
 
           {/* Main Split Grid: Hero Brand + 3D Interactive Specimen Turntable */}
           <main className="my-auto grid grid-cols-1 items-center gap-4 py-3 lg:grid-cols-[1.02fr_1.15fr] lg:gap-8 lg:py-6">
-            {/* Right on Desktop / Top on Mobile: 3D Turntable Stage */}
-            <div className="order-1 lg:order-2">
+            {/* Right on Desktop / Below the fold on Mobile (title+CTA first) */}
+            <div className="order-2 lg:order-2">
               <div className="relative border-2 border-[#3B322A] bg-[#120D09] shadow-[0_12px_36px_rgba(0,0,0,.75)]">
                 {/* Brass corner rivets */}
                 <span className="pointer-events-none absolute left-1.5 top-1.5 z-20 h-1.5 w-1.5 bg-[#F0A93B]" />
@@ -1075,7 +1087,9 @@ export default function App() {
 
                 {/* Prev / Next navigation — anchored to the 3D stage wrapper
                     (NOT the whole card), so a long dossier (e.g. dragonfly)
-                    growing below can never push the arrows off center. */}
+                    growing below can never push the arrows off center.
+                    .nav-arrow owns its own centering (translate prop) so the
+                    :active press can nudge it without fighting Tailwind. */}
                 <div className="relative">
                   <Scene3D
                     mode="showcase"
@@ -1086,16 +1100,16 @@ export default function App() {
                   <button
                     onClick={() => stepFocus(-1)}
                     aria-label={t("Previous specimen")}
-                    className="lift absolute left-2 top-1/2 z-20 grid h-8 w-8 -translate-y-1/2 place-items-center border border-[#4A3828] bg-[#14100C]/90 text-[#EDE2CB] hover:border-[#F0A93B]"
+                    className="nav-arrow absolute left-2 z-20"
                   >
-                    <IconChevronLeft size={16} />
+                    <IconChevronLeft size={17} />
                   </button>
                   <button
                     onClick={() => stepFocus(1)}
                     aria-label={t("Next specimen")}
-                    className="lift absolute right-2 top-1/2 z-20 grid h-8 w-8 -translate-y-1/2 place-items-center border border-[#4A3828] bg-[#14100C]/90 text-[#EDE2CB] hover:border-[#F0A93B]"
+                    className="nav-arrow absolute right-2 z-20"
                   >
-                    <IconChevronRight size={16} />
+                    <IconChevronRight size={17} />
                   </button>
                 </div>
 
@@ -1165,8 +1179,8 @@ export default function App() {
               </div>
             </div>
 
-            {/* Left on Desktop / Bottom on Mobile: Title & Primary Actions */}
-            <div className="order-2 flex flex-col items-start lg:order-1">
+            {/* Left on Desktop / Top on Mobile: Title & Primary Actions */}
+            <div className="order-1 flex flex-col items-start lg:order-1">
               <div className="mb-2.5 flex items-center gap-2">
                 <span className="h-[3px] w-10 bg-[#E0522F]" />
                 <span className="label text-[8.5px] text-[#56DCA8]">{t("3D TACTICAL SPECIMEN BATTLER")}</span>
@@ -1241,7 +1255,7 @@ export default function App() {
             <div className="flex items-center justify-between border-b border-[#3B322A] pb-3">
               <button
                 onClick={() => setPhase("title")}
-                className="lift flex items-center gap-1.5 border border-[#3B322A] bg-[#16110D] px-2.5 py-1.5 label text-[8px] text-[#B3A594] hover:border-[#F0A93B] hover:text-[#EDE2CB]"
+                className="lift flex min-h-[44px] items-center gap-1.5 border border-[#3B322A] bg-[#16110D] px-2.5 py-1.5 label text-[8px] text-[#B3A594] hover:border-[#F0A93B] hover:text-[#EDE2CB]"
               >
                 <IconArrowLeft size={11} />
                 <span>{t("MENU")}</span>
@@ -1249,7 +1263,7 @@ export default function App() {
               <span className="label text-[8.5px] text-[#F0A93B]">{t("SELECT 1 OF")} {GAME_INFO.commanders} {t("COMMANDERS")}</span>
               <button
                 onClick={() => setGuideOpen(true)}
-                className="lift flex items-center gap-1.5 border border-[#3B322A] bg-[#16110D] px-2.5 py-1.5 label text-[8px] text-[#F0A93B]"
+                className="lift flex min-h-[44px] items-center gap-1.5 border border-[#3B322A] bg-[#16110D] px-2.5 py-1.5 label text-[8px] text-[#F0A93B]"
               >
                 <IconHelp size={11} />
                 <span>{t("GUIDE")}</span>
@@ -1296,7 +1310,7 @@ export default function App() {
                         <div className="flex items-center justify-between gap-1">
                           <span className="flex min-w-0 items-center gap-1.5">
                             <RankBadge id={c.id} size={16} />
-                            <span className="truncate font-pixel text-[11px] text-[#241B14]">{t(c.name)}</span>
+                            <span className="font-pixel text-[11px] leading-snug text-[#241B14]">{t(c.name)}</span>
                           </span>
                           {on && (
                             <span className="bg-[#1F7A5A] px-1.5 py-0.5 font-pixel text-[7px] text-[#FFF3DC]">

@@ -92,20 +92,26 @@ export const IconChevronLeft = memo(function IconChevronLeft({ size = 16, classN
       viewBox="0 0 16 16"
       width={size}
       height={size}
+      shapeRendering="crispEdges"
       fill="none"
       className={className}
       style={{ display: "inline-block", verticalAlign: "middle", ...style }}
       aria-hidden="true"
       {...rest}
     >
-      <path
-        d="M10.5 2.5L5 8L10.5 13.5"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="square"
-        strokeLinejoin="miter"
-      />
-      <path d="M12.5 4L7.5 8L12.5 12" stroke="currentColor" strokeWidth="1" opacity="0.4" />
+      {/* stepped pixel chevron — crisp at every size, matches the voxel look */}
+      <g fill="currentColor">
+        <rect x="9" y="2" width="3" height="2" />
+        <rect x="7" y="4" width="3" height="2" />
+        <rect x="5" y="6" width="3" height="4" />
+        <rect x="7" y="10" width="3" height="2" />
+        <rect x="9" y="12" width="3" height="2" />
+      </g>
+      <g fill="currentColor" opacity="0.35">
+        <rect x="12" y="4" width="2" height="2" />
+        <rect x="10" y="6" width="2" height="4" />
+        <rect x="12" y="10" width="2" height="2" />
+      </g>
     </svg>
   );
 });
@@ -116,20 +122,26 @@ export const IconChevronRight = memo(function IconChevronRight({ size = 16, clas
       viewBox="0 0 16 16"
       width={size}
       height={size}
+      shapeRendering="crispEdges"
       fill="none"
       className={className}
       style={{ display: "inline-block", verticalAlign: "middle", ...style }}
       aria-hidden="true"
       {...rest}
     >
-      <path
-        d="M5.5 2.5L11 8L5.5 13.5"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="square"
-        strokeLinejoin="miter"
-      />
-      <path d="M3.5 4L8.5 8L3.5 12" stroke="currentColor" strokeWidth="1" opacity="0.4" />
+      {/* stepped pixel chevron — crisp at every size, matches the voxel look */}
+      <g fill="currentColor">
+        <rect x="4" y="2" width="3" height="2" />
+        <rect x="6" y="4" width="3" height="2" />
+        <rect x="8" y="6" width="3" height="4" />
+        <rect x="6" y="10" width="3" height="2" />
+        <rect x="4" y="12" width="3" height="2" />
+      </g>
+      <g fill="currentColor" opacity="0.35">
+        <rect x="2" y="4" width="2" height="2" />
+        <rect x="4" y="6" width="2" height="4" />
+        <rect x="2" y="10" width="2" height="2" />
+      </g>
     </svg>
   );
 });
@@ -221,14 +233,16 @@ export const IconStar = memo(function IconStar({ size = 12, className = "", styl
           <stop offset="100%" stopColor="#A86E18" />
         </linearGradient>
       </defs>
+      {/* true five-point star with a faceted gold body and dark outline */}
       <polygon
-        points="7,1 8.8,5.2 13,7 8.8,8.8 7,13 5.2,8.8 1,7 5.2,5.2"
+        points="7,0.8 8.7,5.1 13.2,5.4 9.7,8.3 10.8,12.7 7,10.3 3.2,12.7 4.3,8.3 0.8,5.4 5.3,5.1"
         fill="url(#icon-star-facet)"
         stroke="#422C0E"
-        strokeWidth="0.9"
+        strokeWidth="1"
         strokeLinejoin="round"
       />
-      <polygon points="7,3.5 8,6 10.5,7 8,8 7,10.5 6,8 3.5,7 6,6" fill="#FFFDF2" opacity="0.75" />
+      {/* left facet shade — gives the star its cut-gem read */}
+      <polygon points="7,3 5.3,5.1 7,9.2" fill="#FFFDF2" opacity="0.55" />
     </svg>
   );
 });

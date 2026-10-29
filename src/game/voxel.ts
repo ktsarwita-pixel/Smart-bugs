@@ -573,6 +573,9 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     const amber = "#F0A93B";
     const membrane = "#C9F2FA";
     const leading = "#EFFDFF";
+    const rootCol = "#7CCFE2"; // deep attachment collar at i = 0
+    const veinCol = "#A9E7F3"; // central venation stripe — reads as wing veins
+    const stigmaCol = "#FFC257"; // hotter stigma than the dorsal studs
 
     // Six slender legs tucked UNDER the wing plane — knees at y4 with no
     // upward knee spike (singleLeg's y+1 knee ball would pierce the y6 wing
@@ -693,6 +696,20 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     headS.sym(1, 7, -4, bodyLite);
     headS.sym(2, 5, -7, bodyMid);
 
+    // COMPOUND EYES v2 — real odonates wear two huge wrap-around eyes that
+    // nearly meet over the top of the head. Each eye is a rounded block
+    // (x ±1..±3, y 5..7, z −7..−5) painted OVER the dome shell in the SAME
+    // head mesh — a repaint of shared cells, never a second surface — so
+    // they bulge visibly on every camera angle without any coplanar risk.
+    // Dark lower rim, luminous mint core, wet glint across the top.
+    const eyeAt = (_x: number, y: number, _z: number) =>
+      y <= 5 ? { hex: bodyDark } : y >= 7 ? { hex: glint } : { hex: glow, glow: true };
+    headS.ellipsoid(-1.8, 6.1, -5.9, 1.3, 1.6, 1.45, eyeAt);
+    headS.ellipsoid(1.8, 6.1, -5.9, 1.3, 1.6, 1.45, eyeAt);
+    // Dark midline seam keeps the two eyes reading as a pair, not a visor.
+    headS.set(0, 6, -6, bodyDark);
+    headS.set(0, 6, -7, bodyDark);
+
     // DEEP-ROOT WINGS — one mirrored painter so left and right stay exact
     // reflections. Root cells i = 0..1 are INSIDE the shell (|x| = 1..2,
     // at the wing row y6 the thorax spans |x| <= 2 for |z| <= ~2), so the
@@ -723,14 +740,18 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
         // chord; the hind pair peaks 4 — a real dragonfly silhouette.
         const half = i < 2 ? 0 : i < (narrow ? 4 : 5) ? 1 : i < (narrow ? 6 : 7) ? 2 : i < len ? 1 : 0;
         for (let dz = -half; dz <= half; dz++) {
-          // solid glassy membrane: bright cutwater at the root, leading
-          // edge caught by light, soft teal-dark trailing edge for shape
+          // solid glassy membrane: deep root collar (attached read), bright
+          // cutwater leading edge, soft teal-dark trailing edge for shape,
+          // and a subtle central vein so the blade reads as a WING, not a
+          // glass plank
           let hex = membrane;
-          if (dz === -half) hex = i <= 2 || i >= len - 2 ? leading : "#DCF6FC";
+          if (i === 0) hex = rootCol;
+          else if (dz === -half) hex = i <= 2 || i >= len - 2 ? leading : "#DCF6FC";
           else if (dz === half && half > 0) hex = "#A8E2F0";
+          else if (dz === 0 && i >= 3 && i <= len - 3) hex = veinCol;
           S.set(wx, wy, wz + dz, hex, i === 0);
         }
-        if (i === len - 2) S.set(wx, wy, wz, amber, true); // stigma
+        if (i === len - 2) S.set(wx, wy, wz, stigmaCol, true); // stigma
       }
     };
     for (const S of [leftArmS, rightArmS]) {

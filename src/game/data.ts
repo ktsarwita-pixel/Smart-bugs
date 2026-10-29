@@ -506,6 +506,7 @@ export const SHOP_WEIGHTS: { id: BugId; w: number }[] = [
 ];
 
 export const GAME_INFO = {
+  version: "0.3",
   units: BUG_ORDER.length,
   commanders: COMMANDERS.length,
   rivals: BOTS.length,

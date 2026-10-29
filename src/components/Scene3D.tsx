@@ -1081,6 +1081,38 @@ export function Scene3D({
           g.stroke();
         }
       }
+      // scattered mini orb webs — the spinner's outposts across the cloth
+      const outposts: [number, number][] = [
+        [size * 0.24, size * 0.3], [size * 0.76, size * 0.26], [size * 0.7, size * 0.72], [size * 0.28, size * 0.76],
+      ];
+      for (const [ox, oy] of outposts) {
+        const orad = 30 + ((ox + oy) % 23);
+        g.strokeStyle = sil(0.9);
+        g.lineWidth = 1.9;
+        for (let i = 0; i < 8; i++) {
+          const a0 = (i / 8) * Math.PI * 2 + ox * 0.01;
+          g.beginPath();
+          g.moveTo(ox, oy);
+          g.lineTo(ox + Math.cos(a0) * orad, oy + Math.sin(a0) * orad);
+          g.stroke();
+        }
+        for (let ring = 1; ring <= 3; ring++) {
+          const rad = (ring / 3) * orad * 0.9;
+          g.strokeStyle = ring % 2 ? vio(0.85) : sil(0.8);
+          g.lineWidth = 1.4;
+          g.beginPath();
+          for (let k = 0; k <= 8 * 6; k++) {
+            const ang = (k / (8 * 6)) * Math.PI * 2;
+            const sag = 1 - 0.05 * Math.sin(k * 2.7 + ring);
+            const x = ox + Math.cos(ang) * rad * sag;
+            const y = oy + Math.sin(ang) * rad * sag;
+            if (k === 0) g.moveTo(x, y);
+            else g.lineTo(x, y);
+          }
+          g.closePath();
+          g.stroke();
+        }
+      }
       // center hex web where the spinner first anchored the drape
       g.strokeStyle = sil(0.95);
       g.lineWidth = 3;
@@ -1152,7 +1184,7 @@ export function Scene3D({
     // all four corners. The grand web is one huge sheet spanning the whole
     // board (plus a counter-rotating under-layer that shimmers through the
     // holes); each After-Web snare is the same cloth at 3×3 scale.
-    const WEB_POOL_N = 8;
+    const WEB_POOL_N = 14; // grand drape+under+walls (6) + up to 2 snares
     const webGeo = new THREE.PlaneGeometry(1, 1);
     const webMat = new THREE.MeshBasicMaterial({
       map: webTex ?? undefined,
@@ -1171,20 +1203,40 @@ export function Scene3D({
     const webQ = new THREE.Quaternion();
     const webE = new THREE.Euler();
     const webS = new THREE.Vector3();
+    const qTilt = new THREE.Quaternion();
     const webAge = new Map<number, number>();
+
+    // Egg sacs: little ivory silk balls tucked into the drape — the heart of
+    // the "nest" read. Deterministic per-web offsets, breathing softly.
+    const EGGSAC_N = 16;
+    const eggGeo = new THREE.SphereGeometry(1, 10, 8);
+    const eggMat = new THREE.MeshStandardMaterial({
+      color: 0xded2b8,
+      roughness: 0.7,
+      metalness: 0.03,
+    });
+    const eggMesh = new THREE.InstancedMesh(eggGeo, eggMat, EGGSAC_N);
+    eggMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    eggMesh.frustumCulled = false;
+    eggMesh.count = 0;
+    eggMesh.renderOrder = 3;
+    if (!showcase) scene.add(eggMesh);
+    const eggS = new THREE.Vector3();
 
     function updateWebs(b: BattleState | null, time: number, dt: number) {
       if (showcase) return;
       if (!b || !b.webs.length) {
         if (webMesh.count !== 0) webMesh.count = 0;
+        if (eggMesh.count !== 0) eggMesh.count = 0;
         webAge.clear();
         return;
       }
       const liveIds = new Set(b.webs.map((w) => w.id));
       for (const id of Array.from(webAge.keys())) if (!liveIds.has(id)) webAge.delete(id);
       let n = 0;
+      let en = 0;
       for (const w of b.webs) {
-        if (n >= WEB_POOL_N - 1) break;
+        if (n >= WEB_POOL_N - 5) break;
         const grand = w.kind === "grand";
         // spawn pop: the drape drops in with an elastic overshoot
         const age = (webAge.get(w.id) ?? 0) + dt;
@@ -1196,10 +1248,16 @@ export function Scene3D({
         // old-cloth billow: slow anisotropic breathing + drift
         const billowX = 1 + Math.sin(time * 0.9 + w.id * 2.1) * 0.03;
         const billowZ = 1 + Math.cos(time * 0.7 + w.id * 1.3) * 0.03;
-        const baseW = (grand ? COLS + 0.9 : w.half * 2 + 0.6) * billowX * pop;
-        const baseH = (grand ? ROWS + 0.9 : w.half * 2 + 0.6) * billowZ * pop;
-        const cx = grand ? COLS / 2 : w.x;
-        const cz = grand ? ROWS / 2 : w.y;
+        // final sheet rect — ALWAYS clamped inside the board (the 3x3 snare
+        // must never hang past the drawer frame)
+        let sw = Math.min((grand ? COLS + 0.9 : w.half * 2 + 0.6) * billowX * pop, COLS);
+        let sh = Math.min((grand ? ROWS + 0.9 : w.half * 2 + 0.6) * billowZ * pop, ROWS);
+        let cx = grand ? COLS / 2 : w.x;
+        let cz = grand ? ROWS / 2 : w.y;
+        if (!grand) {
+          cx = Math.min(Math.max(cx, sw / 2), COLS - sw / 2);
+          cz = Math.min(Math.max(cz, sh / 2), ROWS - sh / 2);
+        }
         const rot = grand
           ? Math.sin(time * 0.13 + w.id) * 0.028
           : Math.sin(time * 0.5 + w.id * 2.4) * 0.05 + (w.id % 7) * 0.9;
@@ -1209,7 +1267,7 @@ export function Scene3D({
           ? (shim > 0.5 ? 0xe3c2ff : 0xb48ae8)
           : (shim > 0.5 ? 0xffffff : 0xd9c2ff);
         // layer 1: the main drape
-        webS.set(baseW, baseH, 1);
+        webS.set(sw, sh, 1);
         webE.set(-Math.PI / 2, 0, rot);
         webQ.setFromEuler(webE);
         projTmp.set(cx, 0.052, cz);
@@ -1219,7 +1277,7 @@ export function Scene3D({
         n++;
         // layer 2: counter-drifting under-sheet, peeking through the tatters
         if (n < WEB_POOL_N) {
-          webS.set(baseW * 0.9, baseH * 0.9, 1);
+          webS.set(sw * 0.9, sh * 0.9, 1);
           webE.set(-Math.PI / 2, 0, -rot * 1.7 - 0.035);
           webQ.setFromEuler(webE);
           projTmp.set(cx, 0.038, cz);
@@ -1228,10 +1286,70 @@ export function Scene3D({
           webMesh.setColorAt(n, projCol.setHex(grand ? 0x8f6cc8 : 0xbfa0f0));
           n++;
         }
+        // NEST WALLS: silk sheets leaning against the frame's inner faces —
+        // the nest's walls, only for the whole-board grand web.
+        // North/south lean about world X; west/east stand via Y(90°) and lean
+        // about world Z (composed as a quaternion premultiply).
+        if (grand) {
+          const wallH = 0.95 * pop;
+          const lean = 0.16; // top tips outward against the frame
+          const sway = Math.sin(time * 1.1 + w.id) * 0.012;
+          const wallTint = 0xa88ad8;
+          for (const [wz, rx] of [[ROWS - 0.05, lean], [0.05, -lean]] as const) {
+            if (n >= WEB_POOL_N) break;
+            webS.set(COLS + 0.15, wallH, 1);
+            webE.set(rx + sway, 0, 0);
+            webQ.setFromEuler(webE);
+            projTmp.set(COLS / 2, wallH / 2 - 0.02, wz);
+            m4.compose(projTmp, webQ, webS);
+            webMesh.setMatrixAt(n, m4);
+            webMesh.setColorAt(n, projCol.setHex(wallTint));
+            n++;
+          }
+          for (const [wx, lz] of [[0.05, lean], [COLS - 0.05, -lean]] as const) {
+            if (n >= WEB_POOL_N) break;
+            webS.set(ROWS + 0.15, wallH, 1);
+            webE.set(0, Math.PI / 2, sway);
+            webQ.setFromEuler(webE);
+            qTilt.setFromAxisAngle(Z_AXIS, lz);
+            webQ.premultiply(qTilt);
+            projTmp.set(wx, wallH / 2 - 0.02, ROWS / 2);
+            m4.compose(projTmp, webQ, webS);
+            webMesh.setMatrixAt(n, m4);
+            webMesh.setColorAt(n, projCol.setHex(wallTint));
+            n++;
+          }
+        }
+        // EGG SACS: small flattened ivory sacs CLUSTERED around the center
+        // web (the nest's heart) — tucked low, half-sunk into the cloth.
+        const sacCount = grand ? 5 : 2;
+        const sacBase = grand ? 0.115 : 0.09;
+        const clutch: [number, number][] = grand
+          ? [[0.55, 0.35], [-0.7, 0.5], [0.15, -0.65], [-0.5, -0.3], [0.9, 0.85]]
+          : [[0.45, 0.3], [-0.5, -0.35]];
+        for (let si = 0; si < sacCount && en < EGGSAC_N; si++) {
+          const [ox, oz] = clutch[si];
+          // tight deterministic jitter — a clutch, not scattered balls
+          const jx = Math.sin(w.id * 3.1 + si * 7.7) * 0.16;
+          const jz = Math.cos(w.id * 1.7 + si * 5.3) * 0.16;
+          const ex = Math.min(COLS - 0.25, Math.max(0.25, (grand ? COLS / 2 + ox : cx + ox) + jx));
+          const ez = Math.min(ROWS - 0.25, Math.max(0.25, (grand ? ROWS / 2 + oz : cz + oz) + jz));
+          const pulse = 1 + Math.sin(time * 2.2 + w.id + si * 1.9) * 0.045;
+          const sc = sacBase * (0.8 + ((si * 29 + w.id) % 10) / 30) * pulse * Math.min(1, k * 1.4);
+          eggS.set(sc, sc * 0.6, sc * 0.88); // squashed: silk-wrapped sac
+          webE.set(0, ((si * 47 + w.id) % 6) * 1.047, 0);
+          webQ.setFromEuler(webE);
+          projTmp.set(ex, sc * 0.3, ez); // half-sunk into the drape
+          m4.compose(projTmp, webQ, eggS);
+          eggMesh.setMatrixAt(en, m4);
+          en++;
+        }
       }
       webMesh.count = n;
       webMesh.instanceMatrix.needsUpdate = true;
       if (webMesh.instanceColor) webMesh.instanceColor.needsUpdate = true;
+      eggMesh.count = en;
+      eggMesh.instanceMatrix.needsUpdate = true;
     }
 
     /**

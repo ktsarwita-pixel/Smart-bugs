@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Scene3D } from "./components/Scene3D";
+import { PatchNotesModal } from "./components/PatchNotesModal";
 import { warmRoster } from "./game/voxel";
 import { SpecimenIcon, RankBadge } from "./components/SpecimenIcon";
 import { CodexModal } from "./components/CodexModal";
@@ -155,6 +156,7 @@ export default function App() {
   const [phase, setPhase] = useState<Phase>("title");
   const [focusId, setFocusId] = useState<string>("stag");
   const [guideOpen, setGuideOpen] = useState(false);
+  const [patchOpen, setPatchOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { t } = useSettings();
@@ -1235,6 +1237,15 @@ export default function App() {
                 >
                   {t("HOW TO PLAY")}
                 </button>
+                <button
+                  onClick={() => setPatchOpen(true)}
+                  className="btn-sheen lift flex items-center justify-center gap-2 border-2 border-[#4A3828] bg-[#18120E] px-5 py-3 font-pixel text-[10px] text-[#56DCA8] shadow-[0_5px_0_#0C0906] hover:border-[#56DCA8]"
+                >
+                  {t("PATCH NOTES")}
+                  <span className="label border border-[#2a6e52] bg-[#0E241A] px-1.5 py-0.5 text-[7px] text-[#56DCA8]">
+                    v{GAME_INFO.version}
+                  </span>
+                </button>
               </div>
             </div>
           </main>
@@ -1246,6 +1257,7 @@ export default function App() {
         </div>
 
         <CodexModal open={guideOpen} onClose={() => setGuideOpen(false)} />
+        <PatchNotesModal open={patchOpen} onClose={() => setPatchOpen(false)} />
         {adminPanel}
         <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       </div>

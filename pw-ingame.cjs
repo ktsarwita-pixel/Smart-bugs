@@ -40,6 +40,12 @@ async function clickBtn(page, text, idx = 0) {
   await page.waitForTimeout(4200);
 
   if (MODE === "prep") {
+    // patch notes modal first (menu button)
+    await clickBtn(page, "PATCH NOTES");
+    await page.waitForTimeout(900);
+    await page.screenshot({ path: `${OUT}/sp_patchnotes.png` });
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(600);
     await clickBtn(page, "SPIDER");
     await page.waitForTimeout(3200);
     await page.screenshot({ path: `${OUT}/sp_menu_tab.png` });

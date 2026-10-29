@@ -5,11 +5,14 @@ export type Lang = "en" | "id";
 export interface Settings {
   lang: Lang;
   motion: "full" | "reduced";
+  /** Potato mode: minimal renderer workload for weak devices. */
+  potato: boolean;
 }
 
 interface Ctx extends Settings {
   setLang: (lang: Lang) => void;
   setMotion: (motion: Settings["motion"]) => void;
+  setPotato: (potato: boolean) => void;
   /** Translates an English UI string; falls back to English. */
   t: (en: string) => string;
   reset: () => void;
@@ -21,6 +24,11 @@ interface Ctx extends Settings {
  * it falls back to English, which is the safest failure mode for UI copy.
  */
 const ID: Record<string, string> = {
+  "POTATO MODE": "MODE KENTANG",
+  "Potato mode": "Mode kentang",
+  "On — weakest devices": "Nyala — perangkat paling lemah",
+  "Off — full quality": "Mati — kualitas penuh",
+  "Potato mode turns off shadows and glow, drops the render resolution, and hides fireflies. For weaker phones and laptops.": "Mode kentang mematikan bayangan dan glow, menurunkan resolusi render, dan menyembunyikan kunang-kunang. Untuk ponsel serta laptop yang lebih lemah.",
   "PLAY MATCH": "MAINKAN",
   "HOW TO PLAY": "CARA MAIN",
   "SETTINGS": "PENGATURAN",
@@ -494,13 +502,17 @@ function load(): Settings {
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<Settings>;
       if (parsed.lang === "id" || parsed.lang === "en") {
-        return { lang: parsed.lang, motion: parsed.motion === "reduced" ? "reduced" : "full" };
+        return {
+          lang: parsed.lang,
+          motion: parsed.motion === "reduced" ? "reduced" : "full",
+          potato: parsed.potato === true,
+        };
       }
     }
   } catch {
     /* storage may be unavailable */
   }
-  return { lang: "en", motion: "full" };
+  return { lang: "en", motion: "full", potato: false };
 }
 
 /** Pure lookup so translation can be tested without mounting React. */
@@ -529,6 +541,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     }
     document.documentElement.lang = settings.lang === "id" ? "id" : "en";
     document.documentElement.dataset.motion = settings.motion;
+    document.documentElement.dataset.potato = settings.potato ? "1" : "0";
+    // Scene3D re-reads heavy renderer settings on this signal.
+    window.dispatchEvent(new CustomEvent("sb-potato"));
   }, [settings]);
 
   const setLang = useCallback((lang: Lang) => setSettings((s) => ({ ...s, lang })), []);
@@ -536,7 +551,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     (motion: Settings["motion"]) => setSettings((s) => ({ ...s, motion })),
     [],
   );
-  const reset = useCallback(() => setSettings({ lang: "en", motion: "full" }), []);
+  const setPotato = useCallback((potato: boolean) => setSettings((s) => ({ ...s, potato })), []);
+  const reset = useCallback(() => setSettings({ lang: "en", motion: "full", potato: false }), []);
 
   const value = useMemo<Ctx>(() => {
     const lang = settings.lang;
@@ -544,6 +560,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       ...settings,
       setLang,
       setMotion,
+      setPotato,
       reset,
       t: (en: string) => translate(en, lang),
     };
@@ -560,8 +577,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 const FALLBACK: Ctx = {
   lang: "en",
   motion: "full",
+  potato: false,
   setLang: () => {},
   setMotion: () => {},
+  setPotato: () => {},
   reset: () => {},
   t: (en: string) => en,
 };

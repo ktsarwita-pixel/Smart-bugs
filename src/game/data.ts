@@ -225,19 +225,22 @@ export const BUGS: Record<BugId, BugDef> = {
     // banded tail, glowing eyes + tail tip. pal keys: w/W wing, c/C teal,
     // d/D deep navy, a amber stigma, e glow (eyes + tail tip).
     art: [
+      // v8: bold 2px odonate X — fore wings sweep up-out, hind wings
+      // down-out, each with an amber stigma; 4-wide head (glow eyes) and
+      // thorax, banded tail tapering to a glowing tip. Mirrored half.
       "........",
       ".W......",
-      ".wW.....",
-      "..aW..cc",
-      "...wWeCC",
-      "....weCC",
-      ".....wcC",
-      "....wwcc",
+      ".aW...eC",
+      "..Ww..eC",
+      "...Ww.cC",
+      "....WwcC",
+      ".....ccC",
+      "....wWcC",
       "...wW.cC",
-      "..aW..cC",
-      ".wW...dD",
-      ".W....cC",
-      ".......d",
+      "..aW..dD",
+      ".wW....c",
+      ".W.....d",
+      ".......c",
       ".......d",
       ".......c",
       ".......e",

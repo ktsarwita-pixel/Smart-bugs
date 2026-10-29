@@ -609,19 +609,18 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     // engine blocks. Shell gradient, one soft glint each.
     torsoS.box(-2, 5, -1, -2, 7, 3, bodyMid); // inner column carries the chords
     torsoS.box(2, 5, -1, 2, 7, 3, bodyMid);
-    torsoS.box(-3, 6, -1, -3, 7, 2, bodyLite); // outer plate, tucked low
-    torsoS.box(3, 6, -1, 3, 7, 2, bodyLite);
-    torsoS.sym(3, 5, 1, bodyMid); // plate foot blends into the flank
-    torsoS.set(-3, 7, 1, glint); // fairing glints
-    torsoS.set(3, 7, 1, glint);
+    torsoS.box(-3, 6, 1, -3, 7, 3, bodyLite); // outer plate BEHIND the fore
+    torsoS.box(3, 6, 1, 3, 7, 3, bodyLite); // chord, sheltering the hind root
+    torsoS.set(-3, 7, 2, glint); // fairing glints
+    torsoS.set(3, 7, 2, glint);
     // Notch fills: probe-verified diagonal pockets (deep 1-cell dents where
     // three shell faces meet — read as stray voxels / holes in the shell).
     // Colors follow the local gradient so each fill reads as shell.
     torsoS.sym(1, 3, -1, bodyDark); // low flank seam
     torsoS.sym(2, 4, -2, bodyMid); // under-plate belly
     torsoS.sym(2, 4, 2, bodyMid);
-    torsoS.sym(3, 5, 0, bodyMid); // outer-plate underside
-    torsoS.sym(3, 5, 2, bodyMid);
+    // (|x|3, y5, z0..2) left EMPTY: the blade roots live face-adjacent
+    // there — any torso cell would coplanar-clash or block the root
     torsoS.sym(1, 6, 3, bodyLite); // crest shoulder
     torsoS.sym(1, 7, -1, bodyLite);
     torsoS.sym(1, 7, 1, bodyLite);
@@ -712,7 +711,11 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     ) => {
       const zr = Math.round(zRoot);
       for (let i = 0; i <= len; i++) {
-        const wx = side * (1 + i); // i = 0 starts inside the shell
+        // blades START at the plate face |x| = 3 — the old deep-root cells
+        // (|x| = 1..2) shared sculpt cells with the thorax/plate, and two
+        // opaque boxes in one cell z-FIGHT (the "wings noclip the body"
+        // flicker). Face-adjacent to the column = attached, zero overlap.
+        const wx = side * (3 + i);
         const wz = zr + Math.round(i * sweep); // curved sweep
         const wy = row + (i >= len - 1 ? 1 : 0); // tip pair kicks up
         // TRUE odonate plan: narrow petiole (i 0..1), broad gliding chord
@@ -735,8 +738,8 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
       // fore pair on row y6 (span 10), hind pair a full row LOWER (y5,
       // span 9) swept back — the rows keep a 1-vox vertical channel so the
       // blades never fuse, the sweep gives the paired glider look
-      paintWing(S, side, -0.4, 9, 0.3, 6); // fore pair — long, swept gently back
-      paintWing(S, side, 1.8, 8, 0.5, 5, true); // hind pair — lower row, swept back
+      paintWing(S, side, -0.4, 7, 0.3, 6); // fore pair — blades |x| 3..10
+      paintWing(S, side, 1.8, 6, 0.5, 5, true); // hind pair — lower row, swept back
     }
 
     crownPivot = [0, 8, -3];
@@ -885,18 +888,20 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     // hook. No single-cell nubs anywhere.
     leftArmPivot = [-2, 2, -5.5];
     rightArmPivot = [2, 2, -5.5];
-    leftArmS.set(-1, 2, -5, skinDark); // interior root
-    leftArmS.set(-2, 2, -5, skinDark); // interior root
-    leftArmS.set(-3, 2, -5, skinDark);
+    // chains protrude from the shovel face — every cell is OUTSIDE the dome
+    // ellipsoid (the old interior roots shared cells with it and z-fought)
+    leftArmS.set(-2, 2, -7, skinDark); // root, face-adjacent to the dome skin
+    leftArmS.set(-3, 2, -7, skinDark);
     leftArmS.set(-3, 2, -6, skinDark);
     leftArmS.set(-3, 3, -6, saddle1); // pale hook
     leftArmS.set(-3, 4, -6, skinDark); // upturned point
-    rightArmS.set(1, 2, -5, skinDark);
-    rightArmS.set(2, 2, -5, skinDark);
-    rightArmS.set(3, 2, -5, skinDark);
+    leftArmS.set(-2, 3, -7, skinDark); // second root mass
+    rightArmS.set(2, 2, -7, skinDark);
+    rightArmS.set(3, 2, -7, skinDark);
     rightArmS.set(3, 2, -6, skinDark);
     rightArmS.set(3, 3, -6, saddle1);
     rightArmS.set(3, 4, -6, skinDark);
+    rightArmS.set(2, 3, -7, skinDark);
 
     // Hidden filler exactly at each legs pivot — keeps the leg groups
     // non-empty with zero visible, swingable parts.
@@ -931,6 +936,14 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     // chin-front (±1,1,−6) ahead; the dome overhangs it from above.
     for (const cx of [-1, 0, 1]) {
       torsoS.map.delete(keyOf(cx, 1, -5));
+    }
+    // part 5: the dome's bottom-front cells (±1..0, 1, −4) shared sculpt
+    // cells with the belly top — two boxes, one cell, z-fight. The dome
+    // provably covers them (same ellipsoid test); the belly row behind and
+    // the flank beside seal the void.
+    for (const cx of [-1, 0, 1]) {
+      const dx = cx / 2.7, dy = (1 - 2.4) / 2.2, dz = (-4 + 5.4) / 2.4;
+      if (dx * dx + dy * dy + dz * dz <= 1) torsoS.map.delete(keyOf(cx, 1, -4));
     }
 
     // NECK-ANCHOR the torso transform: peristalsis (torsoS) scaled about the

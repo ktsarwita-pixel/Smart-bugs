@@ -202,10 +202,35 @@ export function Scene3D({
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x0b0806, showcase ? 0.032 : 0.022);
     const camera = new THREE.PerspectiveCamera(showcase ? 34 : 35, 1, 0.1, 80);
+
     const target = new THREE.Vector3(showcase ? 0 : 3.5, showcase ? 0.24 : 0.08, showcase ? 0.15 : 3.05);
 
     let W = hostEl.clientWidth || 360;
     let H = hostEl.clientHeight || 320;
+
+    // ── Potato mode (weak devices) ─────────────────────────────────────
+    // Settings provider mirrors the flag onto <html data-potato> and fires
+    // "sb-potato". Kills the shadow depth pass (the single biggest cost),
+    // caps the framebuffer well under native, and hides fireflies.
+    let potatoOn = document.documentElement.dataset.potato === "1";
+    const applyPotato = () => {
+      renderer.shadowMap.enabled = !potatoOn;
+      renderer.setPixelRatio(potatoOn ? Math.min(dpr, 1.6) * 0.6 : dpr);
+      renderer.setSize(W, H, false);
+      // toggling shadowMap.enabled recompiles every lit material
+      scene.traverse((o) => {
+        const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+        if (!m) return;
+        (Array.isArray(m) ? m : [m]).forEach((mm) => { mm.needsUpdate = true; });
+      });
+    };
+    applyPotato();
+    window.addEventListener("sb-potato", () => {
+      potatoOn = document.documentElement.dataset.potato === "1";
+      pxScale = 1;
+      ftEma = 0;
+      applyPotato();
+    });
 
     const disposables: { dispose: () => void }[] = [];
     const track = <T extends { dispose: () => void }>(o: T) => (disposables.push(o), o);
@@ -2205,8 +2230,9 @@ export function Scene3D({
       // Shadows: every frame in the showcase (a dragged board rotates the
       // whole scene — 20Hz updates read as shadow glitch/lag), third-rate
       // in battle where units glide a few px per frame.
+      flies.visible = !potatoOn;
       shadowPhase = (shadowPhase + 1) % 3;
-      if (showcase || shadowPhase === 0) renderer.shadowMap.needsUpdate = true;
+      if (!potatoOn && (showcase || shadowPhase === 0)) renderer.shadowMap.needsUpdate = true;
 
       // Adaptive resolution governor. The first ~30 frames are ignored so
       // one-off shader-compile spikes never trigger a downgrade.
@@ -2216,9 +2242,10 @@ export function Scene3D({
         ftEma += (dt * 1000 - ftEma) * 0.06;
       }
       qualityClock += dt;
-      // Governor is battle-only: a dragged menu spikes frame times and the
-      // resulting resolution switch read as "voxels glitch for a sec".
-      if (qualityClock >= 1.5 && !showcase) {
+      // Governor is battle-only (and never fights Potato's fixed floor):
+      // a dragged menu spikes frame times and the resulting resolution
+      // switch read as "voxels glitch for a sec".
+      if (qualityClock >= 1.5 && !showcase && !potatoOn) {
         qualityClock = 0;
         if (ftEma > 22 && pxScale > 0.6) {
           pxScale = Math.max(0.6, pxScale - 0.15);

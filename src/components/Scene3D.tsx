@@ -2202,11 +2202,11 @@ export function Scene3D({
       t += dt;
       const p = P.current;
 
-      // Third-rate shadow refresh (see shadowMap.autoUpdate above): ~20Hz,
-      // imperceptible for units that glide a few px per frame, and removes
-      // two of every three depth passes mid-battle.
+      // Shadows: every frame in the showcase (a dragged board rotates the
+      // whole scene — 20Hz updates read as shadow glitch/lag), third-rate
+      // in battle where units glide a few px per frame.
       shadowPhase = (shadowPhase + 1) % 3;
-      if (shadowPhase === 0) renderer.shadowMap.needsUpdate = true;
+      if (showcase || shadowPhase === 0) renderer.shadowMap.needsUpdate = true;
 
       // Adaptive resolution governor. The first ~30 frames are ignored so
       // one-off shader-compile spikes never trigger a downgrade.
@@ -2216,7 +2216,9 @@ export function Scene3D({
         ftEma += (dt * 1000 - ftEma) * 0.06;
       }
       qualityClock += dt;
-      if (qualityClock >= 1.5) {
+      // Governor is battle-only: a dragged menu spikes frame times and the
+      // resulting resolution switch read as "voxels glitch for a sec".
+      if (qualityClock >= 1.5 && !showcase) {
         qualityClock = 0;
         if (ftEma > 22 && pxScale > 0.6) {
           pxScale = Math.max(0.6, pxScale - 0.15);

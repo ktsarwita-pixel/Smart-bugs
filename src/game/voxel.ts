@@ -601,14 +601,47 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
       return { hex: y >= 4 ? bodyMid : bodyDark };
     });
     torsoS.sym(2, 6, -2, glow, true); // shoulder lamps
-    // Wing-root fairings: at wing height the ellipsoid flank ends near
+    // Wing-base plates: at wing height the ellipsoid flank ends near
     // |z| ~ 1.7, which left the hind root chord (z 2..3) hanging off the
-    // flank — read as wings noclipping the body. These plates enclose both
-    // root chords in real shell volume (and read as odonate wing-base plates).
-    torsoS.box(-3, 5, -1, -2, 7, 3, bodyMid);
-    torsoS.box(2, 5, -1, 3, 7, 3, bodyMid);
-    torsoS.set(-3, 7, 2, bodyLite); // fairing glints
-    torsoS.set(3, 7, 2, bodyLite);
+    // flank — read as wings noclipping the body. STEPPED plates enclose
+    // both root chords (an inner column + a shorter outer plate tucking
+    // under the blades) — the old full 2x3x5 slabs read as bolted-on
+    // engine blocks. Shell gradient, one soft glint each.
+    torsoS.box(-2, 5, -1, -2, 7, 3, bodyMid); // inner column carries the chords
+    torsoS.box(2, 5, -1, 2, 7, 3, bodyMid);
+    torsoS.box(-3, 6, -1, -3, 7, 2, bodyLite); // outer plate, tucked low
+    torsoS.box(3, 6, -1, 3, 7, 2, bodyLite);
+    torsoS.sym(3, 5, 1, bodyMid); // plate foot blends into the flank
+    torsoS.set(-3, 7, 1, glint); // fairing glints
+    torsoS.set(3, 7, 1, glint);
+    // Notch fills: probe-verified diagonal pockets (deep 1-cell dents where
+    // three shell faces meet — read as stray voxels / holes in the shell).
+    // Colors follow the local gradient so each fill reads as shell.
+    torsoS.sym(1, 3, -1, bodyDark); // low flank seam
+    torsoS.sym(2, 4, -2, bodyMid); // under-plate belly
+    torsoS.sym(2, 4, 2, bodyMid);
+    torsoS.sym(3, 5, 0, bodyMid); // outer-plate underside
+    torsoS.sym(3, 5, 2, bodyMid);
+    torsoS.sym(1, 6, 3, bodyLite); // crest shoulder
+    torsoS.sym(1, 7, -1, bodyLite);
+    torsoS.sym(1, 7, 1, bodyLite);
+    torsoS.set(0, 6, 4, bodyLite); // ring-2 top
+    torsoS.sym(1, 5, 7, bodyMid); // ring-5 flank
+    torsoS.set(0, 5, 9, bodyMid); // ring-7 top
+    torsoS.sym(3, 5, -1, bodyMid); // plate front foot
+    torsoS.sym(2, 4, 3, bodyMid); // column rear underside
+    torsoS.set(0, 7, 1, bodyLite); // crest line
+    torsoS.sym(1, 7, 2, bodyLite);
+    torsoS.sym(1, 6, 4, bodyLite); // ring-2 shoulder
+    torsoS.set(0, 7, 2, bodyLite); // crest continues over ring-1
+    torsoS.sym(1, 7, 3, bodyLite); // ring-2 crest
+    torsoS.sym(1, 6, 5, bodyLite); // ring-3 shoulder
+    torsoS.sym(1, 5, 8, bodyMid); // ring-5 rear flank
+    torsoS.sym(1, 5, 12, bodyLite); // tail cone top shoulder
+    torsoS.set(0, 4, 12, bodyMid); // tail cone tip underside
+    torsoS.set(0, 7, 3, bodyLite); // ring-2 crest cap
+    torsoS.sym(1, 5, 11, bodyLite); // cone->cerci shoulder
+    torsoS.sym(1, 5, 13, bodyLite); // cerci base shoulder
 
     // Eight abdominal rings sliding low behind the wings — alternating
     // enamel bands, a dark annulus on each joint, amber dorsal studs.
@@ -628,6 +661,12 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
       // into the membrane)
       if (i >= 3 && i % 3 === 0) torsoS.set(0, Math.round(cy) + 1, Math.round(z), amber, true);
     }
+    // Tail cone: seals the last-ring -> cerci junction (an open notch sat
+    // there — you could see straight into the tail break).
+    torsoS.ellipsoid(0, 4.35, 10.55, 1.15, 0.85, 1.35, (_x, y) => {
+      if (y <= 2) return null;
+      return { hex: y >= 5 ? bodyLite : bodyMid };
+    });
     // Paired tail cerci + a glowing tip spike.
     torsoS.symLine(1, 4, 11.2, 2, 5, 13.0, bodyLite);
     torsoS.set(0, 5, 12, glint, true);
@@ -649,6 +688,11 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     headS.set(0, 5, -6.8, bodyDark); // frons
     headS.symLine(1, 7, -6.8, 2, 7, -7.6, bodyLite); // low antenna bristles
     headS.sym(2, 7, -7.8, glint);
+    // Dome dents: probe-verified pockets, filled with the local shell color.
+    headS.sym(1, 5, -7, bodyMid);
+    headS.sym(1, 5, -4, bodyMid);
+    headS.sym(1, 7, -4, bodyLite);
+    headS.sym(2, 5, -7, bodyMid);
 
     // DEEP-ROOT WINGS — one mirrored painter so left and right stay exact
     // reflections. Root cells i = 0..1 are INSIDE the shell (|x| = 1..2,

@@ -481,12 +481,15 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     crownPivot = [0, 8, 1];
     maxY = 8;
   } else if (id === "mantis") {
-    // Legs: Stalking walking legs
+    // Legs: Stalking walking legs. Hips sit at y2 — UNDER the belly shell:
+    // the old (±2,3,4) hips shared two cells each with the abdomen ellipsoid
+    // ((±2,3,4), (±3,4,4)) and z-fought it every frame. y2 is face-adjacent
+    // below the torso edge (attached look, zero co-cells — audit-proven).
     legsAS.singleLeg(-2, 3, 0, -6, 5, -1, -8, -1, "#33A350", "#1A5C2A");
-    legsAS.singleLeg(2, 3, 4, 6, 5, 5, 8, 7, "#33A350", "#1A5C2A");
+    legsAS.singleLeg(2, 2, 4, 6, 5, 5, 8, 7, "#33A350", "#1A5C2A");
 
     legsBS.singleLeg(2, 3, 0, 6, 5, -1, 8, -1, "#33A350", "#1A5C2A");
-    legsBS.singleLeg(-2, 3, 4, -6, 5, 5, -8, 7, "#33A350", "#1A5C2A");
+    legsBS.singleLeg(-2, 2, 4, -6, 5, 5, -8, 7, "#33A350", "#1A5C2A");
 
     // Torso: Leaf-shaped slender abdomen (0..+9)
     torsoS.ellipsoid(0, 3.9, 4.0, 3.2, 2.3, 4.8, (x, y, z) => {
@@ -507,15 +510,20 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     torsoS.sym(1, 7, 8, "#54BD6B");
 
     // Head / Rearing Prothorax: Rises from (0, 4, -1) to (0, 11, -5.5) with pivoting neck!
+    // The base ladder + neck collar stop at z = -1: the torso ellipsoid owns
+    // the z = 0 column at y4/y5, and the old collar/ladder cells there
+    // z-fought the shell every time the head pitched. One cell back still
+    // face-welds the collar to the torso rim (attached, zero co-cells).
     headPivot = [0, 4.0, -1.0];
     torsoPivot = [0, 4.0, 0.0];
     for (let i = 0; i <= 7; i++) {
       const py = 4 + i;
       const pz = -1 - Math.floor(i * 0.65);
-      headS.box(-1, py, pz, 1, py, pz + 1, i % 2 === 0 ? "#33A350" : "#236B34");
+      const zTop = i < 2 ? -1 : pz + 1;
+      headS.box(-1, py, pz, 1, py, zTop, i % 2 === 0 ? "#33A350" : "#236B34");
       headS.set(0, py, pz - 1, "#8BF09D");
     }
-    headS.box(-2, 4, -1, 2, 4, 0, "#1E612E"); // neck collar at the prothorax base
+    headS.box(-2, 4, -1, 2, 4, -1, "#1E612E"); // neck collar at the prothorax base
     headS.box(-2, 11, -6, 2, 12, -5, "#45B85F");
     headS.set(0, 10, -6, "#236B34");
     headS.set(0, 13, -5, "#8BF09D"); // head crest spike
@@ -924,10 +932,10 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     rightArmS.set(3, 4, -6, skinDark);
     rightArmS.set(2, 3, -7, skinDark);
 
-    // Hidden filler exactly at each legs pivot — keeps the leg groups
-    // non-empty with zero visible, swingable parts.
+    // Hidden filler exactly at ONE legs pivot only — keeps the leg group
+    // non-empty with zero visible, swingable parts. (Both groups used to
+    // carry this cell: two coincident cubes z-fighting inside the body.)
     legsAS.set(0, 2, 0, skinDark);
-    legsBS.set(0, 2, 0, skinDark);
 
     // Neck-corner shave, part 2: the ring0 shoulder-top corner cells stand
     // proud beside the dome rim and every jaw swing / head bob grazes them

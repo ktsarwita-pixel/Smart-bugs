@@ -1833,8 +1833,8 @@ export default function App() {
               </div>
             ) : (
               <div className="flex items-center gap-3 py-2 text-[11.5px] text-[#8C7E6E]">
-                <div className="grid h-12 w-12 shrink-0 place-items-center border border-dashed border-[#3B322A] font-pixel text-[10px]">
-                  3D
+                <div className="grid h-12 w-12 shrink-0 place-items-center border border-dashed border-[#4A3828] bg-[#0D0A08]">
+                  <SpecimenIcon id="stag" size={38} dim badge="none" />
                 </div>
                 <p className="leading-snug">
                   {t("Click any bug on the 3D drawer or bench to inspect, reposition, or sell. Three identical bugs moult into a crowned higher star!")}
@@ -1880,13 +1880,33 @@ export default function App() {
                   <span className="font-pixel text-[10px] text-[#F0A93B]">
                     {Math.max(0, 40 - Math.floor(battleSnap.t))}s
                   </span>
-                  <button
-                    onClick={() => setSpeed((s) => (s === 1 ? 2 : s === 2 ? 3 : 1))}
-                    className="lift flex items-center gap-1 border border-[#4A3828] bg-[#120D09] px-2.5 py-1 font-pixel text-[8px] text-[#F0A93B] hover:border-[#F0A93B]"
+                  {/* Segmented battle speed — all options visible, one tap */}
+                  <div
+                    className="flex items-stretch border border-[#4A3828] bg-[#120D09]"
+                    role="group"
+                    aria-label={t("Battle speed")}
                   >
-                    <IconSpeed size={11} />
-                    <span>{speed}× {t("SPEED")}</span>
-                  </button>
+                    <span className="grid place-items-center border-r border-[#4A3828] px-1.5 text-[#9C8F7E]">
+                      <IconSpeed size={11} />
+                    </span>
+                    {([1, 2, 3] as const).map((sv, i) => (
+                      <button
+                        key={sv}
+                        onClick={() => setSpeed(sv)}
+                        aria-pressed={speed === sv}
+                        title={tf("Battle speed set to {v}×.", { v: sv })}
+                        className={`label px-2.5 py-1.5 text-[8px] ${
+                          i < 2 ? "border-r border-[#4A3828]" : ""
+                        } ${
+                          speed === sv
+                            ? "bg-[#F0A93B] text-[#090604]"
+                            : "text-[#9C8F7E] hover:text-[#F0A93B]"
+                        }`}
+                      >
+                        {sv}×
+                      </button>
+                    ))}
+                  </div>
                   <button
                     type="button"
                     onClick={() => setSettingsOpen(true)}
@@ -2230,7 +2250,7 @@ export default function App() {
                 <button
                   onClick={reroll}
                   disabled={gold < 2}
-                  className="lift flex min-h-[40px] flex-col items-center justify-center border border-[#4A3828] bg-[#14100C] px-2 py-1 disabled:opacity-35"
+                  className="lift flex min-h-[40px] flex-col items-center justify-center border-2 border-[#4A3828] bg-[#18120E] px-2 py-1 shadow-[0_3px_0_#0C0906] hover:border-[#6B4B24] disabled:opacity-35"
                 >
                   <div className="flex items-center gap-1">
                     <IconReroll size={10} className="text-[#EDE2CB]" />
@@ -2242,7 +2262,7 @@ export default function App() {
                 <button
                   onClick={levelUp}
                   disabled={gold < levelCost || level >= MAX_FIELD_SIZE}
-                  className="lift flex min-h-[40px] flex-col items-center justify-center border border-[#4A3828] bg-[#14100C] px-2 py-1 disabled:opacity-35"
+                  className="lift flex min-h-[40px] flex-col items-center justify-center border-2 border-[#4A3828] bg-[#18120E] px-2 py-1 shadow-[0_3px_0_#0C0906] hover:border-[#6B4B24] disabled:opacity-35"
                 >
                   <div className="flex items-center gap-1">
                     <IconUpgrade size={10} className="text-[#EDE2CB]" />

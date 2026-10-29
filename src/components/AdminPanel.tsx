@@ -92,7 +92,7 @@ type PanelTab = "units" | "economy" | "match";
 const COMMAND_HELP = [
   "gold [amount] · gold set <n> · hp set <1-100> · foehp set <1-100>",
   "heal · hurt [amount] · level <1-6>",
-  "give <stag|bomb|mantis|dragonfly|random> [1-3] · shop [bug] · lock",
+  "give <stag|bomb|mantis|dragonfly|spider|random> [1-3] · shop [bug] · lock",
   "starup · remove · energy · energyall · win · lose · next · speed <1|2|3> · reset · help",
 ];
 
@@ -432,6 +432,12 @@ export function AdminPanel({ open, onClose, snapshot, onCommand, initiallyUnlock
                     {pickBug === "dragonfly" &&
                       (pickStar >= 3 ? (
                         <span className="text-[#75D9E8]">{t("· Airstrike UNLOCKED (2.2× team ΣATK)")}</span>
+                      ) : (
+                        <span className="text-[#8C7E6E]">{t("· passive only — ultimate needs 3-star")}</span>
+                      ))}
+                    {pickBug === "spider" &&
+                      (pickStar >= 3 ? (
+                        <span className="text-[#C77DFF]">{t("· Sticky Webs UNLOCKED (board web + snare traps)")}</span>
                       ) : (
                         <span className="text-[#8C7E6E]">{t("· passive only — ultimate needs 3-star")}</span>
                       ))}

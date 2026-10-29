@@ -206,6 +206,7 @@ export default function App() {
       bomb: { s1: 0, s2: 0, s3: 0 },
       mantis: { s1: 0, s2: 0, s3: 0 },
       dragonfly: { s1: 0, s2: 0, s3: 0 },
+      spider: { s1: 0, s2: 0, s3: 0 },
     };
     for (const u of units) {
       if (u.star === 1) map[u.bugId].s1++;
@@ -776,7 +777,7 @@ export default function App() {
           bugId = "dragonfly";
           star = clamp(asNumber(arg2, 1), 1, 3);
         }
-        if (!bugId) return "Usage: give <stag|bomb|mantis|dragonfly|random> [1-3].";
+        if (!bugId) return "Usage: give <stag|bomb|mantis|dragonfly|spider|random> [1-3].";
         return adminGiveUnit(bugId, star);
       }
       case "starup": {

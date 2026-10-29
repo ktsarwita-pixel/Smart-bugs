@@ -248,7 +248,7 @@ export const BUGS: Record<BugId, BugDef> = {
     ].map((half) => half + [...half].reverse().join("")),
   },
 
-  {
+  spider: {
     id: "spider",
     name: "Spider",
     short: "SPIDER",

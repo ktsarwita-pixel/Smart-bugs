@@ -1008,10 +1008,10 @@ export function makeFoeTeam(botIdx: number, round: number): PrepUnit[] {
   const out: PrepUnit[] = [];
   for (let i = 0; i < count; i++) {
     const bugId = bot.lean[i % bot.lean.length];
-    const row = bugId === "stag" ? FRONT : bugId === "mantis" || bugId === "dragonfly" ? MID : BACK;
+    const row = bugId === "stag" ? FRONT : bugId === "mantis" || bugId === "dragonfly" || bugId === "spider" ? MID : BACK;
     let slot = -1;
     for (const c of row) {
-      const base = bugId === "stag" ? 14 : bugId === "mantis" || bugId === "dragonfly" ? 7 : 0;
+      const base = bugId === "stag" ? 14 : bugId === "mantis" || bugId === "dragonfly" || bugId === "spider" ? 7 : 0;
       const s = base + c;
       if (!used.has(s)) {
         slot = s;
@@ -1042,9 +1042,9 @@ export function smartSlotFor(bugId: BugId, units: PrepUnit[]): number {
   const used = new Set<number>();
   for (const u of units) if (u.zone === "board") used.add(u.slot);
   // Stag -> front, assassins -> midfield, artillery -> rear.
-  const prefCols = bugId === "stag" ? FRONT : bugId === "mantis" || bugId === "dragonfly" ? MID : BACK;
+  const prefCols = bugId === "stag" ? FRONT : bugId === "mantis" || bugId === "dragonfly" || bugId === "spider" ? MID : BACK;
   const prefRows =
-    bugId === "stag" ? [0, 7, 14] : bugId === "mantis" || bugId === "dragonfly" ? [7, 0, 14] : [14, 7, 0];
+    bugId === "stag" ? [0, 7, 14] : bugId === "mantis" || bugId === "dragonfly" || bugId === "spider" ? [7, 0, 14] : [14, 7, 0];
   for (const rowBase of prefRows) {
     for (const c of prefCols) {
       const s = rowBase + c;

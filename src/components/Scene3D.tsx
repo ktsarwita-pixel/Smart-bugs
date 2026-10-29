@@ -826,6 +826,7 @@ export function Scene3D({
     const TRAIL = 5; // head bead + 4 trailing beads per shell
     const ACID_TRAIL = [0xbaff7a, 0x6ee05a, 0x3fa34d, 0x2a6e35];
     const BURST_TRAIL = [0xffb347, 0xff8a3d, 0xe05a2a, 0x8a2a16];
+    const WEB_TRAIL = [0xe9c4ff, 0xd9a8ff, 0xb48cff, 0x8f76d4];
     const projGeo = track(new THREE.IcosahedronGeometry(V * 2.1, 0));
     const projMat = track(
       new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false })
@@ -878,11 +879,16 @@ export function Scene3D({
       for (const sh of b.shots) {
         const p = Math.min(1, Math.max(0, (b.t - sh.t0) / sh.dur));
         const burst = sh.kind === "burst";
+        const isWeb = sh.kind === "webgrand" || sh.kind === "websnare";
         // detonation the instant a shell completes its flight
         const prev = shotProg.get(sh.id) ?? 0;
         if (p >= 1 && prev < 1) {
-          spawnRing(sh.x1, sh.y1, burst ? 0xff8a3d : 0xbaff7a);
-          if (burst) {
+          spawnRing(sh.x1, sh.y1, isWeb ? 0xd9a8ff : burst ? 0xff8a3d : 0xbaff7a);
+          if (isWeb) {
+            // sticky silk splat: pale silk strands + violet dew
+            spawnBurst(sh.x1, 0.22, sh.y1, 0xf2ecff, sh.kind === "webgrand" ? 14 : 9, sh.kind === "webgrand" ? 3.4 : 2.2);
+            spawnBurst(sh.x1, 0.4, sh.y1, 0xd9a8ff, sh.kind === "webgrand" ? 8 : 5, sh.kind === "webgrand" ? 2.4 : 1.5);
+          } else if (burst) {
             spawnBurst(sh.x1, 0.3, sh.y1, 0xff8a3d, 10, 2.2);
             spawnBurst(sh.x1, 0.44, sh.y1, 0xffe08a, 6, 1.6);
           } else {
@@ -903,7 +909,7 @@ export function Scene3D({
         projQuat.setFromUnitVectors(Z_AXIS, projDir);
 
         const pulse = 1 + Math.sin(time * 26 + sh.id * 2.1) * 0.09;
-        const trailCols = burst ? BURST_TRAIL : ACID_TRAIL;
+        const trailCols = isWeb ? WEB_TRAIL : burst ? BURST_TRAIL : ACID_TRAIL;
         for (let k = TRAIL - 1; k >= 0; k--) {
           if (n >= PROJ_N) break;
           const pk = Math.max(0, p - k * 0.042);
@@ -921,7 +927,7 @@ export function Scene3D({
           else projScale.set(s * 0.75, s * 0.75, Math.max(0.05, s * 1.9));
           m4.compose(projTmp, head ? q0 : projQuat, projScale);
           projMesh.setMatrixAt(n, m4);
-          projCol.setHex(head ? (burst ? 0xffe08a : 0xd8ff7a) : trailCols[k - 1]);
+          projCol.setHex(head ? (isWeb ? 0xe9c4ff : burst ? 0xffe08a : 0xd8ff7a) : trailCols[k - 1]);
           projMesh.setColorAt(n, projCol);
           n++;
         }
@@ -936,7 +942,7 @@ export function Scene3D({
           );
           m4.compose(projTmp, q0, projScale);
           haloMesh.setMatrixAt(hn, m4);
-          haloMesh.setColorAt(hn, projCol.setHex(burst ? 0xff9a3d : 0x8ae05a));
+          haloMesh.setColorAt(hn, projCol.setHex(isWeb ? 0xc77dff : burst ? 0xff9a3d : 0x8ae05a));
           hn++;
         }
       }
@@ -949,6 +955,117 @@ export function Scene3D({
       haloMesh.count = hn;
       haloMesh.instanceMatrix.needsUpdate = true;
       if (haloMesh.instanceColor) haloMesh.instanceColor.needsUpdate = true;
+    }
+
+    /**
+     * Procedural spider-web decal: radial silk spokes, a sagging capture
+     * spiral and violet dew specks — canvas-generated like the Airstrike
+     * caustics so the build stays image-free.
+     */
+    function makeWebTexture() {
+      const size = 128;
+      const c = document.createElement("canvas");
+      c.width = c.height = size;
+      const g = c.getContext("2d")!;
+      g.translate(size / 2, size / 2);
+      const spokes = 10;
+      const rings = 5;
+      g.strokeStyle = "rgba(242,236,255,0.95)";
+      for (let i = 0; i < spokes; i++) {
+        const a = (i / spokes) * Math.PI * 2;
+        g.beginPath();
+        g.moveTo(0, 0);
+        g.lineTo(Math.cos(a) * size * 0.48, Math.sin(a) * size * 0.48);
+        g.lineWidth = 2.2;
+        g.stroke();
+      }
+      for (let r = 1; r <= rings; r++) {
+        const rad = (r / rings) * size * 0.46;
+        g.beginPath();
+        for (let i = 0; i <= spokes * 6; i++) {
+          const a = (i / (spokes * 6)) * Math.PI * 2;
+          const sag = 1 - 0.045 * Math.sin(i * 1.7 + r * 2.4);
+          const rr = rad * sag;
+          const x = Math.cos(a) * rr;
+          const y = Math.sin(a) * rr;
+          if (i === 0) g.moveTo(x, y);
+          else g.lineTo(x, y);
+        }
+        g.closePath();
+        g.lineWidth = r === rings ? 3 : 1.8;
+        g.stroke();
+      }
+      for (let i = 0; i < 26; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const rr = Math.pow(Math.random(), 0.5) * size * 0.44;
+        g.beginPath();
+        g.arc(Math.cos(a) * rr, Math.sin(a) * rr, 1.4 + Math.random() * 1.6, 0, Math.PI * 2);
+        g.fillStyle = "rgba(217,168,255,0.8)";
+        g.fill();
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+    const webTex = showcase ? null : makeWebTexture();
+    if (webTex) disposables.push(webTex);
+
+    // Ground web layer: one silk decal per covered board cell. The grand web
+    // blankets all COLS×ROWS cells; each After-Web snare covers its 3×3 and
+    // slowly rotates like a wound-up trap.
+    const WEB_POOL_N = 80;
+    const webGeo = new THREE.PlaneGeometry(0.94, 0.94);
+    const webMat = new THREE.MeshBasicMaterial({
+      map: webTex ?? undefined,
+      transparent: true,
+      opacity: 0.82,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const webMesh = new THREE.InstancedMesh(webGeo, webMat, WEB_POOL_N);
+    webMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    webMesh.frustumCulled = false;
+    webMesh.count = 0;
+    webMesh.renderOrder = 2;
+    if (!showcase) scene.add(webMesh);
+
+    const webQ = new THREE.Quaternion();
+    const webE = new THREE.Euler();
+    const webS = new THREE.Vector3();
+
+    function updateWebs(b: BattleState | null, time: number) {
+      if (showcase) return;
+      if (!b || !b.webs.length) {
+        if (webMesh.count !== 0) webMesh.count = 0;
+        return;
+      }
+      let n = 0;
+      for (const w of b.webs) {
+        const rot =
+          w.kind === "grand" ? time * 0.05 : time * 0.3 + (w.id % 7) * 0.9;
+        const tint = w.kind === "grand" ? 0xd9a8ff : 0xf2ecff;
+        const cMin = Math.max(0, Math.floor(w.x - w.half));
+        const cMax = Math.min(COLS - 1, Math.ceil(w.x + w.half) - 1);
+        const rMin = Math.max(0, Math.floor(w.y - w.half));
+        const rMax = Math.min(ROWS - 1, Math.ceil(w.y + w.half) - 1);
+        for (let c = cMin; c <= cMax; c++) {
+          for (let r = rMin; r <= rMax; r++) {
+            if (n >= WEB_POOL_N) break;
+            const wob = 1 + Math.sin(time * 3 + w.id + c * 0.7 + r * 1.3) * 0.05;
+            webS.setScalar(wob);
+            webE.set(-Math.PI / 2, 0, rot + ((c * 13 + r * 7) % 4) * 0.06);
+            webQ.setFromEuler(webE);
+            projTmp.set(c + 0.5, 0.055, r + 0.5);
+            m4.compose(projTmp, webQ, webS);
+            webMesh.setMatrixAt(n, m4);
+            webMesh.setColorAt(n, projCol.setHex(tint));
+            n++;
+          }
+        }
+      }
+      webMesh.count = n;
+      webMesh.instanceMatrix.needsUpdate = true;
+      if (webMesh.instanceColor) webMesh.instanceColor.needsUpdate = true;
     }
 
     /**
@@ -2339,6 +2456,7 @@ export function Scene3D({
         ));
       }
       updateProjectiles(activeBattle, t);
+      updateWebs(activeBattle, t);
       updateHoles(activeBattle);
       updateZones(activeBattle, t, visualBattleTime);
 

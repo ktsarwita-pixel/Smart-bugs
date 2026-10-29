@@ -238,15 +238,15 @@ export function animateInsectRig(
     } else if (id === "dragonfly") {
       // A four-winged hover, not a ground run. The fore and hind wing pairs
       // beat slightly out of phase to give the silhouette a recognizable hum.
-      const phase = t * 36 + uid * 0.41;
+      const phase = t * 44 + uid * 0.41;
       const hover = Math.abs(Math.sin(phase * 0.5));
       if (flightPose) {
         // World-space flight lives on the holder. Animate the SAME specimen's
         // wings and legs inside it; never substitute a shell or a glow ball.
         const fold = flightPose.wingFold;
         // Odonate stroke: sharper down-stroke via a 2nd harmonic, tilt + twist.
-        const beat = phase * 1.35;
-        const flap = (1 - fold) * 0.26 * (Math.sin(beat) + 0.3 * Math.sin(beat * 2));
+        const beat = phase * 1.5;
+        const flap = (1 - fold) * 0.34 * (Math.sin(beat) + 0.42 * Math.sin(beat * 2));
         p.rootY = 0;
         p.torsoX = 0;
         p.torsoY = 0;
@@ -277,7 +277,7 @@ export function animateInsectRig(
         p.raX = 0.24 - dart * 0.1;
         p.laY = 0.12 + dart * 0.3;
         p.raY = -0.12 - dart * 0.3;
-        const flap = 0.18 * (Math.sin(phase) + 0.3 * Math.sin(phase * 2));
+        const flap = 0.26 * (Math.sin(phase) + 0.42 * Math.sin(phase * 2));
         p.laZ = -0.12 + flap - dart * 0.5;
         p.raZ = 0.12 - flap + dart * 0.5;
         p.legsAX = -dart * 0.1;
@@ -291,8 +291,8 @@ export function animateInsectRig(
         // (2nd harmonic), a tilted stroke plane (constant laX base), and a
         // feathering twist ~90° out of phase — wing tips trace a figure-8,
         // like a real dragonfly, instead of a pendular moth flap.
-        const flap = 0.3 * (Math.sin(phase) + 0.25 * Math.sin(phase * 2));
-        const twist = 0.07 * Math.sin(phase + 1.2);
+        const flap = 0.46 * (Math.sin(phase) + 0.38 * Math.sin(phase * 2));
+        const twist = 0.11 * Math.sin(phase + 1.2);
         // narrow, BACK-biased yaw: tips never sweep forward over the head
         const sway = Math.sin(phase * 0.5) * 0.1;
         p.rootY = hover * 0.075 + 0.045;
@@ -304,12 +304,14 @@ export function animateInsectRig(
         p.torsoZ = Math.sin(t * 2.3 + uid) * 0.04;
         p.headX = Math.sin(t * 1.6 + uid) * 0.055;
         p.headY = Math.sin(t * 1.1 + uid) * 0.12;
-        p.laX = 0.2 + twist;
-        p.raX = 0.2 - twist;
+        // stroke-plane rocks into each down-stroke (relative wind) — visibly
+        // "power" flapping, not a gentle hum
+        p.laX = 0.2 + twist + flap * 0.12;
+        p.raX = 0.2 - twist - flap * 0.12;
         p.laY = 0.1 + sway;
         p.raY = -0.1 - sway;
-        p.laZ = -0.14 + flap;
-        p.raZ = 0.14 - flap;
+        p.laZ = -0.18 + flap;
+        p.raZ = 0.18 - flap;
         p.legsAX = Math.sin(t * 3 + uid) * 0.06;
         p.legsBX = -Math.sin(t * 3 + uid) * 0.06;
       }

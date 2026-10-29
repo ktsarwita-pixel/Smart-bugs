@@ -427,8 +427,10 @@ export function animateInsectRig(
     /* ── struck: head snaps back along the body ── */
     if (flash > 0) {
       p.headPosZ += flash * 0.16;
-      // capped so the worm's shovel nose cannot pitch below the tile top
-      p.headX -= flash * 0.15;
+      // capped so the worm's shovel nose cannot pitch below the tile top.
+      // worm: the sealed neck has ZERO pitch budget — the flinch is the
+      // whole-model rootY dip only (headPosZ is zeroed below as well).
+      p.headX -= (id === "worm" ? 0 : flash) * 0.15;
       // the worm flinches as a WHOLE model (rootY bump) — any torso pitch or
       // head back-slide swings the front ring / dome rear through the seam
       // (head and torso are sibling groups; nothing carries the seam along)

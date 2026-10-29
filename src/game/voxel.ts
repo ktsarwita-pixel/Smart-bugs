@@ -670,14 +670,12 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
       for (let i = 0; i <= len; i++) {
         const wx = side * (1 + i); // i = 0 starts inside the shell
         const wz = zr + Math.round(i * sweep); // curved sweep
-        const wy = row + (i >= len - 1 ? 1 : 0); // only the tip cell kicks up
-        // petiole: odonate wings attach via a NARROW stalk then widen —
-        // i = 0 is a single cell, i = 1..2 carry the wide chord, then taper.
-        // narrow (hind pair): 2-wide chord, leading-biased — the full-width
-        // trailing corners collided with abdomen rings i2/i3 in the death roll.
-        const half = i > 0 && i < (narrow ? 3 : 4) ? 1 : 0;
-        const trail = half > 0 && !narrow;
-        for (let dz = -half; dz <= (trail ? half : half - 1); dz++) {
+        const wy = row + (i >= len - 1 ? 1 : 0); // tip pair kicks up
+        // TRUE odonate plan: narrow petiole (i 0..1), broad gliding chord
+        // through the middle, tapered tip. Fore wings peak at a 5-cell
+        // chord; the hind pair peaks 4 — a real dragonfly silhouette.
+        const half = i < 2 ? 0 : i < (narrow ? 4 : 5) ? 1 : i < (narrow ? 6 : 7) ? 2 : i < len ? 1 : 0;
+        for (let dz = -half; dz <= half; dz++) {
           // solid glassy membrane: bright cutwater at the root, leading
           // edge caught by light, soft teal-dark trailing edge for shape
           let hex = membrane;
@@ -690,11 +688,11 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     };
     for (const S of [leftArmS, rightArmS]) {
       const side = S === leftArmS ? -1 : 1;
-      // fore pair on row y6, hind pair a full row LOWER (y5) with a clear
-      // z-channel between the root chords — the old same-row layout made
-      // both blades touch at z1..2 and read as one fused plank
-      paintWing(S, side, -0.4, 7, 0.35, 6); // fore pair — long, swept gently back
-      paintWing(S, side, 1.8, 6, 0.62, 5, true); // hind pair — lower row, swept back
+      // fore pair on row y6 (span 10), hind pair a full row LOWER (y5,
+      // span 9) swept back — the rows keep a 1-vox vertical channel so the
+      // blades never fuse, the sweep gives the paired glider look
+      paintWing(S, side, -0.4, 9, 0.3, 6); // fore pair — long, swept gently back
+      paintWing(S, side, 1.8, 8, 0.5, 5, true); // hind pair — lower row, swept back
     }
 
     crownPivot = [0, 8, -3];

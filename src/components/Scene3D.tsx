@@ -566,22 +566,26 @@ export function Scene3D({
       const radius = 1.52;
       SHOWCASE_ORDER.forEach((id, i) => {
         const baseAngle = (i / SHOWCASE_ORDER.length) * Math.PI * 2;
+        // stage top sits at y=+0.020 — the old stack started at y=0, sinking
+        // every pod 0.02 into the slate (z-fight ring on spin). Holder is
+        // lifted 0.023 and NO two faces share a plane: pod 0.023..0.083,
+        // pad 0.058..0.114 (recessed rim), specimen base 0.116.
         const holder = new THREE.Group();
         const pod = new THREE.Mesh(track(new THREE.CylinderGeometry(0.48, 0.54, 0.06, 8)), brass);
-        pod.position.y = 0.03;
+        pod.position.y = 0.053;
         pod.receiveShadow = true;
         holder.add(pod);
 
-        const pad = new THREE.Mesh(track(new THREE.CylinderGeometry(0.43, 0.43, 0.07, 8)), darkWood);
-        pad.position.y = 0.035;
+        const pad = new THREE.Mesh(track(new THREE.CylinderGeometry(0.43, 0.43, 0.056, 8)), darkWood);
+        pad.position.y = 0.086;
         pad.receiveShadow = true;
         holder.add(pad);
 
         const model = buildVoxelModel(id, 1);
-        model.group.position.y = 0.07;
+        model.group.position.y = 0.116;
         holder.add(model.group);
 
-        holder.position.set(Math.sin(baseAngle) * radius, 0, Math.cos(baseAngle) * radius);
+        holder.position.set(Math.sin(baseAngle) * radius, 0.023, Math.cos(baseAngle) * radius);
         holder.matrixAutoUpdate = false; // local pose is final; parent rotates
         holder.updateMatrix();
         turntable!.add(holder);
@@ -2336,7 +2340,7 @@ export function Scene3D({
           it.model.group.rotation.y = isFocus ? Math.sin(t * 0.85) * 0.55 + Math.PI * 0.12 : 0;
 
           // Every specimen stays alive on the turntable — breathing, flexing, scanning
-          const pedestal = 0.07 + (isFocus ? Math.abs(Math.sin(t * 2.2)) * 0.03 : 0);
+          const pedestal = 0.116 + (isFocus ? Math.abs(Math.sin(t * 2.2)) * 0.03 : 0);
           animateInsectRig(
             it.model,
             it.id,

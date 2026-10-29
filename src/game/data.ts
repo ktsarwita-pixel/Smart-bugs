@@ -3,7 +3,7 @@
 // Hand-plotted 16x16 pixel matrices + tactical stats & lore.
 // ─────────────────────────────────────────────────────────────
 
-export type BugId = "stag" | "bomb" | "mantis" | "dragonfly";
+export type BugId = "stag" | "bomb" | "mantis" | "dragonfly" | "spider";
 export type CmdId = "matriarch" | "lampyris" | "worm";
 
 export interface BugDef {
@@ -247,9 +247,72 @@ export const BUGS: Record<BugId, BugDef> = {
       ".......e",
     ].map((half) => half + [...half].reverse().join("")),
   },
+
+  {
+    id: "spider",
+    name: "Spider",
+    short: "SPIDER",
+    latin: "Portia fimbriata",
+    role: "Frontline",
+    accent: "#B48CFF",
+    cost: 5,
+    hp: 550,
+    atk: 100,
+    def: 18,
+    range: 0.95,
+    spd: 2.6,
+    atkCd: 1.05,
+    skill: {
+      name: "Sticky Webs",
+      desc:
+        "3-star ultimate. Battle start: the Spider spits a sticky ball onto the middle of the board — the whole board is webbed, and every enemy on it is slowed 50% and takes 500 damage per second. When Energy is full it spits another sticky ball at the densest enemy group: that 3×3 web deals 750 damage to and slows 30% any enemy that steps on it.",
+    },
+    skillMinStar: 3,
+    passive: {
+      name: "Enraged",
+      desc:
+        "Every 6s the Spider's next bite is enraged: 2× damage and it poisons the target — 3 poison ticks, 1s apart, each dealing 50% of the Spider's ATK (every 5s at 2-star; every 3s at 3-star, with 80% ATK poison ticks).",
+    },
+    starStats: {
+      1: { hp: 550, atk: 100, def: 18 },
+      2: { hp: 950, atk: 170, def: 21 },
+      3: { hp: 1560, atk: 275, def: 26 },
+    },
+    pal: {
+      d: "#241A38",
+      D: "#3C2B5E",
+      m: "#8F76D4",
+      l: "#191126",
+      L: "#4A3574",
+      e: "#C77DFF",
+      h: "#E9C4FF",
+      w: "#F2ECFF",
+    },
+    art: [
+      // v1 icon: top-down jumping spider — glowing eye band over the head,
+      // fuzzy cephalothorax, big chevron-marked abdomen, 4 bent legs per
+      // side, glowing spinneret tip. Mirrored half.
+      "........",
+      "...dDHh.",
+      "..dDDhhe",
+      "..l..dD.",
+      ".lL.DDD.",
+      "lL.DDDDm",
+      "l..DDDDm",
+      "l.mDDDDm",
+      ".l.mDDDm",
+      ".l..DmD.",
+      "..l.DDD.",
+      "...l.D..",
+      "....lD..",
+      ".....dw.",
+      ".....e..",
+      "........",
+    ].map((half) => half + [...half].reverse().join("")),
+  },
 };
 
-export const BUG_ORDER: BugId[] = ["stag", "bomb", "mantis", "dragonfly"];
+export const BUG_ORDER: BugId[] = ["stag", "bomb", "mantis", "dragonfly", "spider"];
 
 export const STAR_MULT = [1, 1.8, 3.2];
 
@@ -421,7 +484,7 @@ export const BOTS: BotDef[] = [
     latin: "Aphis fabae",
     cmd: "lampyris",
     power: 0.92,
-    lean: ["bomb", "dragonfly", "stag"],
+    lean: ["bomb", "spider", "stag"],
   },
   {
     id: "moth",
@@ -430,7 +493,7 @@ export const BOTS: BotDef[] = [
     latin: "Biston betularia",
     cmd: "worm",
     power: 1.06,
-    lean: ["mantis", "dragonfly", "bomb"],
+    lean: ["mantis", "dragonfly", "spider"],
   },
 ];
 
@@ -439,6 +502,7 @@ export const SHOP_WEIGHTS: { id: BugId; w: number }[] = [
   { id: "bomb", w: 26 },
   { id: "mantis", w: 26 },
   { id: "dragonfly", w: 14 },
+  { id: "spider", w: 10 },
 ];
 
 export const GAME_INFO = {
@@ -465,6 +529,7 @@ export const VOX: Record<string, VoxSpec> = {
   bomb: { glow: ["r", "w"], glowColor: "#FF8038" },
   mantis: { glow: ["n"], glowColor: "#A6FFDE" },
   dragonfly: { glow: ["e", "w"], glowColor: "#B8F9FF" },
+  spider: { glow: ["e", "h"], glowColor: "#D9A8FF" },
   matriarch: { glow: ["e", "c"], glowColor: "#FFC252" },
   lampyris: { glow: ["w", "e"], glowColor: "#FFF8D1" },
   worm: { glow: ["e"], glowColor: "#FFE08C" },

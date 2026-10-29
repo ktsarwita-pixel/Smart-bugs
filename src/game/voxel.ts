@@ -559,6 +559,117 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
 
     crownPivot = [0, 14, -5];
     maxY = 14;
+  } else if (id === "spider") {
+    // "Velvet Stalker" — a chunky jumping spider. Two body masses: a fuzzy
+    // cephalothorax up front and a big chevron-marked abdomen behind. Legs
+    // are REAL spider legs: knee rises ABOVE the back, foot planted wide —
+    // four per side, front pair longest. Fangs (arms, riding the head)
+    // curl down-in from the face; a cluster of glowing eyes over them.
+    const skinD = "#241A38";
+    const skinM = "#3C2B5E";
+    const fuzz = "#5A4390";
+    const mark = "#8F76D4";
+    const pale = "#C9B8F0";
+    const fang = "#E8E0FF";
+    const eyeA = "#C77DFF";
+    const eyeB = "#E9C4FF";
+    const legD = "#191126";
+    const legL = "#4A3574";
+
+    // Cephalothorax: compact front mass with a fuzzy top.
+    torsoS.ellipsoid(0, 3.4, -1.6, 2.1, 1.9, 1.9, (x, y, _z) => {
+      if (y <= 1) return null;
+      if (y >= 5) return { hex: fuzz };
+      return { hex: x !== 0 && Math.abs(x) >= 2 ? skinD : skinM };
+    });
+    // Abdomen: the big rear balloon with a pale dorsal chevron ladder and
+    // a dark under-belly; two-cell spinnerets at the tail tip.
+    torsoS.ellipsoid(0, 3.7, 3.8, 2.9, 2.5, 3.1, (x, y, z) => {
+      if (y <= 1) return null;
+      if (z >= 6) return { hex: skinD }; // spinneret base
+      if (y >= 6 && (Math.abs(z - 2) < 1.2 || Math.abs(z - 4.4) < 1.1)) return { hex: mark }; // chevrons
+      if (y >= 5 && x === 0) return { hex: pale };
+      if (y >= 5) return { hex: fuzz };
+      return { hex: Math.abs(x) >= 2 ? skinD : skinM };
+    });
+    torsoS.set(0, 4, 6, pale); // spinneret
+    torsoS.set(0, 3, 7, skinD);
+    torsoS.sym(1, 4, 6, skinM);
+    // Waist fill: seal the thorax->abdomen junction so no pocket reads through.
+    torsoS.box(-1, 3, 0, 1, 5, 1, skinM);
+    torsoS.sym(2, 3, 0, skinD);
+    torsoS.sym(2, 3, 1, skinD);
+
+    // Eyes: one big HOT main pair + two smaller glow pairs above the fangs
+    // (a jumping spider's sparkle). Head dome carries them.
+    headPivot = [0, 3.4, -2.6];
+    torsoPivot = [0, 3.2, 0.2];
+    headS.ellipsoid(0, 3.8, -3.6, 1.9, 1.5, 1.3, (_x, y) => ({
+      hex: y >= 4 ? fuzz : skinM,
+    }));
+    headS.sym(1, 4, -5, eyeB, true); // main eyes
+    headS.sym(2, 4, -5, eyeA, true);
+    headS.sym(1, 5, -4, eyeA, true); // upper row
+    headS.sym(2, 5, -4, eyeB, true);
+    headS.sym(2, 3, -5, eyeA, true); // lower row
+    headS.set(0, 5, -4, pale); // crown fuzz between the eyes
+    headS.box(-2, 3, -5, 2, 3, -5, skinD); // face plate under the eyes
+    headS.sym(2, 2, -5, skinD); // jaw corners
+
+    // Fangs: two hooked chelicerae curling down-in from the face. They ride
+    // the HEAD (armsOnHead), so the bite animation tracks the look direction.
+    leftArmPivot = [-0.9, 3.2, -4.2];
+    rightArmPivot = [0.9, 3.2, -4.2];
+    leftArmS.line(-0.9, 3.2, -4.6, -1.9, 2.4, -5.2, skinM);
+    leftArmS.line(-1.9, 2.4, -5.2, -1.4, 1.2, -5.6, fang);
+    leftArmS.set(-1.4, 1.2, -5.6, eyeB, true); // fang tips gleam
+    leftArmS.set(-1.6, 1.8, -5.4, skinD);
+    rightArmS.line(0.9, 3.2, -4.6, 1.9, 2.4, -5.2, skinM);
+    rightArmS.line(1.9, 2.4, -5.2, 1.4, 1.2, -5.6, fang);
+    rightArmS.set(1.4, 1.2, -5.6, eyeB, true);
+    rightArmS.set(1.6, 1.8, -5.4, skinD);
+    // Pedipalps: two short feelers beside the fangs (part of the arms mesh,
+    // static side nubs — they read as the little "hands" spiders hold up).
+    leftArmS.line(-1.2, 3.4, -4.4, -2.4, 3.2, -5.4, legL);
+    leftArmS.set(-2.4, 3.2, -5.4, legL);
+    rightArmS.line(1.2, 3.4, -4.4, 2.4, 3.2, -5.4, legL);
+    rightArmS.set(2.4, 3.2, -5.4, legL);
+
+    // Eight legs — four per side, knees arching over the back like a real
+    // spider. Front pair long and forward, rear pair swept back. legsA =
+    // the LEFT set, legsB = the RIGHT set; the gait rocks the two sets
+    // against each other (a scurrying scuttle, no alternating tripods).
+    const spiderLeg = (
+      S: VoxSculptor,
+      sx: number,
+      hz: number,
+      kx: number,
+      ky: number,
+      kz: number,
+      fz: number
+    ) => {
+      S.line(sx * 2, 3.5, hz, sx * kx, ky, kz, legL); // femur up to the knee
+      S.set(sx * kx, ky, kz, legL);
+      S.set(sx * kx, ky + 1, kz, legL); // knee joint ball
+      S.line(sx * kx, ky, kz, sx * 7, 0, fz, legD); // tibia down to the foot
+      S.set(sx * 7, 0, fz, legD);
+      S.set(sx * 8, 0, fz, legD); // tarsus tip
+    };
+    // front pair (long, reaching forward)
+    spiderLeg(legsAS, -1, -2.4, 4.6, 6.6, -4.4, -3);
+    spiderLeg(legsBS, 1, -2.4, 4.6, 6.6, -4.4, -3);
+    // mid pair (the big striding legs)
+    spiderLeg(legsAS, -1, 0.4, 5.2, 6.2, 0.6, 1.6);
+    spiderLeg(legsBS, 1, 0.4, 5.2, 6.2, 0.6, 1.6);
+    // rear-mid pair
+    spiderLeg(legsAS, -1, 2.6, 4.4, 5.6, 4.2, 5.4);
+    spiderLeg(legsBS, 1, 2.6, 4.4, 5.6, 4.2, 5.4);
+    // rear pair (short, swept back)
+    spiderLeg(legsAS, -1, 4.4, 3.4, 5.0, 6.6, 8.2);
+    spiderLeg(legsBS, 1, 4.4, 3.4, 5.0, 6.6, 8.2);
+
+    crownPivot = [0, 7, -3];
+    maxY = 8;
   } else if (id === "dragonfly") {
     // REWORK v7 — "Dartwing". Every earlier pass pivoted the wings at the
     // shell SURFACE (|x| = 2, y 8) and rested the root ON TOP of socket
@@ -1118,6 +1229,7 @@ const FINISH: Record<string, { roughness: number; metalness: number }> = {
   lampyris: { roughness: 0.5, metalness: 0.1 },
   worm: { roughness: 0.72, metalness: 0.02 }, // damp annelid skin — matte, wet bands carry the shine
   dragonfly: { roughness: 0.38, metalness: 0.25 }, // iridescent dasher carapace
+  spider: { roughness: 0.68, metalness: 0.06 }, // matte velvet fuzz
 };
 
 /** Shared glow material for every voxel model (see buildVoxelModel). */

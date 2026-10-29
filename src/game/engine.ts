@@ -55,6 +55,12 @@ export interface BUnit {
   dead: boolean;
   fade: number;
   dive: AirstrikeDive | null;
+  /** Spider only: seconds until the next bite is Enraged (0 = armed). */
+  enrageIn: number;
+  /** Active poison (Spider's Enraged bite): ticks left, time to next, dmg. */
+  poisonLeft: number;
+  poisonIn: number;
+  poisonDmg: number;
 }
 
 export interface Pop {
@@ -70,7 +76,7 @@ export interface Pop {
 export interface Shot {
   id: number;
   fromUid: number;
-  kind: "acid" | "burst";
+  kind: "acid" | "burst" | "webgrand" | "websnare";
   /** visual shell size from the shooter's star (1 / 1.25 / 1.5) */
   size: number;
   x0: number;
@@ -91,7 +97,7 @@ export interface PendingHit {
   y: number;
   raw: number;
   aoe: number;
-  kind: "acid" | "burst";
+  kind: "acid" | "burst" | "webgrand" | "websnare";
 }
 
 /**
@@ -133,6 +139,32 @@ export interface Hole {
   life: number;
 }
 
+/**
+ * Spider webs (3-star "Sticky Webs").
+ * - grand: the whole-board opening web — 50% slow + 500 dmg/s to enemies.
+ * - snare: a 3×3 web from the After-Web spit — 750 dmg on entry + 30% slow
+ *   while standing in it. Webs last the rest of the battle.
+ */
+export interface Web {
+  id: number;
+  owner: "ally" | "foe";
+  kind: "grand" | "snare";
+  x: number;
+  y: number;
+  /** coverage: enemies within this radius of (x, y) are ON the web */
+  half: number;
+  slowPct: number;
+  /** grand only: raw damage per 1s tick while the enemy stands anywhere */
+  dotDps: number;
+  /** snare only: damage dealt on stepping in (per continuous presence) */
+  snareDmg: number;
+  tickIn: number;
+  /** units currently inside a snare (entry = one 750 hit) */
+  inside: Set<number>;
+  /** slight random spin so multiple snares don't look stamped */
+  rot: number;
+}
+
 export interface BattleState {
   t: number;
   units: BUnit[];
@@ -150,6 +182,8 @@ export interface BattleState {
   holes: Hole[];
   /** live Airstrike fields */
   zones: Zone[];
+  /** live spider webs (whole-board grand + aimed 3x3 snares) */
+  webs: Web[];
 }
 
 let UID = 1;
@@ -242,8 +276,15 @@ function mkUnit(uid: number, bugId: BugId, star: number, side: "ally" | "foe", x
     dead: false,
     fade: 1,
     dive: null,
+    enrageIn: bugId === "spider" ? enrageInterval(star) : 0,
+    poisonLeft: 0,
+    poisonIn: 0,
+    poisonDmg: 0,
   };
 }
+
+/** Enraged cadence by star tier: 6s / 5s / 3s. */
+const enrageInterval = (star: number) => (star >= 3 ? 3 : star === 2 ? 5 : 6);
 
 export function createBattle(
   allies: PrepUnit[],
@@ -275,12 +316,90 @@ export function createBattle(
     pending: [],
     holes: [],
     zones: [],
+    webs: [],
   };
   // Dig Hole is an opening gambit: each worm side burrows exactly once,
   // under the enemy's strongest bug, before the first step is taken.
   if (cmdA === "worm") digHole(st, "ally");
   if (cmdB === "worm") digHole(st, "foe");
+  // Sticky Webs is an opening gambit too: every 3-star spider webs the
+  // whole board right as the battle begins.
+  for (const u of units) {
+    if (u.bugId === "spider" && u.star >= 3) spitWeb(st, u, "grand");
+  }
   return st;
+}
+
+/**
+ * Spider spit: lob a sticky ball (a white shell) from the spider to the
+ * target tile. The web itself is created when the ball lands (resolveShells).
+ */
+function spitWeb(b: BattleState, u: BUnit, kind: "grand" | "snare") {
+  const tx = kind === "grand" ? COLS / 2 : Math.min(COLS - 0.3, Math.max(0.3, u.x));
+  const ty = kind === "grand" ? ROWS / 2 : Math.min(ROWS - 0.3, Math.max(0.3, u.y));
+  const d = Math.hypot(tx - u.x, ty - u.y);
+  const dur = 0.32 + Math.min(0.4, d * 0.07);
+  b.shots.push({
+    id: b.nid++,
+    fromUid: u.uid,
+    kind: kind === "grand" ? "webgrand" : "websnare",
+    size: kind === "grand" ? 1.7 : 1.4,
+    x0: u.x,
+    y0: u.y,
+    x1: tx,
+    y1: ty,
+    t0: b.t,
+    dur,
+  });
+  b.pending.push({
+    id: b.nid++,
+    at: b.t + dur,
+    fromUid: u.uid,
+    targetUid: null,
+    x: tx,
+    y: ty,
+    raw: 0,
+    aoe: 0,
+    kind: kind === "grand" ? "webgrand" : "websnare",
+  });
+  u.cast = Math.max(u.cast, 0.4);
+  pop(b, u, kind === "grand" ? "STICKY WEBS" : "AFTER WEB", "skill");
+}
+
+/** Builds the actual web where a sticky ball landed. */
+function landWeb(b: BattleState, src: BUnit, kind: "grand" | "snare", x: number, y: number) {
+  if (kind === "grand") {
+    if (b.webs.some((w) => w.owner === src.side && w.kind === "grand")) return;
+    b.webs.push({
+      id: b.nid++,
+      owner: src.side,
+      kind: "grand",
+      x: COLS / 2,
+      y: ROWS / 2,
+      half: 999, // the entire board
+      slowPct: 0.5,
+      dotDps: 500,
+      snareDmg: 0,
+      tickIn: 1,
+      inside: new Set<number>(),
+      rot: 0,
+    });
+    return;
+  }
+  b.webs.push({
+    id: b.nid++,
+    owner: src.side,
+    kind: "snare",
+    x: Math.min(COLS - 0.5, Math.max(0.5, Math.round(x - 0.5) + 0.5)),
+    y: Math.min(ROWS - 0.5, Math.max(0.5, Math.round(y - 0.5) + 0.5)),
+    half: 1.5, // 3x3 tiles
+    slowPct: 0.3,
+    dotDps: 0,
+    snareDmg: 750,
+    tickIn: 0,
+    inside: new Set<number>(),
+    rot: (b.nid % 7) * 0.13,
+  });
 }
 
 const dist = (a: BUnit, b: BUnit) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -344,6 +463,25 @@ function alliesOf(b: BattleState, side: "ally" | "foe") {
 function castSkill(b: BattleState, u: BUnit, t: BUnit): boolean {
   // Defensive gate: a 1/2-star Dragonfly has Slipstream only, never Airstrike.
   if (!canCastSkill(u.bugId, u.star)) return false;
+  if (u.bugId === "spider") {
+    // After Web: spit a 3x3 web ball at the densest enemy group.
+    const cluster = densestFoeCluster(b, u.side);
+    const tx = cluster ? cluster.x : t.x;
+    const ty = cluster ? cluster.y : t.y;
+    u.cast = 0.55;
+    spitWeb(b, u, "snare");
+    // re-aim the pending ball at the cluster centroid (spitWeb staged it at
+    // the spider's own tile for snare — retarget before it flies)
+    const shot = b.shots[b.shots.length - 1];
+    const pending = b.pending[b.pending.length - 1];
+    if (shot && shot.kind === "websnare") {
+      shot.x1 = tx;
+      shot.y1 = ty;
+      pending.x = tx;
+      pending.y = ty;
+    }
+    return true;
+  }
   if (u.bugId === "dragonfly") {
     // Airstrike: climb, sweep the board for the densest enemy group, dive,
     // and leave a field whose ticks scale with the whole living team's
@@ -414,6 +552,28 @@ function fireShell(b: BattleState, u: BUnit, t: BUnit, skill: boolean) {
 
 function attack(b: BattleState, u: BUnit, t: BUnit) {
   u.cd = u.atkCd;
+  if (u.bugId === "spider") {
+    // After Web on full Energy (3-star); below 3-star the Energy just sits.
+    if (u.star >= 3 && u.energy >= u.maxEnergy && castSkill(b, u, t)) {
+      u.energy = 0;
+      return;
+    }
+    const enraged = u.enrageIn <= 0;
+    if (enraged) u.enrageIn = enrageInterval(u.star);
+    damage(b, u, t, u.atk * (enraged ? 2 : 1));
+    if (enraged && !t.dead) {
+      // poison: 3 ticks, 1s apart, 50% ATK (80% at 3-star)
+      t.poisonLeft = 3;
+      t.poisonIn = 1;
+      t.poisonDmg = Math.max(1, Math.round(u.atk * (u.star >= 3 ? 0.8 : 0.5)));
+      pop(b, t, "POISON", "skill");
+    } else if (enraged) {
+      pop(b, u, "ENRAGED", "skill");
+    }
+    u.energy = Math.min(u.maxEnergy, u.energy + 20);
+    if (!t.dead) t.energy = Math.min(t.maxEnergy, t.energy + 10);
+    return;
+  }
   if (u.bugId === "dragonfly") {
     // Airstrike is a 3-star ultimate. Lower tiers make a normal attack even
     // at full Energy — no cast state, no shots, no pending Airstrike hits.
@@ -469,6 +629,10 @@ function resolveShells(b: BattleState) {
   for (const p of due) {
     const src = b.units.find((u) => u.uid === p.fromUid);
     if (!src || src.dead) continue;
+    if (p.kind === "webgrand" || p.kind === "websnare") {
+      landWeb(b, src, p.kind === "webgrand" ? "grand" : "snare", p.x, p.y);
+      continue;
+    }
     if (p.aoe > 0) {
       // Caustic Burst: splash everything clustered around the impact tile
       for (const e of b.units) {
@@ -571,6 +735,49 @@ function stepHoles(b: BattleState, dt: number) {
   if (b.holes.some((h) => h.life <= 0)) b.holes = b.holes.filter((h) => h.life > 0);
 }
 
+/** Worst slow affecting the unit right now from enemy webs (0..0.5). */
+export function webSlowMul(b: BattleState, u: BUnit): number {
+  let slow = 0;
+  for (const w of b.webs) {
+    if (w.owner === u.side) continue;
+    if (u.dead || (u.dive && !u.dive.landed)) continue;
+    if (Math.hypot(u.x - w.x, u.y - w.y) <= w.half) slow = Math.max(slow, w.slowPct);
+  }
+  return 1 - slow;
+}
+
+/** Grand-web damage ticks + snare on-entry hits. Runs every step. */
+function stepWebs(b: BattleState, dt: number) {
+  if (!b.webs.length) return;
+  for (const w of b.webs) {
+    if (w.kind === "grand") {
+      w.tickIn -= dt;
+      if (w.tickIn <= 0) {
+        w.tickIn = 1;
+        const src = b.units.find((u) => !u.dead && u.side === w.owner) ?? b.units.find((u) => u.side === w.owner);
+        for (const foe of b.units) {
+          if (foe.dead || foe.side === w.owner || (foe.dive && !foe.dive.landed)) continue;
+          if (Math.hypot(foe.x - w.x, foe.y - w.y) <= w.half) damage(b, src ?? foe, foe, w.dotDps);
+        }
+      }
+    } else {
+      for (const u of b.units) {
+        if (u.dead || u.side === w.owner || (u.dive && !u.dive.landed)) continue;
+        const inNow = Math.hypot(u.x - w.x, u.y - w.y) <= w.half;
+        const was = w.inside.has(u.uid);
+        if (inNow && !was) {
+          w.inside.add(u.uid);
+          const src = b.units.find((s2) => !s2.dead && s2.side === w.owner) ?? b.units.find((s2) => s2.side === w.owner);
+          damage(b, src ?? u, u, w.snareDmg);
+          pop(b, u, "SNARED!", "skill");
+        } else if (!inNow && was) {
+          w.inside.delete(u.uid);
+        }
+      }
+    }
+  }
+}
+
 const divePose = createAirstrikePose();
 
 /** Move the actual unit through its flight; only its own touchdown creates a field. */
@@ -668,11 +875,21 @@ export function stepBattle(b: BattleState, dt: number): BattleState {
     u.vuln = Math.max(0, u.vuln - dt);
     u.flash = Math.max(0, u.flash - dt);
     u.cast = Math.max(0, u.cast - dt);
+    u.enrageIn = Math.max(0, u.enrageIn - dt);
+    if (u.poisonLeft > 0 && !u.dead) {
+      u.poisonIn -= dt;
+      if (u.poisonIn <= 0) {
+        u.poisonIn = 1;
+        u.poisonLeft -= 1;
+        damage(b, u, u, u.poisonDmg);
+      }
+    }
   }
 
   resolveShells(b);
   stepAirstrikeDives(b);
   stepZones(b);
+  stepWebs(b, dt);
 
   b.glowA -= dt;
   if (b.glowA <= 0) {
@@ -723,7 +940,7 @@ export function stepBattle(b: BattleState, dt: number): BattleState {
       const dx = t.x - u.x;
       const dy = t.y - u.y;
       const len = Math.hypot(dx, dy) || 1;
-      const step = u.spd * dt;
+      const step = u.spd * webSlowMul(b, u) * dt;
       u.x = Math.max(0.3, Math.min(COLS - 0.3, u.x + (dx / len) * step));
       u.y = Math.max(0.3, Math.min(ROWS - 0.3, u.y + (dy / len) * step));
     }

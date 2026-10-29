@@ -337,7 +337,7 @@ export default function App() {
     // Touch forgiveness: if nothing selected and user taps an occupied tile, select that bug!
     if (selected == null) {
       if (occupant) setSelected(occupant.uid);
-      else say("SELECT A BUG BELOW FIRST");
+      else say("TAP A BENCH BUG TO DEPLOY IT — TAP A BOARD BUG TO MOVE IT");
       return;
     }
 
@@ -424,12 +424,20 @@ export default function App() {
       return;
     }
     if (occupant) {
-      // Double-tap bench bug shortcut: if already selected and room on board, deploy!
-      if (selected === occupant.uid && boardUnits.length < level) {
-        quickDeploySelected();
-      } else {
-        setSelected((s) => (s === occupant.uid ? null : occupant.uid));
+      // ONE-TAP DEPLOY: tapping a bench bug fields it instantly via the smart
+      // slot. When the line is full it arms SWAP mode instead (tap a board
+      // bug to swap it out). The corner "i" hotspot still opens the inspector.
+      if (boardUnits.length < level) {
+        const slot = smartSlotFor(occupant.bugId, units);
+        if (slot >= 0) {
+          setUnits((l) => l.map((x) => (x.uid === occupant.uid ? { ...x, zone: "board" as const, slot } : x)));
+          setSelected(null);
+          say(tf("{name} DEPLOYED — TAP IT ON THE BOARD TO REPOSITION", { name: t(BUGS[occupant.bugId].name).toUpperCase() }), "good");
+          return;
+        }
       }
+      setSelected((s) => (s === occupant.uid ? null : occupant.uid));
+      if (boardUnits.length >= level) say(tf("LINE FULL ({a}/{b}) — TAP A BOARD BUG TO SWAP IT OUT", { a: level, b: level }));
     } else if (su) {
       setSelected(null);
     }
@@ -1558,9 +1566,16 @@ export default function App() {
                 <span className="deck-num" style={{ color: hp > 30 ? "#56DCA8" : "#F05A36" }}>{hp}</span>
                 <span className="deck-cap">{t("Colony HP")}</span>
               </div>
-              <div className="deck-stat">
-                <span className="deck-num text-[#EDE2CB]">{round + 1}</span>
-                <span className="deck-cap">{t("Round")}<br />{activeCount} {t("alive")}{activeCount === 2 ? " · final" : ""}</span>
+              <div className="deck-stat" title={tf("Round {r} — {n} colonies still alive", { r: round + 1, n: activeCount })}>
+                <span className="deck-num text-[#F0A93B]">{round + 1}</span>
+                <span className="deck-cap">
+                  {t("Round")}<br />
+                  <span className="deck-pips" aria-label={`${activeCount} alive`}>
+                    {Array.from({ length: Math.max(activeCount, 2) }).map((_, i) => (
+                      <i key={i} data-on={i < activeCount ? 1 : 0} />
+                    ))}
+                  </span>
+                </span>
               </div>
 
               {/* Matchup plaque */}
@@ -1878,7 +1893,10 @@ export default function App() {
                       <span>VULN ×{vulnerableCount}</span>
                     </span>
                   )}
-                  <span className="font-pixel text-[10px] text-[#F0A93B]">
+                  <span
+                    className="border border-[#4A3828] bg-[#100C09] px-1.5 py-1.5 font-pixel text-[10px] tabular-nums text-[#F0A93B]"
+                    title={t("Battle timer — the round calls a draw past 40s")}
+                  >
                     {Math.max(0, 40 - Math.floor(battleSnap.t))}s
                   </span>
                   {/* Segmented battle speed — all options visible, one tap */}
@@ -2097,7 +2115,7 @@ export default function App() {
                           e.preventDefault();
                           onBench(i);
                         }}
-                        title={u ? tf("{name} (Tap again to deploy)", { name: t(BUGS[u.bugId].name) }) : t("Empty bench slot")}
+                        title={u ? tf("{name} — tap to deploy instantly", { name: t(BUGS[u.bugId].name) }) : t("Empty bench slot")}
                         className={`lift bench-slot relative grid h-11 place-items-center border sm:h-12 ${
                           isSel ? "border-[#F0A93B] bg-[#241B14]" : "border-[#3B322A] bg-[#120D09]"
                         } ${!u && benchUnits.length >= BENCH_SIZE ? "bench-slot--over" : ""}`}
@@ -2116,6 +2134,19 @@ export default function App() {
                             <SpecimenIcon id={u.bugId} size={33} star={u.star} selected={isSel} badge="none" />
                             <span className="pointer-events-none absolute left-0.5 top-0.5">
                               <RankBadge id={u.bugId} size={11} />
+                            </span>
+                            <span
+                              role="button"
+                              aria-label={t("INSPECT")}
+                              title={t("INSPECT")}
+                              onPointerDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setSelected(u.uid);
+                              }}
+                              className="absolute right-0.5 top-0.5 grid h-4 w-4 place-items-center border border-[#4A3828] bg-[#0D0907]/90 font-pixel text-[7px] text-[#9C8F7E] hover:text-[#F0A93B]"
+                            >
+                              i
                             </span>
                           </>
                         ) : (
@@ -2315,6 +2346,7 @@ export default function App() {
       {/* Round-start FIGHT flare (rendered once the sim actually starts) */}
       {simLive && fightFlash > 0 && phase === "battle" && (
         <div key={fightFlash} className="fight-flare pointer-events-none fixed inset-0 z-30 grid place-items-center" aria-hidden="true">
+          <span className="fight-flare__round label">{tf("ROUND {n}", { n: round + 1 })}</span>
           <span className="fight-flare__word font-pixel">{t("FIGHT")}</span>
         </div>
       )}

@@ -963,70 +963,184 @@ export function Scene3D({
      * caustics so the build stays image-free.
      */
     function makeWebTexture() {
-      const size = 256;
+      const size = 512;
       const c = document.createElement("canvas");
       c.width = c.height = size;
       const g = c.getContext("2d")!;
-      g.translate(size / 2, size / 2);
-      const R = size * 0.48;
-      // soft silk glow underlay so the sheet reads as ONE woven web
-      const under = g.createRadialGradient(0, 0, R * 0.1, 0, 0, R);
-      under.addColorStop(0, "rgba(242,236,255,0.30)");
-      under.addColorStop(0.7, "rgba(217,168,255,0.16)");
-      under.addColorStop(1, "rgba(217,168,255,0)");
-      g.fillStyle = under;
-      g.beginPath();
-      g.arc(0, 0, R, 0, Math.PI * 2);
-      g.fill();
-      // radial spokes
-      const spokes = 14;
-      g.strokeStyle = "rgba(242,236,255,0.92)";
-      g.lineWidth = 2.4;
-      for (let i = 0; i < spokes; i++) {
-        const a = (i / spokes) * Math.PI * 2;
+      const R = size / 2;
+      const sil = (a: number) => `rgba(242,236,255,${a})`;
+      const vio = (a: number) => `rgba(216,186,255,${a})`;
+      // NO flat base sheen: only real silk strands — a filled film reads as
+      // a glass pane. The drape still reaches every edge and CORNER via
+      // corner fans, garlands and drape folds.
+      // old-cloth vertical drape folds (uneven brighter/darker bands)
+      for (let i = 0; i < 14; i++) {
+        const x = (i / 14) * size + Math.sin(i * 5.3) * 9;
+        g.strokeStyle = i % 2 ? sil(0.1) : "rgba(10,7,16,0.22)";
+        g.lineWidth = 9 + (i % 3) * 6;
         g.beginPath();
-        g.moveTo(0, 0);
-        g.lineTo(Math.cos(a) * R, Math.sin(a) * R);
+        g.moveTo(x, 0);
+        g.bezierCurveTo(x + 14, size * 0.33, x - 14, size * 0.66, x + 6, size);
         g.stroke();
       }
-      // sagging capture spiral
-      const rings = 8;
-      g.lineWidth = 1.8;
-      for (let r = 1; r <= rings; r++) {
-        const rad = (r / rings) * R * 0.97;
-        g.strokeStyle = r % 2 ? "rgba(242,236,255,0.88)" : "rgba(233,196,255,0.78)";
+      // corner anchor FANS — dense cobwebs pinned deep into all 4 corners
+      const corners: [number, number][] = [[0, 0], [size, 0], [0, size], [size, size]];
+      for (const [cx, cy] of corners) {
+        const arcs = 8;
+        for (let a = 0; a < arcs; a++) {
+          const rad = 26 + a * 27 + Math.sin(a * 9.1) * 8;
+          g.strokeStyle = a % 2 ? vio(0.95 - a * 0.06) : sil(0.95 - a * 0.06);
+          g.lineWidth = 3.4 - a * 0.22;
+          g.beginPath();
+          const a0 = Math.atan2(cy - R, cx - R) - 0.92;
+          const a1 = a0 + 1.84;
+          for (let k = 0; k <= 10; k++) {
+            const ang = a0 + (a1 - a0) * (k / 10);
+            const sag = 1 - 0.06 * Math.sin(k * 1.9 + a);
+            const x = cx + Math.cos(ang) * rad * sag;
+            const y = cy + Math.sin(ang) * rad * sag;
+            if (k === 0) g.moveTo(x, y);
+            else g.lineTo(x, y);
+          }
+          g.stroke();
+          // radial ribs toward the board middle
+          if (a % 2 === 0) {
+            const ang = a0 + (a1 - a0) * 0.5 + Math.sin(a * 3.7) * 0.35;
+            g.beginPath();
+            g.moveTo(cx, cy);
+            g.lineTo(cx + Math.cos(ang) * (rad + 30), cy + Math.sin(ang) * (rad + 30));
+            g.lineWidth = 1.6;
+            g.stroke();
+          }
+        }
+      }
+      // draped garlands sagging between the corner fans and edge midpoints
+      const anchors: [number, number][] = [
+        [0, 0], [size * 0.5, 6], [size, 0], [size - 6, size * 0.5],
+        [size, size], [size * 0.5, size - 6], [0, size], [6, size * 0.5],
+      ];
+      g.lineWidth = 3.2;
+      for (let i = 0; i < anchors.length; i++) {
+        const [ax, ay] = anchors[i];
+        const [bx, by] = anchors[(i + 1) % anchors.length];
+        for (let w = 0; w < 4; w++) {
+          const sag = 30 + w * 26 + Math.sin(i * 4.4 + w) * 12;
+          g.strokeStyle = w % 2 ? vio(0.9) : sil(0.95);
+          g.beginPath();
+          g.moveTo(ax, ay);
+          g.quadraticCurveTo((ax + bx) / 2, (ay + by) / 2 + sag, bx, by);
+          g.stroke();
+          // frayed hanging threads off each garland
+          for (let f = 0; f < 3; f++) {
+            const tPos = 0.22 + f * 0.28;
+            const fx = (1 - tPos) * (1 - tPos) * ax + 2 * (1 - tPos) * tPos * ((ax + bx) / 2) + tPos * tPos * bx;
+            const fy = (1 - tPos) * (1 - tPos) * ay + 2 * (1 - tPos) * tPos * ((ay + by) / 2 + sag) + tPos * tPos * by;
+            g.strokeStyle = sil(0.6);
+            g.lineWidth = 1.3;
+            g.beginPath();
+            g.moveTo(fx, fy);
+            g.lineTo(fx + Math.sin(f * 5 + i) * 6, fy + 12 + f * 7);
+            g.stroke();
+          }
+        }
+      }
+      // diagonal foundation threads corner->corner (the classic cobweb frame)
+      g.lineWidth = 3.4;
+      for (const [x0, y0, x1, y1] of [[0, 0, size, size], [size, 0, 0, size]]) {
+        for (let w = -1; w <= 1; w++) {
+          g.strokeStyle = w === 0 ? sil(0.95) : vio(0.7);
+          g.lineWidth = w === 0 ? 3.4 : 2.2;
+          g.beginPath();
+          g.moveTo(x0, y0);
+          const mx = (x0 + x1) / 2 + w * 46;
+          const my = (y0 + y1) / 2 + w * 46;
+          g.quadraticCurveTo(mx, my, x1, y1);
+          g.stroke();
+        }
+      }
+      // mid-edge anchor fans
+      const mids: [number, number][] = [
+        [size * 0.5, 0], [size, size * 0.5], [size * 0.5, size], [0, size * 0.5],
+      ];
+      for (const [cx, cy] of mids) {
+        for (let a = 0; a < 4; a++) {
+          const rad = 34 + a * 30;
+          g.strokeStyle = a % 2 ? vio(0.8) : sil(0.85);
+          g.lineWidth = 2.6 - a * 0.3;
+          g.beginPath();
+          const base = Math.atan2(cy - R, cx - R);
+          const a0 = base - 0.8 + a * 0.1;
+          for (let k = 0; k <= 8; k++) {
+            const ang = a0 + (1.6 - a * 0.2) * (k / 8);
+            const sag = 1 - 0.05 * Math.sin(k * 2.1 + a);
+            const x = cx + Math.cos(ang) * rad * sag;
+            const y = cy + Math.sin(ang) * rad * sag;
+            if (k === 0) g.moveTo(x, y);
+            else g.lineTo(x, y);
+          }
+          g.stroke();
+        }
+      }
+      // center hex web where the spinner first anchored the drape
+      g.strokeStyle = sil(0.95);
+      g.lineWidth = 3;
+      for (let i = 0; i < 6; i++) {
+        const a0 = (i / 6) * Math.PI * 2 + 0.35;
         g.beginPath();
-        for (let i = 0; i <= spokes * 8; i++) {
-          const a = (i / (spokes * 8)) * Math.PI * 2;
-          const sag = 1 - 0.055 * Math.abs(Math.sin(a * (spokes / 2) + r * 1.3));
-          const rr = rad * sag;
-          const x = Math.cos(a) * rr;
-          const y = Math.sin(a) * rr;
-          if (i === 0) g.moveTo(x, y);
+        g.moveTo(R, R);
+        g.lineTo(R + Math.cos(a0) * 92, R + Math.sin(a0) * 92);
+        g.stroke();
+      }
+      for (let ring = 1; ring <= 6; ring++) {
+        const rad = ring * 16.5;
+        g.strokeStyle = ring % 2 ? vio(0.95) : sil(0.95);
+        g.lineWidth = 2.3;
+        g.beginPath();
+        for (let k = 0; k <= 6 * 8; k++) {
+          const ang = (k / (6 * 8)) * Math.PI * 2 + 0.35;
+          const sag = 1 - 0.05 * Math.sin(k * 2.3 + ring);
+          const x = R + Math.cos(ang) * rad * sag;
+          const y = R + Math.sin(ang) * rad * sag;
+          if (k === 0) g.moveTo(x, y);
           else g.lineTo(x, y);
         }
         g.closePath();
         g.stroke();
       }
-      // dew drops
-      for (let i = 0; i < 40; i++) {
+      // TATTERS: irregular holes — kept OFF the corners so the pins stay
+      g.globalCompositeOperation = "destination-out";
+      for (let i = 0; i < 15; i++) {
         const a = Math.random() * Math.PI * 2;
-        const rr = Math.pow(Math.random(), 0.5) * R * 0.95;
+        const rr = size * (0.14 + Math.random() * 0.3);
+        const x = R + Math.cos(a) * rr;
+        const y = R + Math.sin(a) * rr;
+        const rw = 5 + Math.random() * 15;
         g.beginPath();
-        g.arc(Math.cos(a) * rr, Math.sin(a) * rr, 1.2 + Math.random() * 2, 0, Math.PI * 2);
-        g.fillStyle = "rgba(255,255,255,0.75)";
+        g.ellipse(x, y, rw, rw * (0.4 + Math.random() * 0.6), Math.random() * Math.PI, 0, Math.PI * 2);
+        g.fillStyle = "rgba(0,0,0,0.85)";
         g.fill();
       }
-      // fade the rim so the sheet's square edge never shows
-      g.globalCompositeOperation = "destination-in";
-      const fade = g.createRadialGradient(0, 0, R * 0.55, 0, 0, R);
-      fade.addColorStop(0, "rgba(0,0,0,1)");
-      fade.addColorStop(0.85, "rgba(0,0,0,0.85)");
-      fade.addColorStop(1, "rgba(0,0,0,0)");
-      g.fillStyle = fade;
-      g.beginPath();
-      g.arc(0, 0, R, 0, Math.PI * 2);
-      g.fill();
+      // frayed rim: tiny edge nibbles (corners spared)
+      for (let i = 0; i < 24; i++) {
+        const edge = Math.floor(Math.random() * 4);
+        const tPos = 0.08 + Math.random() * 0.84;
+        const x = edge === 0 ? tPos * size : edge === 1 ? tPos * size : edge === 2 ? 0 : size;
+        const y = edge === 0 ? 0 : edge === 1 ? size : tPos * size;
+        g.beginPath();
+        g.ellipse(x, y, 3 + Math.random() * 6, 3 + Math.random() * 6, 0, 0, Math.PI * 2);
+        g.fillStyle = "rgba(0,0,0,0.6)";
+        g.fill();
+      }
+      g.globalCompositeOperation = "source-over";
+      // dew on the surviving strands
+      for (let i = 0; i < 60; i++) {
+        const x = Math.random() * size;
+        const y = Math.random() * size;
+        g.beginPath();
+        g.arc(x, y, 1 + Math.random() * 1.8, 0, Math.PI * 2);
+        g.fillStyle = "rgba(255,255,255,0.7)";
+        g.fill();
+      }
       const tex = new THREE.CanvasTexture(c);
       tex.colorSpace = THREE.SRGBColorSpace;
       return tex;
@@ -1034,15 +1148,16 @@ export function Scene3D({
     const webTex = showcase ? null : makeWebTexture();
     if (webTex) disposables.push(webTex);
 
-    // Ground web layer: ONE big silk sheet per web. The grand web spreads a
-    // single woven canopy across the whole board; each After-Web snare is a
-    // single 3×3 sheet that slowly winds like a trap.
+    // Ground web layer: each web is a TATTERED old-cloth drape pinned into
+    // all four corners. The grand web is one huge sheet spanning the whole
+    // board (plus a counter-rotating under-layer that shimmers through the
+    // holes); each After-Web snare is the same cloth at 3×3 scale.
     const WEB_POOL_N = 8;
     const webGeo = new THREE.PlaneGeometry(1, 1);
     const webMat = new THREE.MeshBasicMaterial({
       map: webTex ?? undefined,
       transparent: true,
-      opacity: 0.82,
+      opacity: 0.96,
       depthWrite: false,
       side: THREE.DoubleSide,
     });
@@ -1056,35 +1171,63 @@ export function Scene3D({
     const webQ = new THREE.Quaternion();
     const webE = new THREE.Euler();
     const webS = new THREE.Vector3();
+    const webAge = new Map<number, number>();
 
-    function updateWebs(b: BattleState | null, time: number) {
+    function updateWebs(b: BattleState | null, time: number, dt: number) {
       if (showcase) return;
       if (!b || !b.webs.length) {
         if (webMesh.count !== 0) webMesh.count = 0;
+        webAge.clear();
         return;
       }
+      const liveIds = new Set(b.webs.map((w) => w.id));
+      for (const id of Array.from(webAge.keys())) if (!liveIds.has(id)) webAge.delete(id);
       let n = 0;
       for (const w of b.webs) {
-        if (n >= WEB_POOL_N) break;
-        // ONE big sheet per web: the grand web blankets the whole board,
-        // each After-Web snare is a single 3x3 sheet that slowly winds.
+        if (n >= WEB_POOL_N - 1) break;
         const grand = w.kind === "grand";
+        // spawn pop: the drape drops in with an elastic overshoot
+        const age = (webAge.get(w.id) ?? 0) + dt;
+        webAge.set(w.id, age);
+        const k = Math.min(1, age / 0.55);
+        // easeOutBack: 0 -> overshoot -> 1
+        const back = 1 + 2.70158 * Math.pow(k - 1, 3) + 1.70158 * Math.pow(k - 1, 2);
+        const pop = 0.55 + 0.45 * back;
+        // old-cloth billow: slow anisotropic breathing + drift
+        const billowX = 1 + Math.sin(time * 0.9 + w.id * 2.1) * 0.03;
+        const billowZ = 1 + Math.cos(time * 0.7 + w.id * 1.3) * 0.03;
+        const baseW = (grand ? COLS + 0.9 : w.half * 2 + 0.6) * billowX * pop;
+        const baseH = (grand ? ROWS + 0.9 : w.half * 2 + 0.6) * billowZ * pop;
         const cx = grand ? COLS / 2 : w.x;
         const cz = grand ? ROWS / 2 : w.y;
-        const breathe = 1 + Math.sin(time * 2.2 + w.id) * 0.035;
-        const sw = (grand ? COLS + 0.4 : w.half * 2 + 0.5) * breathe;
-        const sh = (grand ? ROWS + 0.4 : w.half * 2 + 0.5) * breathe;
         const rot = grand
-          ? Math.sin(time * 0.4) * 0.02
-          : time * 0.22 + (w.id % 7) * 0.9;
-        webS.set(sw, sh, 1);
+          ? Math.sin(time * 0.13 + w.id) * 0.028
+          : Math.sin(time * 0.5 + w.id * 2.4) * 0.05 + (w.id % 7) * 0.9;
+        // silk shimmer: two violet tones breathing through the holes
+        const shim = 0.5 + 0.5 * Math.sin(time * 1.7 + w.id * 1.9);
+        const tint = grand
+          ? (shim > 0.5 ? 0xe3c2ff : 0xb48ae8)
+          : (shim > 0.5 ? 0xffffff : 0xd9c2ff);
+        // layer 1: the main drape
+        webS.set(baseW, baseH, 1);
         webE.set(-Math.PI / 2, 0, rot);
         webQ.setFromEuler(webE);
-        projTmp.set(cx, 0.05, cz);
+        projTmp.set(cx, 0.052, cz);
         m4.compose(projTmp, webQ, webS);
         webMesh.setMatrixAt(n, m4);
-        webMesh.setColorAt(n, projCol.setHex(grand ? 0xd9a8ff : 0xf2ecff));
+        webMesh.setColorAt(n, projCol.setHex(tint));
         n++;
+        // layer 2: counter-drifting under-sheet, peeking through the tatters
+        if (n < WEB_POOL_N) {
+          webS.set(baseW * 0.9, baseH * 0.9, 1);
+          webE.set(-Math.PI / 2, 0, -rot * 1.7 - 0.035);
+          webQ.setFromEuler(webE);
+          projTmp.set(cx, 0.038, cz);
+          m4.compose(projTmp, webQ, webS);
+          webMesh.setMatrixAt(n, m4);
+          webMesh.setColorAt(n, projCol.setHex(grand ? 0x8f6cc8 : 0xbfa0f0));
+          n++;
+        }
       }
       webMesh.count = n;
       webMesh.instanceMatrix.needsUpdate = true;
@@ -2479,7 +2622,7 @@ export function Scene3D({
         ));
       }
       updateProjectiles(activeBattle, t);
-      updateWebs(activeBattle, t);
+      updateWebs(activeBattle, t, dt);
       updateHoles(activeBattle);
       updateZones(activeBattle, t, visualBattleTime);
 

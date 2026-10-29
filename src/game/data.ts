@@ -250,8 +250,8 @@ export const BUGS: Record<BugId, BugDef> = {
 
   spider: {
     id: "spider",
-    name: "Black Widow",
-    short: "WIDOW",
+    name: "Spider",
+    short: "SPIDER",
     latin: "Latrodectus mactans",
     role: "Frontline",
     accent: "#FF5147",
@@ -265,13 +265,13 @@ export const BUGS: Record<BugId, BugDef> = {
     skill: {
       name: "Sticky Webs",
       desc:
-        "3-star ultimate. Battle start: the Black Widow spits one giant web over the whole board — enemies on it are slowed 50% and take 500 damage per second for the entire battle. When Energy is full it spits a second ball at the densest enemy group: one big 3×3 web deals 750 damage to and slows 30% any enemy that steps on it. The 3×3 web dissolves after 5 seconds.",
+        "3-star ultimate. Battle start: the Spider spits one giant web over the whole board — enemies on it are slowed 50% and take 500 damage per second for the entire battle. When Energy is full it spits a second ball at the densest enemy group: one big 3×3 web deals 750 damage to and slows 30% any enemy that steps on it. The 3×3 web dissolves after 5 seconds.",
     },
     skillMinStar: 3,
     passive: {
       name: "Enraged",
       desc:
-        "Every 6s the Widow's next bite is enraged: 2× damage and it poisons the target — 3 poison ticks, 1s apart, each dealing 50% of the Widow's ATK (every 5s at 2-star; every 3s at 3-star, with 80% ATK poison ticks).",
+        "Every 6s the Spider's next bite is enraged: 2× damage and it poisons the target — 3 poison ticks, 1s apart, each dealing 50% of the Spider's ATK (every 5s at 2-star; every 3s at 3-star, with 80% ATK poison ticks).",
     },
     starStats: {
       1: { hp: 550, atk: 100, def: 18 },

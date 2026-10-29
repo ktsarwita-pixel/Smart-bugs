@@ -782,6 +782,28 @@ html[data-motion="reduced"] * {
   padding: 4px 8px;
   min-height: 34px;
 }
+/* Alive-colony pips under the round counter */
+.deck-pips {
+  display: inline-flex;
+  gap: 2.5px;
+  align-items: center;
+  margin-top: 1px;
+}
+.deck-pips i {
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  background: #3B322A;
+}
+.deck-pips i[data-on="1"] {
+  background: #56DCA8;
+  box-shadow: 0 0 4px rgba(86, 220, 168, 0.55);
+}
+.deck-pips i[data-on="1"]:first-child {
+  background: #F0A93B;
+  box-shadow: 0 0 4px rgba(240, 169, 59, 0.6);
+}
+
 .deck-stat .deck-num {
   font-family: var(--font-pixel);
   font-size: 12px;
@@ -1316,6 +1338,14 @@ html[data-motion="reduced"] .dock-in {
     0 6px 0 #4a150b,
     0 0 34px rgba(240, 169, 59, 0.5),
     0 18px 50px rgba(0, 0, 0, 0.85);
+  animation: fightWord 780ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.fight-flare__round {
+  position: absolute;
+  margin-top: -74px;
+  color: #EDE2CB;
+  letter-spacing: 3px;
+  text-shadow: 0 2px 0 #000;
   animation: fightWord 780ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 @media (prefers-reduced-motion: reduce) {

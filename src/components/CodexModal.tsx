@@ -240,7 +240,7 @@ export function CodexModal({ open, onClose }: Props) {
                 {
                   n: "07",
                   t: "WEBS & VENOM",
-                  d: "The Black Widow (5G) webs the WHOLE board at battle start: enemies are slowed 50% and take 500 damage per second for the entire fight. At full Energy it spits a big 3×3 web onto the densest enemy pack — stepping on it deals 750 damage and slows 30%, and that web dissolves after 5 seconds. Its Enraged bite hits for 2× damage and adds 3 poison ticks 1s apart.",
+                  d: "The Spider (5G) webs the WHOLE board at battle start: enemies are slowed 50% and take 500 damage per second for the entire fight. At full Energy it spits a big 3×3 web onto the densest enemy pack — stepping on it deals 750 damage and slows 30%, and that web dissolves after 5 seconds. Its Enraged bite hits for 2× damage and adds 3 poison ticks 1s apart.",
                 },
               ].map((item) => (
                 <div key={item.n} className="border border-[#3B322A] bg-[#1C1611] p-3">

@@ -609,8 +609,8 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     // engine blocks. Shell gradient, one soft glint each.
     torsoS.box(-2, 5, -1, -2, 7, 3, bodyMid); // inner column carries the chords
     torsoS.box(2, 5, -1, 2, 7, 3, bodyMid);
-    torsoS.box(-3, 6, 1, -3, 7, 3, bodyLite); // outer plate BEHIND the fore
-    torsoS.box(3, 6, 1, 3, 7, 3, bodyLite); // chord, sheltering the hind root
+    torsoS.box(-3, 6, 2, -3, 7, 3, bodyLite); // outer plate — narrow rear
+    torsoS.box(3, 6, 2, 3, 7, 3, bodyLite); // shelf behind BOTH flap arcs
     torsoS.set(-3, 7, 2, glint); // fairing glints
     torsoS.set(3, 7, 2, glint);
     // Notch fills: probe-verified diagonal pockets (deep 1-cell dents where

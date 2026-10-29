@@ -268,8 +268,8 @@ export interface CmdDef {
 export const COMMANDERS: CmdDef[] = [
   {
     id: "matriarch",
-    name: "The Matriarch",
-    short: "MATRIARCH",
+    name: "The Termite Queen",
+    short: "QUEEN",
     title: "Queen of the Mound",
     latin: "Macrotermes bellicosus",
     accent: "#F0A93B",
@@ -307,8 +307,8 @@ export const COMMANDERS: CmdDef[] = [
   },
   {
     id: "lampyris",
-    name: "Lampyris",
-    short: "LAMPYRIS",
+    name: "The Lantern Oracle",
+    short: "ORACLE",
     title: "Oracle of the Lantern",
     latin: "Photinus pyralis",
     accent: "#7FE0C0",

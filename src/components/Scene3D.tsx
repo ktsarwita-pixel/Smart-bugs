@@ -165,6 +165,7 @@ export function Scene3D({
         // states on mobile GPUs mid-battle) — keep it only for low-DPR screens.
         antialias: (window.devicePixelRatio || 1) < 1.75,
         alpha: true,
+        stencil: false, // no stencil users — saves a full 8-bit plane
         powerPreference: "high-performance",
       });
     } catch {
@@ -180,6 +181,8 @@ export function Scene3D({
     // one of the two most expensive parts of the frame, and 30Hz shadow
     // updates are imperceptible for units that glide a few px per frame.
     renderer.shadowMap.autoUpdate = false;
+    // Production: never pay for per-program uniform/shader re-validation.
+    renderer.debug.checkShaderErrors = false;
 
     let alive = true;
     const hostEl: HTMLDivElement = host;
@@ -682,6 +685,7 @@ export function Scene3D({
     );
     const sparks = new THREE.InstancedMesh(sparkGeo, sparkMat, SPARK_N);
     sparks.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    sparks.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     sparks.frustumCulled = false;
     const spPos = new Float32Array(SPARK_N * 3);
     const spVel = new Float32Array(SPARK_N * 3);
@@ -828,6 +832,7 @@ export function Scene3D({
     );
     const projMesh = new THREE.InstancedMesh(projGeo, projMat, PROJ_N);
     projMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    projMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     projMesh.frustumCulled = false;
     projMesh.count = 0;
     const projCol = new THREE.Color();
@@ -846,6 +851,7 @@ export function Scene3D({
       })
     );
     const haloMesh = new THREE.InstancedMesh(haloGeo, haloMat, HALO_N);
+    haloMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     haloMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     haloMesh.frustumCulled = false;
     haloMesh.count = 0;
@@ -1259,6 +1265,7 @@ export function Scene3D({
     let ftWarmup = 0;
     let qualityClock = 0;
     let shadowPhase = 0;
+    let frameParity = 0;
     // Flips once init completes. After that, frame() repaints immediately
     // after every canvas resize — resizing a WebGL buffer clears it, and
     // without this repaint the cleared frame shows as a dark flash exactly
@@ -2360,9 +2367,13 @@ export function Scene3D({
         spinAngle += diff * (1 - Math.exp(-dt * 8));
         if (turntable) turntable.rotation.y = spinAngle;
 
+        frameParity ^= 1;
         for (let i = 0; i < showcaseItems.length; i++) {
           const it = showcaseItems[i];
           const isFocus = it.id === (p.focusId || "stag");
+          // Non-focused specimens idle-breathe at 30Hz (rig eases are slow —
+          // imperceptible), the focused one at full rate. Halves menu rig cost.
+          if (!isFocus && frameParity) continue;
           const wantSc = isFocus ? 1.28 : 0.86;
           const curSc = it.model.group.scale.x;
           it.model.group.scale.setScalar(curSc + (wantSc - curSc) * (1 - Math.exp(-dt * 9)));

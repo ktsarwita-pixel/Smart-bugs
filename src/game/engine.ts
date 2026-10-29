@@ -153,6 +153,8 @@ export interface Web {
   y: number;
   /** coverage: enemies within this radius of (x, y) are ON the web */
   half: number;
+  /** seconds of life left; undefined = lasts the whole battle (grand web) */
+  life?: number;
   slowPct: number;
   /** grand only: raw damage per 1s tick while the enemy stands anywhere */
   dotDps: number;
@@ -396,6 +398,7 @@ function landWeb(b: BattleState, src: BUnit, kind: "grand" | "snare", x: number,
     slowPct: 0.3,
     dotDps: 0,
     snareDmg: 750,
+    life: 5, // the 3x3 web dissolves after 5 seconds
     tickIn: 0,
     inside: new Set<number>(),
     rot: (b.nid % 7) * 0.13,
@@ -749,6 +752,11 @@ export function webSlowMul(b: BattleState, u: BUnit): number {
 /** Grand-web damage ticks + snare on-entry hits. Runs every step. */
 function stepWebs(b: BattleState, dt: number) {
   if (!b.webs.length) return;
+  // limited-life webs (After Web snares) dissolve when their timer runs out
+  if (b.webs.some((w) => w.life !== undefined)) {
+    b.webs = b.webs.filter((w) => w.life === undefined || (w.life -= dt) > 0);
+    if (!b.webs.length) return;
+  }
   for (const w of b.webs) {
     if (w.kind === "grand") {
       w.tickIn -= dt;

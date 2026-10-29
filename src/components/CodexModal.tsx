@@ -215,7 +215,7 @@ export function CodexModal({ open, onClose }: Props) {
                 {
                   n: "02",
                   t: "DEPLOY ON THE 3D DRAWER",
-                  d: "Tap a bug, then tap any green 3D tile on your side—or hit the 1-tap DEPLOY button for smart row placement (Stag in front, Mantis on flank, Bombardier in rear).",
+                  d: "Tap a bug, then tap any green 3D tile on your side—or hit the 1-tap DEPLOY button for smart row placement (Stag in front, Mantis and Widow on the flanks, Bombardier in rear).",
                 },
                 {
                   n: "03",
@@ -236,6 +236,11 @@ export function CodexModal({ open, onClose }: Props) {
                   n: "06",
                   t: "CHOOSE YOUR COMMANDER",
                   d: fill(t("{cmds}. The Worm digs once at the start of each battle, not on a repeating cooldown. Each commander and its current passive are listed in the Commanders tab."), { cmds: COMMANDERS.map((c) => `${t(c.name)}: ${t(c.perk)}`).join(". ") }),
+                },
+                {
+                  n: "07",
+                  t: "WEBS & VENOM",
+                  d: "The Black Widow (5G) webs the WHOLE board at battle start: enemies are slowed 50% and take 500 damage per second for the entire fight. At full Energy it spits a big 3×3 web onto the densest enemy pack — stepping on it deals 750 damage and slows 30%, and that web dissolves after 5 seconds. Its Enraged bite hits for 2× damage and adds 3 poison ticks 1s apart.",
                 },
               ].map((item) => (
                 <div key={item.n} className="border border-[#3B322A] bg-[#1C1611] p-3">

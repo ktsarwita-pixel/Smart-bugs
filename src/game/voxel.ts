@@ -560,21 +560,21 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     crownPivot = [0, 14, -5];
     maxY = 14;
   } else if (id === "spider") {
-    // "Velvet Stalker" — a chunky jumping spider. Two body masses: a fuzzy
-    // cephalothorax up front and a big chevron-marked abdomen behind. Legs
-    // are REAL spider legs: knee rises ABOVE the back, foot planted wide —
-    // four per side, front pair longest. Fangs (arms, riding the head)
-    // curl down-in from the face; a cluster of glowing eyes over them.
-    const skinD = "#241A38";
-    const skinM = "#3C2B5E";
-    const fuzz = "#5A4390";
-    const mark = "#8F76D4";
-    const pale = "#C9B8F0";
-    const fang = "#E8E0FF";
-    const eyeA = "#C77DFF";
-    const eyeB = "#E9C4FF";
-    const legD = "#191126";
-    const legL = "#4A3574";
+    // BLACK WIDOW — glossy black carapace, a bulbous abdomen carrying the
+    // signature red hourglass on its back, and a red-gleaming eye band over
+    // the fangs. Legs are REAL spider legs: knee rises ABOVE the back, foot
+    // planted wide — four per side, front pair longest. Fangs (arms, riding
+    // the head) curl down-in from the face.
+    const skinD = "#140D1C";
+    const skinM = "#221730";
+    const fuzz = "#3E2C50";
+    const mark = "#FF3B30";
+    const pale = "#FF9A8C";
+    const fang = "#E9E4F2";
+    const eyeA = "#FF3B30";
+    const eyeB = "#FFB4A8";
+    const legD = "#0A0710";
+    const legL = "#33243F";
 
     // Cephalothorax: compact front mass with a fuzzy top.
     torsoS.ellipsoid(0, 3.4, -1.6, 2.1, 1.9, 1.9, (x, y, _z) => {
@@ -582,13 +582,18 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
       if (y >= 5) return { hex: fuzz };
       return { hex: x !== 0 && Math.abs(x) >= 2 ? skinD : skinM };
     });
-    // Abdomen: the big rear balloon with a pale dorsal chevron ladder and
-    // a dark under-belly; two-cell spinnerets at the tail tip.
+    // Abdomen: the big glossy rear balloon with the RED HOURGLASS painted
+    // on its back (two wide bands pinched to a waist) and a dark under-belly;
+    // two-cell spinnerets at the tail tip.
     torsoS.ellipsoid(0, 3.7, 3.8, 2.9, 2.5, 3.1, (x, y, z) => {
       if (y <= 1) return null;
       if (z >= 6) return { hex: skinD }; // spinneret base
-      if (y >= 6 && (Math.abs(z - 2) < 1.2 || Math.abs(z - 4.4) < 1.1)) return { hex: mark }; // chevrons
-      if (y >= 5 && x === 0) return { hex: pale };
+      if (y >= 6 && Math.abs(x) <= 1) {
+        const dz = z - 3.3;
+        if (Math.abs(dz) >= 1 && Math.abs(dz) <= 1.9) return { hex: mark }; // hourglass bands
+        if (Math.abs(dz) < 1 && x === 0) return { hex: mark }; // pinched waist
+      }
+      if (y >= 5 && x === 0 && Math.abs(z - 1.4) < 0.6) return { hex: pale }; // red crown spot
       if (y >= 5) return { hex: fuzz };
       return { hex: Math.abs(x) >= 2 ? skinD : skinM };
     });
@@ -600,19 +605,17 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     torsoS.sym(2, 3, 0, skinD);
     torsoS.sym(2, 3, 1, skinD);
 
-    // Eyes: one big HOT main pair + two smaller glow pairs above the fangs
-    // (a jumping spider's sparkle). Head dome carries them.
+    // Eyes: a sleek black face with ONE big hot-red main pair (the widow's
+    // menacing spotlight eyes) and a thin darker gleam row above. The old
+    // multi-row red/pink mix read as a noisy checker slab.
     headPivot = [0, 3.4, -2.6];
     torsoPivot = [0, 3.2, 0.2];
     headS.ellipsoid(0, 3.8, -3.6, 1.9, 1.5, 1.3, (_x, y) => ({
-      hex: y >= 4 ? fuzz : skinM,
+      hex: y >= 4 ? skinM : skinD,
     }));
-    headS.sym(1, 4, -5, eyeB, true); // main eyes
-    headS.sym(2, 4, -5, eyeA, true);
-    headS.sym(1, 5, -4, eyeA, true); // upper row
-    headS.sym(2, 5, -4, eyeB, true);
-    headS.sym(2, 3, -5, eyeA, true); // lower row
-    headS.set(0, 5, -4, pale); // crown fuzz between the eyes
+    headS.sym(2, 4, -5, eyeA, true); // the two hot main eyes
+    headS.sym(1, 4, -5, eyeB, true); // inner glint beside each
+    headS.sym(2, 5, -4, skinM); // matte brow row
     headS.box(-2, 3, -5, 2, 3, -5, skinD); // face plate under the eyes
     headS.sym(2, 2, -5, skinD); // jaw corners
 
@@ -1229,7 +1232,7 @@ const FINISH: Record<string, { roughness: number; metalness: number }> = {
   lampyris: { roughness: 0.5, metalness: 0.1 },
   worm: { roughness: 0.72, metalness: 0.02 }, // damp annelid skin — matte, wet bands carry the shine
   dragonfly: { roughness: 0.38, metalness: 0.25 }, // iridescent dasher carapace
-  spider: { roughness: 0.68, metalness: 0.06 }, // matte velvet fuzz
+  spider: { roughness: 0.4, metalness: 0.16 }, // glossy widow chitin — wet-black shine
 };
 
 /** Shared glow material for every voxel model (see buildVoxelModel). */

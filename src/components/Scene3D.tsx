@@ -963,28 +963,42 @@ export function Scene3D({
      * caustics so the build stays image-free.
      */
     function makeWebTexture() {
-      const size = 128;
+      const size = 256;
       const c = document.createElement("canvas");
       c.width = c.height = size;
       const g = c.getContext("2d")!;
       g.translate(size / 2, size / 2);
-      const spokes = 10;
-      const rings = 5;
-      g.strokeStyle = "rgba(242,236,255,0.95)";
+      const R = size * 0.48;
+      // soft silk glow underlay so the sheet reads as ONE woven web
+      const under = g.createRadialGradient(0, 0, R * 0.1, 0, 0, R);
+      under.addColorStop(0, "rgba(242,236,255,0.30)");
+      under.addColorStop(0.7, "rgba(217,168,255,0.16)");
+      under.addColorStop(1, "rgba(217,168,255,0)");
+      g.fillStyle = under;
+      g.beginPath();
+      g.arc(0, 0, R, 0, Math.PI * 2);
+      g.fill();
+      // radial spokes
+      const spokes = 14;
+      g.strokeStyle = "rgba(242,236,255,0.92)";
+      g.lineWidth = 2.4;
       for (let i = 0; i < spokes; i++) {
         const a = (i / spokes) * Math.PI * 2;
         g.beginPath();
         g.moveTo(0, 0);
-        g.lineTo(Math.cos(a) * size * 0.48, Math.sin(a) * size * 0.48);
-        g.lineWidth = 2.2;
+        g.lineTo(Math.cos(a) * R, Math.sin(a) * R);
         g.stroke();
       }
+      // sagging capture spiral
+      const rings = 8;
+      g.lineWidth = 1.8;
       for (let r = 1; r <= rings; r++) {
-        const rad = (r / rings) * size * 0.46;
+        const rad = (r / rings) * R * 0.97;
+        g.strokeStyle = r % 2 ? "rgba(242,236,255,0.88)" : "rgba(233,196,255,0.78)";
         g.beginPath();
-        for (let i = 0; i <= spokes * 6; i++) {
-          const a = (i / (spokes * 6)) * Math.PI * 2;
-          const sag = 1 - 0.045 * Math.sin(i * 1.7 + r * 2.4);
+        for (let i = 0; i <= spokes * 8; i++) {
+          const a = (i / (spokes * 8)) * Math.PI * 2;
+          const sag = 1 - 0.055 * Math.abs(Math.sin(a * (spokes / 2) + r * 1.3));
           const rr = rad * sag;
           const x = Math.cos(a) * rr;
           const y = Math.sin(a) * rr;
@@ -992,17 +1006,27 @@ export function Scene3D({
           else g.lineTo(x, y);
         }
         g.closePath();
-        g.lineWidth = r === rings ? 3 : 1.8;
         g.stroke();
       }
-      for (let i = 0; i < 26; i++) {
+      // dew drops
+      for (let i = 0; i < 40; i++) {
         const a = Math.random() * Math.PI * 2;
-        const rr = Math.pow(Math.random(), 0.5) * size * 0.44;
+        const rr = Math.pow(Math.random(), 0.5) * R * 0.95;
         g.beginPath();
-        g.arc(Math.cos(a) * rr, Math.sin(a) * rr, 1.4 + Math.random() * 1.6, 0, Math.PI * 2);
-        g.fillStyle = "rgba(217,168,255,0.8)";
+        g.arc(Math.cos(a) * rr, Math.sin(a) * rr, 1.2 + Math.random() * 2, 0, Math.PI * 2);
+        g.fillStyle = "rgba(255,255,255,0.75)";
         g.fill();
       }
+      // fade the rim so the sheet's square edge never shows
+      g.globalCompositeOperation = "destination-in";
+      const fade = g.createRadialGradient(0, 0, R * 0.55, 0, 0, R);
+      fade.addColorStop(0, "rgba(0,0,0,1)");
+      fade.addColorStop(0.85, "rgba(0,0,0,0.85)");
+      fade.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = fade;
+      g.beginPath();
+      g.arc(0, 0, R, 0, Math.PI * 2);
+      g.fill();
       const tex = new THREE.CanvasTexture(c);
       tex.colorSpace = THREE.SRGBColorSpace;
       return tex;
@@ -1010,11 +1034,11 @@ export function Scene3D({
     const webTex = showcase ? null : makeWebTexture();
     if (webTex) disposables.push(webTex);
 
-    // Ground web layer: one silk decal per covered board cell. The grand web
-    // blankets all COLS×ROWS cells; each After-Web snare covers its 3×3 and
-    // slowly rotates like a wound-up trap.
-    const WEB_POOL_N = 80;
-    const webGeo = new THREE.PlaneGeometry(0.94, 0.94);
+    // Ground web layer: ONE big silk sheet per web. The grand web spreads a
+    // single woven canopy across the whole board; each After-Web snare is a
+    // single 3×3 sheet that slowly winds like a trap.
+    const WEB_POOL_N = 8;
+    const webGeo = new THREE.PlaneGeometry(1, 1);
     const webMat = new THREE.MeshBasicMaterial({
       map: webTex ?? undefined,
       transparent: true,
@@ -1041,27 +1065,26 @@ export function Scene3D({
       }
       let n = 0;
       for (const w of b.webs) {
-        const rot =
-          w.kind === "grand" ? time * 0.05 : time * 0.3 + (w.id % 7) * 0.9;
-        const tint = w.kind === "grand" ? 0xd9a8ff : 0xf2ecff;
-        const cMin = Math.max(0, Math.floor(w.x - w.half));
-        const cMax = Math.min(COLS - 1, Math.ceil(w.x + w.half) - 1);
-        const rMin = Math.max(0, Math.floor(w.y - w.half));
-        const rMax = Math.min(ROWS - 1, Math.ceil(w.y + w.half) - 1);
-        for (let c = cMin; c <= cMax; c++) {
-          for (let r = rMin; r <= rMax; r++) {
-            if (n >= WEB_POOL_N) break;
-            const wob = 1 + Math.sin(time * 3 + w.id + c * 0.7 + r * 1.3) * 0.05;
-            webS.setScalar(wob);
-            webE.set(-Math.PI / 2, 0, rot + ((c * 13 + r * 7) % 4) * 0.06);
-            webQ.setFromEuler(webE);
-            projTmp.set(c + 0.5, 0.055, r + 0.5);
-            m4.compose(projTmp, webQ, webS);
-            webMesh.setMatrixAt(n, m4);
-            webMesh.setColorAt(n, projCol.setHex(tint));
-            n++;
-          }
-        }
+        if (n >= WEB_POOL_N) break;
+        // ONE big sheet per web: the grand web blankets the whole board,
+        // each After-Web snare is a single 3x3 sheet that slowly winds.
+        const grand = w.kind === "grand";
+        const cx = grand ? COLS / 2 : w.x;
+        const cz = grand ? ROWS / 2 : w.y;
+        const breathe = 1 + Math.sin(time * 2.2 + w.id) * 0.035;
+        const sw = (grand ? COLS + 0.4 : w.half * 2 + 0.5) * breathe;
+        const sh = (grand ? ROWS + 0.4 : w.half * 2 + 0.5) * breathe;
+        const rot = grand
+          ? Math.sin(time * 0.4) * 0.02
+          : time * 0.22 + (w.id % 7) * 0.9;
+        webS.set(sw, sh, 1);
+        webE.set(-Math.PI / 2, 0, rot);
+        webQ.setFromEuler(webE);
+        projTmp.set(cx, 0.05, cz);
+        m4.compose(projTmp, webQ, webS);
+        webMesh.setMatrixAt(n, m4);
+        webMesh.setColorAt(n, projCol.setHex(grand ? 0xd9a8ff : 0xf2ecff));
+        n++;
       }
       webMesh.count = n;
       webMesh.instanceMatrix.needsUpdate = true;

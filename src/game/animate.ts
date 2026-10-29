@@ -81,6 +81,13 @@ export function animateInsectRig(
     // worm: the 0.35 death nod drove the dome's lower rim through ring0 —
     // the grub keeps its head inside the sealed socket
     p.headX = id === "worm" ? 0.06 : 0.35;
+    if (id === "spider") {
+      // the widow dies the classic way: legs curl tight under the body
+      p.legsAX = 0.72;
+      p.legsBX = 0.72;
+      p.laZ = -0.32;
+      p.raZ = 0.32;
+    }
     p.rootY = -Math.min(0.1, deadT * 0.14) + Math.sin(roll) * (id === "worm" ? 0.75 : 0.3);
     p.torsoS = 1;
   } else {
@@ -314,6 +321,45 @@ export function animateInsectRig(
         p.raZ = 0.18 - flap;
         p.legsAX = Math.sin(t * 3 + uid) * 0.06;
         p.legsBX = -Math.sin(t * 3 + uid) * 0.06;
+      }
+    } else if (id === "spider") {
+      // Black widow skitter: the two leg sets rock fast against each other
+      // (a scurrying scuttle, no alternating tripods), the body rides low.
+      // The bite rears the front half up and STABS both fangs down-forward;
+      // the web spit rears higher with the fangs spread wide.
+      if (cp > 0) {
+        const rear = Math.sin(Math.min(1, cp / 0.75) * Math.PI);
+        p.torsoX = -0.2 * rear;
+        p.torsoPosY = 0.06 * rear;
+        p.headX = -0.14 * rear;
+        p.laX = -0.35 * rear;
+        p.raX = -0.35 * rear;
+        p.laZ = -0.3 - 0.28 * rear; // fangs spread wide, then snap
+        p.raZ = 0.3 + 0.28 * rear;
+      } else if (ap > 0.01) {
+        const stab = Math.sin(ap * Math.PI);
+        p.torsoX = 0.06 + 0.14 * stab;
+        p.torsoPosZ = 0.1 * stab; // pounce
+        p.rootY = 0.03 * stab;
+        p.laZ = -0.15 - 0.55 * stab; // fangs swing forward and down
+        p.raZ = 0.15 + 0.55 * stab;
+        p.laX = 0.12 * stab;
+        p.raX = 0.12 * stab;
+      } else if (moving) {
+        const skitter = Math.sin(walkPhase * 1.8);
+        p.legsAX = skitter * 0.42;
+        p.legsBX = -skitter * 0.42;
+        p.legsAY = Math.max(0, skitter) * 0.03;
+        p.legsBY = Math.max(0, -skitter) * 0.03;
+        p.torsoZ = skitter * 0.05;
+        p.torsoX = 0.1;
+        p.headX = -0.05;
+      } else {
+        // idle: pedipalp feelers taste the air, legs tap
+        p.laZ = -0.08 + Math.sin(t * 5.2 + uid) * 0.07;
+        p.raZ = 0.08 - Math.sin(t * 5.2 + uid) * 0.07;
+        p.legsAX = Math.sin(t * 3.1 + uid) * 0.05;
+        p.legsBX = -Math.sin(t * 3.1 + uid) * 0.05;
       }
     } else if (id === "matriarch") {
       // Royal levitation — the whole body rides a slow hover, crown bobbing apart

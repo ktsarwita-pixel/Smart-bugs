@@ -17,3 +17,11 @@ tar xzf repo.tgz -C repo-src
 rm -rf repo-src repo.tgz
 npm install --include=dev --no-audit --no-fund --loglevel=error
 npm run build
+# Private test range needs real paths: this build is single-file, and Vercel
+# 404s unknown paths before the SPA router can see them (and vercel.json is
+# parsed before this script runs, so rewrites added here would be ignored).
+# Physical copies let /advanced and /advenced serve the app directly.
+mkdir -p dist/advanced dist/advenced
+cp dist/index.html dist/advanced/index.html
+cp dist/index.html dist/advenced/index.html
+

@@ -15,6 +15,17 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    v: "0.5",
+    title: "REAL SILK",
+    items: [
+      "FIXED — the Enraged passive never fired: its arming time (6/5/3s) was longer than entire battles. Now 5/4/2.5s with the first cycle pre-charged — it procs in every fight (proven by simulation).",
+      "Every Enraged bite pops on the Spider; poisoned foes seep venom green; enemies stuck in the After Web sheen sticky violet.",
+      "Realistic silk: webs redrawn as true orb webs — hub, radial spokes, sagging capture spiral, dew sitting ON the strands, broken outer strands instead of punched holes.",
+      "After Web is now FLUNG: the net drops from above, settles with a spin, then blooms across its rect.",
+      "Grand opener unchanged: whole-board web (50% slow, 500 dmg/s all battle).",
+    ],
+  },
+  {
     v: "0.4",
     title: "THE SILK FLOOD",
     items: [

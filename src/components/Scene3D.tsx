@@ -958,9 +958,14 @@ export function Scene3D({
     }
 
     /**
-     * Procedural spider-web decal: radial silk spokes, a sagging capture
-     * spiral and violet dew specks — canvas-generated like the Airstrike
-     * caustics so the build stays image-free.
+     * Procedural spider-web decal — REALISTIC SILK. Canvas-generated so the
+     * build stays image-free. Anatomy follows a real orb web: foundation
+     * threads, radial spokes from a hub, a sagging capture spiral whose
+     * spacing widens outward, broken outer strands (not punched holes),
+     * corner-filler cobwebs and dew droplets sitting ON the threads. Every
+     * strand is drawn in three passes (dark under-shadow, bright core, white
+     * glint) so silk reads round and glossy. A seeded PRNG keeps the web
+     * identical across runs.
      */
     function makeWebTexture() {
       const size = 512;
@@ -968,237 +973,172 @@ export function Scene3D({
       c.width = c.height = size;
       const g = c.getContext("2d")!;
       const R = size / 2;
-      const sil = (a: number) => `rgba(242,236,255,${a})`;
-      const vio = (a: number) => `rgba(216,186,255,${a})`;
-      // NO flat base sheen: only real silk strands — a filled film reads as
-      // a glass pane. The drape still reaches every edge and CORNER via
-      // corner fans, garlands and drape folds.
-      // old-cloth vertical drape folds (uneven brighter/darker bands)
-      for (let i = 0; i < 14; i++) {
-        const x = (i / 14) * size + Math.sin(i * 5.3) * 9;
-        g.strokeStyle = i % 2 ? sil(0.1) : "rgba(10,7,16,0.22)";
-        g.lineWidth = 9 + (i % 3) * 6;
+      g.lineJoin = "round";
+      g.lineCap = "round";
+      // mulberry32 — hand-authored chaos, identical every run
+      let seed = 0x9e3779b9;
+      const rnd = () => {
+        seed |= 0; seed = (seed + 0x6d2b79f5) | 0;
+        let z = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        z = (z + Math.imul(z ^ (z >>> 7), 61 | z)) ^ z;
+        return ((z ^ (z >>> 14)) >>> 0) / 4294967296;
+      };
+      type Pt = [number, number];
+      const path = (pts: Pt[]) => {
         g.beginPath();
-        g.moveTo(x, 0);
-        g.bezierCurveTo(x + 14, size * 0.33, x - 14, size * 0.66, x + 6, size);
+        g.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]);
+      };
+      // three-pass silk strand: shadow, core, glint
+      const strand = (pts: Pt[], w: number, a: number, vio = false) => {
+        path(pts);
+        g.strokeStyle = `rgba(22,13,36,${a * 0.5})`;
+        g.lineWidth = w + 1.2;
         g.stroke();
-      }
-      // corner anchor FANS — dense cobwebs pinned deep into all 4 corners
-      const corners: [number, number][] = [[0, 0], [size, 0], [0, size], [size, size]];
-      for (const [cx, cy] of corners) {
-        const arcs = 8;
-        for (let a = 0; a < arcs; a++) {
-          const rad = 26 + a * 27 + Math.sin(a * 9.1) * 8;
-          g.strokeStyle = a % 2 ? vio(0.95 - a * 0.06) : sil(0.95 - a * 0.06);
-          g.lineWidth = 3.4 - a * 0.22;
-          g.beginPath();
-          const a0 = Math.atan2(cy - R, cx - R) - 0.92;
-          const a1 = a0 + 1.84;
-          for (let k = 0; k <= 10; k++) {
-            const ang = a0 + (a1 - a0) * (k / 10);
-            const sag = 1 - 0.06 * Math.sin(k * 1.9 + a);
-            const x = cx + Math.cos(ang) * rad * sag;
-            const y = cy + Math.sin(ang) * rad * sag;
-            if (k === 0) g.moveTo(x, y);
-            else g.lineTo(x, y);
-          }
-          g.stroke();
-          // radial ribs toward the board middle
-          if (a % 2 === 0) {
-            const ang = a0 + (a1 - a0) * 0.5 + Math.sin(a * 3.7) * 0.35;
-            g.beginPath();
-            g.moveTo(cx, cy);
-            g.lineTo(cx + Math.cos(ang) * (rad + 30), cy + Math.sin(ang) * (rad + 30));
-            g.lineWidth = 1.6;
-            g.stroke();
-          }
+        path(pts);
+        g.strokeStyle = vio ? `rgba(212,180,255,${a})` : `rgba(238,232,250,${a})`;
+        g.lineWidth = w;
+        g.stroke();
+        path(pts);
+        g.strokeStyle = `rgba(255,255,255,${a * 0.75})`;
+        g.lineWidth = Math.max(0.5, w * 0.4);
+        g.stroke();
+      };
+      const quad = (p0: Pt, mx: number, my: number, p1: Pt): Pt[] => {
+        const pts: Pt[] = [];
+        for (let i = 0; i <= 8; i++) {
+          const u = i / 8, v = 1 - u;
+          pts.push([
+            v * v * p0[0] + 2 * v * u * mx + u * u * p1[0],
+            v * v * p0[1] + 2 * v * u * my + u * u * p1[1],
+          ]);
         }
-      }
-      // draped garlands sagging between the corner fans and edge midpoints
-      const anchors: [number, number][] = [
-        [0, 0], [size * 0.5, 6], [size, 0], [size - 6, size * 0.5],
-        [size, size], [size * 0.5, size - 6], [0, size], [6, size * 0.5],
+        return pts;
+      };
+      const dew: Pt[] = []; // droplets are collected as strands are drawn
+
+      // ——— FOUNDATION threads: the frame the whole web hangs from ———
+      const anchors: Pt[] = [
+        [0, 0], [size * 0.5, 4], [size, 0], [size - 4, size * 0.5],
+        [size, size], [size * 0.5, size - 4], [4, size * 0.5], [0, size],
       ];
-      g.lineWidth = 3.2;
       for (let i = 0; i < anchors.length; i++) {
-        const [ax, ay] = anchors[i];
-        const [bx, by] = anchors[(i + 1) % anchors.length];
-        for (let w = 0; w < 4; w++) {
-          const sag = 30 + w * 26 + Math.sin(i * 4.4 + w) * 12;
-          g.strokeStyle = w % 2 ? vio(0.9) : sil(0.95);
-          g.beginPath();
-          g.moveTo(ax, ay);
-          g.quadraticCurveTo((ax + bx) / 2, (ay + by) / 2 + sag, bx, by);
-          g.stroke();
-          // frayed hanging threads off each garland
-          for (let f = 0; f < 3; f++) {
-            const tPos = 0.22 + f * 0.28;
-            const fx = (1 - tPos) * (1 - tPos) * ax + 2 * (1 - tPos) * tPos * ((ax + bx) / 2) + tPos * tPos * bx;
-            const fy = (1 - tPos) * (1 - tPos) * ay + 2 * (1 - tPos) * tPos * ((ay + by) / 2 + sag) + tPos * tPos * by;
-            g.strokeStyle = sil(0.6);
-            g.lineWidth = 1.3;
-            g.beginPath();
-            g.moveTo(fx, fy);
-            g.lineTo(fx + Math.sin(f * 5 + i) * 6, fy + 12 + f * 7);
-            g.stroke();
+        const a = anchors[i];
+        const b2 = anchors[(i + 2) % anchors.length]; // corner→corner chords
+        const mx = (a[0] + b2[0]) / 2 + (rnd() - 0.5) * 26;
+        const my = (a[1] + b2[1]) / 2 + (rnd() - 0.5) * 26 + 8; // gentle sag
+        strand(quad(a, mx, my, b2), 2.4, 0.85, i % 2 === 1);
+      }
+
+      // ——— HUB + RADIAL SPOKES: one deformed orb spanning the sheet ———
+      const hub: Pt = [R + (rnd() - 0.5) * 22, R + (rnd() - 0.5) * 22];
+      strand([[hub[0] - 5, hub[1]], [hub[0] + 5, hub[1]]], 2.2, 0.9);
+      strand([[hub[0], hub[1] - 5], [hub[0], hub[1] + 5]], 2.2, 0.9);
+      const SPOKES = 16;
+      const spokeA: number[] = [];
+      for (let i = 0; i < SPOKES; i++) {
+        const a0 = (i / SPOKES) * Math.PI * 2 + (rnd() - 0.5) * 0.12;
+        spokeA.push(a0);
+        const len = R * (1.02 + rnd() * 0.06);
+        const tip: Pt = [hub[0] + Math.cos(a0) * len, hub[1] + Math.sin(a0) * len];
+        const midR = len * (0.5 + (rnd() - 0.5) * 0.06); // spokes sag a touch
+        strand(quad(hub, hub[0] + Math.cos(a0 + 0.05) * midR, hub[1] + Math.sin(a0 + 0.05) * midR + 6, tip), 1.7, 0.8, i % 3 === 0);
+      }
+
+      // ——— CAPTURE SPIRAL: rings widen outward, segments sag toward the
+      // hub between spokes, outer rings break like an old web ———
+      let r = 20;
+      let ring = 0;
+      while (r < R * 1.04) {
+        const nextR = r * 1.16 + 5.5;
+        const breakP = 0.05 + Math.pow(r / R, 3) * 0.55; // rim wears out first
+        for (let i = 0; i < SPOKES; i++) {
+          if (rnd() < breakP) continue; // missing segment — a broken strand
+          const a0 = spokeA[i];
+          const a1 = spokeA[(i + 1) % SPOKES] + (i === SPOKES - 1 ? Math.PI * 2 : 0);
+          const p0: Pt = [hub[0] + Math.cos(a0) * r, hub[1] + Math.sin(a0) * r];
+          const p1: Pt = [hub[0] + Math.cos(a1) * nextR, hub[1] + Math.sin(a1) * nextR];
+          const am = (a0 + a1) / 2;
+          const rm = (r + nextR) / 2 * (1 - 0.16); // sag toward the hub
+          const mx = hub[0] + Math.cos(am) * rm;
+          const my = hub[1] + Math.sin(am) * rm;
+          strand(quad(p0, mx, my, p1), 1.15, 0.72, ring % 2 === 1);
+          if (rnd() < 0.24 && dew.length < 90) dew.push(p1);
+        }
+        r = nextR;
+        ring++;
+      }
+
+      // ——— CORNER FILLER: the dense cobwebs real house spiders leave ———
+      const corners: Pt[] = [[0, 0], [size, 0], [0, size], [size, size]];
+      for (const [cx, cy] of corners) {
+        const dir = Math.atan2(R - cy, R - cx);
+        for (let a = 0; a < 5; a++) {
+          const rad = 24 + a * 24 + rnd() * 8;
+          const a0 = dir - 0.78 + rnd() * 0.14;
+          const a1 = dir + 0.78 - rnd() * 0.14;
+          const pts: Pt[] = [];
+          for (let k = 0; k <= 9; k++) {
+            const ang = a0 + (a1 - a0) * (k / 9);
+            const sag = 1 - 0.05 * Math.sin(k * 2.2 + a);
+            pts.push([cx + Math.cos(ang) * rad * sag, cy + Math.sin(ang) * rad * sag]);
           }
+          strand(pts, 1.3, 0.8, a % 2 === 1);
+          if (rnd() < 0.5) dew.push(pts[4]);
+        }
+        for (let k = 0; k < 4; k++) {
+          const ang = dir + (k / 3 - 0.5) * 1.4 + (rnd() - 0.5) * 0.2;
+          const len = 70 + rnd() * 60;
+          strand([[cx, cy], [cx + Math.cos(ang) * len, cy + Math.sin(ang) * len]], 1.4, 0.7, k % 2 === 0);
         }
       }
-      // diagonal foundation threads corner->corner (the classic cobweb frame)
-      g.lineWidth = 3.4;
-      for (const [x0, y0, x1, y1] of [[0, 0, size, size], [size, 0, 0, size]]) {
-        for (let w = -1; w <= 1; w++) {
-          g.strokeStyle = w === 0 ? sil(0.95) : vio(0.7);
-          g.lineWidth = w === 0 ? 3.4 : 2.2;
-          g.beginPath();
-          g.moveTo(x0, y0);
-          const mx = (x0 + x1) / 2 + w * 46;
-          const my = (y0 + y1) / 2 + w * 46;
-          g.quadraticCurveTo(mx, my, x1, y1);
-          g.stroke();
-        }
-      }
-      // mid-edge anchor fans
-      const mids: [number, number][] = [
-        [size * 0.5, 0], [size, size * 0.5], [size * 0.5, size], [0, size * 0.5],
-      ];
-      for (const [cx, cy] of mids) {
-        for (let a = 0; a < 4; a++) {
-          const rad = 34 + a * 30;
-          g.strokeStyle = a % 2 ? vio(0.8) : sil(0.85);
-          g.lineWidth = 2.6 - a * 0.3;
-          g.beginPath();
-          const base = Math.atan2(cy - R, cx - R);
-          const a0 = base - 0.8 + a * 0.1;
-          for (let k = 0; k <= 8; k++) {
-            const ang = a0 + (1.6 - a * 0.2) * (k / 8);
-            const sag = 1 - 0.05 * Math.sin(k * 2.1 + a);
-            const x = cx + Math.cos(ang) * rad * sag;
-            const y = cy + Math.sin(ang) * rad * sag;
-            if (k === 0) g.moveTo(x, y);
-            else g.lineTo(x, y);
-          }
-          g.stroke();
-        }
-      }
-      // scattered mini orb webs — the spinner's outposts across the cloth
-      const outposts: [number, number][] = [
-        [size * 0.24, size * 0.3], [size * 0.76, size * 0.26], [size * 0.7, size * 0.72], [size * 0.28, size * 0.76],
+
+      // ——— OUTPOSTS: small true orb webs the spinner tends between fights ———
+      const outposts: Pt[] = [
+        [size * 0.24, size * 0.3], [size * 0.76, size * 0.26], [size * 0.7, size * 0.74],
       ];
       for (const [ox, oy] of outposts) {
-        const orad = 30 + ((ox + oy) % 23);
-        g.strokeStyle = sil(0.9);
-        g.lineWidth = 1.9;
-        for (let i = 0; i < 8; i++) {
-          const a0 = (i / 8) * Math.PI * 2 + ox * 0.01;
-          g.beginPath();
-          g.moveTo(ox, oy);
-          g.lineTo(ox + Math.cos(a0) * orad, oy + Math.sin(a0) * orad);
-          g.stroke();
+        const orad = 34 + rnd() * 8;
+        const os: number[] = [];
+        for (let i = 0; i < 9; i++) os.push((i / 9) * Math.PI * 2 + rnd() * 0.2);
+        for (const a0 of os) {
+          strand([[ox, oy], [ox + Math.cos(a0) * orad, oy + Math.sin(a0) * orad]], 1.1, 0.75);
         }
-        for (let ring = 1; ring <= 3; ring++) {
-          const rad = (ring / 3) * orad * 0.9;
-          g.strokeStyle = ring % 2 ? vio(0.85) : sil(0.8);
-          g.lineWidth = 1.4;
-          g.beginPath();
-          for (let k = 0; k <= 8 * 6; k++) {
-            const ang = (k / (8 * 6)) * Math.PI * 2;
-            const sag = 1 - 0.05 * Math.sin(k * 2.7 + ring);
-            const x = ox + Math.cos(ang) * rad * sag;
-            const y = oy + Math.sin(ang) * rad * sag;
-            if (k === 0) g.moveTo(x, y);
-            else g.lineTo(x, y);
+        let or2 = 6;
+        while (or2 < orad * 0.92) {
+          const nr = or2 * 1.4 + 4;
+          for (let i = 0; i < os.length; i++) {
+            const a0 = os[i];
+            const a1 = os[(i + 1) % os.length] + (i === os.length - 1 ? Math.PI * 2 : 0);
+            const p0: Pt = [ox + Math.cos(a0) * or2, oy + Math.sin(a0) * or2];
+            const p1: Pt = [ox + Math.cos(a1) * nr, oy + Math.sin(a1) * nr];
+            const am = (a0 + a1) / 2;
+            const rm = (or2 + nr) / 2 * 0.86;
+            strand(quad(p0, ox + Math.cos(am) * rm, oy + Math.sin(am) * rm, p1), 0.9, 0.66, (or2 | 0) % 2 === 0);
+            if (rnd() < 0.3 && dew.length < 110) dew.push(p1);
           }
-          g.closePath();
-          g.stroke();
+          or2 = nr;
         }
       }
-      // center hex web where the spinner first anchored the drape
-      g.strokeStyle = sil(0.95);
-      g.lineWidth = 3;
-      for (let i = 0; i < 6; i++) {
-        const a0 = (i / 6) * Math.PI * 2 + 0.35;
+
+      // ——— DEW: droplets hang ON the silk — shadow ring + bright core ———
+      for (const [dx, dy] of dew) {
+        const dr = 0.9 + rnd() * 1.1;
         g.beginPath();
-        g.moveTo(R, R);
-        g.lineTo(R + Math.cos(a0) * 92, R + Math.sin(a0) * 92);
-        g.stroke();
-      }
-      for (let ring = 1; ring <= 6; ring++) {
-        const rad = ring * 16.5;
-        g.strokeStyle = ring % 2 ? vio(0.95) : sil(0.95);
-        g.lineWidth = 2.3;
+        g.arc(dx, dy + 0.5, dr + 0.9, 0, Math.PI * 2);
+        g.fillStyle = "rgba(20,12,36,0.35)";
+        g.fill();
         g.beginPath();
-        for (let k = 0; k <= 6 * 8; k++) {
-          const ang = (k / (6 * 8)) * Math.PI * 2 + 0.35;
-          const sag = 1 - 0.05 * Math.sin(k * 2.3 + ring);
-          const x = R + Math.cos(ang) * rad * sag;
-          const y = R + Math.sin(ang) * rad * sag;
-          if (k === 0) g.moveTo(x, y);
-          else g.lineTo(x, y);
-        }
-        g.closePath();
-        g.stroke();
-      }
-      // SPREAD STREAKS — long drag-lines from the anchoring hex out toward
-      // every edge (plus tiny curled hooks where a thread caught), the
-      // fossil of the moment the silk flooded across the floor
-      for (let i = 0; i < 10; i++) {
-        const a0 = (i / 10) * Math.PI * 2 + 0.18 + Math.sin(i * 7.7) * 0.12;
-        const len = R * (0.82 + ((i * 37) % 10) / 60);
-        const ex = R + Math.cos(a0) * len;
-        const ey = R + Math.sin(a0) * len;
-        g.strokeStyle = i % 2 ? vio(0.55) : sil(0.6);
-        g.lineWidth = 2.4 - (i % 3) * 0.5;
+        g.arc(dx, dy, dr, 0, Math.PI * 2);
+        g.fillStyle = "rgba(244,240,255,0.85)";
+        g.fill();
         g.beginPath();
-        g.moveTo(R + Math.cos(a0) * 26, R + Math.sin(a0) * 26);
-        g.quadraticCurveTo(
-          R + Math.cos(a0 + 0.16) * len * 0.55,
-          R + Math.sin(a0 + 0.16) * len * 0.55,
-          ex, ey,
-        );
-        g.stroke();
-        g.strokeStyle = sil(0.5);
-        g.lineWidth = 1.2;
-        g.beginPath();
-        g.arc(ex, ey, 5 + (i % 3) * 2.4, a0 + 1.2, a0 + 3.6);
-        g.stroke();
-      }
-      // TATTERS: irregular holes — kept OFF the corners so the pins stay
-      g.globalCompositeOperation = "destination-out";
-      for (let i = 0; i < 15; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const rr = size * (0.14 + Math.random() * 0.3);
-        const x = R + Math.cos(a) * rr;
-        const y = R + Math.sin(a) * rr;
-        const rw = 5 + Math.random() * 15;
-        g.beginPath();
-        g.ellipse(x, y, rw, rw * (0.4 + Math.random() * 0.6), Math.random() * Math.PI, 0, Math.PI * 2);
-        g.fillStyle = "rgba(0,0,0,0.85)";
+        g.arc(dx - dr * 0.3, dy - dr * 0.3, dr * 0.35, 0, Math.PI * 2);
+        g.fillStyle = "rgba(255,255,255,0.95)";
         g.fill();
       }
-      // frayed rim: tiny edge nibbles (corners spared)
-      for (let i = 0; i < 24; i++) {
-        const edge = Math.floor(Math.random() * 4);
-        const tPos = 0.08 + Math.random() * 0.84;
-        const x = edge === 0 ? tPos * size : edge === 1 ? tPos * size : edge === 2 ? 0 : size;
-        const y = edge === 0 ? 0 : edge === 1 ? size : tPos * size;
-        g.beginPath();
-        g.ellipse(x, y, 3 + Math.random() * 6, 3 + Math.random() * 6, 0, 0, Math.PI * 2);
-        g.fillStyle = "rgba(0,0,0,0.6)";
-        g.fill();
-      }
-      g.globalCompositeOperation = "source-over";
-      // dew on the surviving strands
-      for (let i = 0; i < 60; i++) {
-        const x = Math.random() * size;
-        const y = Math.random() * size;
-        g.beginPath();
-        g.arc(x, y, 1 + Math.random() * 1.8, 0, Math.PI * 2);
-        g.fillStyle = "rgba(255,255,255,0.7)";
-        g.fill();
-      }
-      // soften the very rim of the cloth so the sheet never shows a hard
-      // cut line against the drawer frame
+
+      // soften the very rim so the sheet never shows a hard cut at the frame
       g.globalCompositeOperation = "destination-out";
       const rim = 7;
       const softEdge = (x0: number, y0: number, x1: number, y1: number, rx: number, ry: number, rw: number, rh: number) => {
@@ -1213,6 +1153,7 @@ export function Scene3D({
       softEdge(0, 0, 0, rim, 0, 0, size, rim);
       softEdge(0, size, 0, size - rim, 0, size - rim, size, rim);
       g.globalCompositeOperation = "source-over";
+
       const tex = new THREE.CanvasTexture(c);
       tex.colorSpace = THREE.SRGBColorSpace;
       return tex;
@@ -1306,7 +1247,13 @@ export function Scene3D({
         // from the strike point to its full rect (the spread itself)
         // wk:   once the floor cloth has landed, the nest walls race up the
         //       drawer sides and the sacs pop — the nest assembles itself.
-        const k = Math.min(1, age / 0.55);
+        // — AFTER WEB delivery: the snare is FLUNG — a thrown net dropping
+        // from above (ease-in fall), landing with a little extra spin that
+        // settles as it touches the floor, and only then blooming outward.
+        const dropT = grand ? 1 : Math.min(1, age / 0.26);
+        const dropY = (1 - dropT) * (1 - dropT) * 2.7;
+        const settle = 1 - dropT; // 1 in flight → 0 landed
+        const k = Math.min(1, Math.max(0, age - (grand ? 0 : 0.26)) / 0.55);
         const back = 1 + 2.70158 * Math.pow(k - 1, 3) + 1.70158 * Math.pow(k - 1, 2);
         const grow = 0.07 + 0.93 * back; // seed → overshoot ≈ 1.05 → 1
         // old-cloth billow: slow anisotropic breathing + drift
@@ -1320,7 +1267,8 @@ export function Scene3D({
         // touches all four corners; snares use the tamed variety spin and
         // the aspect-locked rotated fit, then the center is pinned so even
         // the spun corners stay inside the drawer.
-        const rot = grand ? 0 : Math.sin(time * 0.5 + w.id * 2.4) * 0.05 + ((w.id % 5) - 2) * 0.21;
+        let rot = grand ? 0 : Math.sin(time * 0.5 + w.id * 2.4) * 0.05 + ((w.id % 5) - 2) * 0.21;
+        if (!grand) rot *= 1 + 2.2 * settle;
         const sw = grand ? Math.min(dw, COLS) : dw * fitSpin(dw, dh, rot, COLS, ROWS);
         const sh2 = grand ? Math.min(dh, ROWS) : dh * fitSpin(dw, dh, rot, COLS, ROWS);
         const rc = Math.abs(Math.cos(rot));
@@ -1338,7 +1286,7 @@ export function Scene3D({
         webS.set(sw, sh2, 1);
         webE.set(-Math.PI / 2, 0, rot);
         webQ.setFromEuler(webE);
-        projTmp.set(cx, 0.052, cz);
+        projTmp.set(cx, 0.052 + dropY, cz);
         m4.compose(projTmp, webQ, webS);
         webMesh.setMatrixAt(n, m4);
         webMesh.setColorAt(n, projCol.setHex(tint));
@@ -1356,7 +1304,7 @@ export function Scene3D({
           webS.set(uw * fit2, uh * fit2, 1);
           webE.set(-Math.PI / 2, 0, rot2);
           webQ.setFromEuler(webE);
-          projTmp.set(cx, 0.038, cz);
+          projTmp.set(cx, 0.038 + dropY, cz);
           m4.compose(projTmp, webQ, webS);
           webMesh.setMatrixAt(n, m4);
           webMesh.setColorAt(n, projCol.setHex(grand ? 0x8f6cc8 : 0xbfa0f0));
@@ -1417,7 +1365,7 @@ export function Scene3D({
         // EGG SACS: small flattened ivory sacs CLUSTERED around the center
         // web (the nest's heart) — tucked low, half-sunk into the cloth,
         // popping in only after the floor has spread.
-        const sacPop = Math.min(1, Math.max(0, (age - 0.45) / 0.45));
+        const sacPop = Math.min(1, Math.max(0, (age - (grand ? 0.45 : 0.72)) / 0.45));
         const sacBack = Math.max(0, 1 + 2.70158 * Math.pow(sacPop - 1, 3) + 1.70158 * Math.pow(sacPop - 1, 2));
         const sacCount = grand ? 5 : 2;
         const sacBase = grand ? 0.115 : 0.09;
@@ -2378,6 +2326,16 @@ export function Scene3D({
     let visualBattleTime = 0;
     let clockBattle: BattleState | null = null;
 
+    /** 1 while the unit stands inside a live After Web snare (sticky glow). */
+    function snaredNow(b: BattleState | null, r: { x: number; y: number }): number {
+      if (!b) return 0;
+      for (const w of b.webs) {
+        if (w.kind !== "snare") continue;
+        if (Math.hypot(r.x - w.x, r.y - w.y) <= w.half) return 1;
+      }
+      return 0;
+    }
+
     function updateUnitFrame(
       uid: number,
       id: string,
@@ -2394,6 +2352,8 @@ export function Scene3D({
       flash: number,
       stun: number,
       vuln: number,
+      poison: number,
+      snared: number,
       cd: number,
       battleOn: boolean,
       wantRot: number,
@@ -2581,6 +2541,14 @@ export function Scene3D({
         if (flash > 0) {
           const eb = u.model.emissiveBase;
           u.model.bodyMat.emissive.setRGB(flash * 2.1 + eb[0], flash * 1.5 + eb[1], flash * 1.0 + eb[2]);
+        } else if (poison > 0 || snared > 0) {
+          // status silk: poisoned foes seep venom green, foes stuck in the
+          // After Web sheen sticky violet — both breathe with the sim
+          const eb = u.model.emissiveBase;
+          const pulse = 0.5 + 0.5 * Math.sin(t * 5 + uid * 1.7);
+          const g = poison > 0 ? 0.14 + pulse * 0.1 : 0;
+          const v = snared > 0 ? 0.08 + pulse * 0.05 : 0;
+          u.model.bodyMat.emissive.setRGB(eb[0] + v, eb[1] + g, eb[2] + v * 1.7);
         } else {
           const eb = u.model.emissiveBase;
           const e = u.model.bodyMat.emissive;
@@ -3008,6 +2976,8 @@ export function Scene3D({
             r.flash,
             r.stun,
             r.vuln,
+            r.poisonLeft,
+            snaredNow(activeBattle, r),
             r.cd,
             true,
             wantRot,
@@ -3021,7 +2991,7 @@ export function Scene3D({
           const u = p.prep[i];
           if (u.zone !== "board") continue;
           const q = boardXY(u.slot);
-          updateUnitFrame(u.uid, u.bugId, u.star, "ally", q.x, q.y, 1, 1, 0, false, 1, 0, 0, 0, 0, 0, false, 0, dt);
+          updateUnitFrame(u.uid, u.bugId, u.star, "ally", q.x, q.y, 1, 1, 0, false, 1, 0, 0, 0, 0, 0, 0, 0, false, 0, dt);
         }
       }
 

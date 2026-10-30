@@ -278,15 +278,17 @@ function mkUnit(uid: number, bugId: BugId, star: number, side: "ally" | "foe", x
     dead: false,
     fade: 1,
     dive: null,
-    enrageIn: bugId === "spider" ? enrageInterval(star) : 0,
+    enrageIn: bugId === "spider" ? enrageInterval(star) * 0.4 : 0,
     poisonLeft: 0,
     poisonIn: 0,
     poisonDmg: 0,
   };
 }
 
-/** Enraged cadence by star tier: 6s / 5s / 3s. */
-const enrageInterval = (star: number) => (star >= 3 ? 3 : star === 2 ? 5 : 6);
+/** Enraged cadence by star tier: 5s / 4s / 2.5s — tuned so the bite
+ *  actually lands inside real battle lengths (the old 6/5/3 arming was
+ *  longer than most fights, so the passive literally never fired). */
+const enrageInterval = (star: number) => (star >= 3 ? 2.5 : star === 2 ? 4 : 5);
 
 export function createBattle(
   allies: PrepUnit[],
@@ -564,14 +566,18 @@ function attack(b: BattleState, u: BUnit, t: BUnit) {
     const enraged = u.enrageIn <= 0;
     if (enraged) u.enrageIn = enrageInterval(u.star);
     damage(b, u, t, u.atk * (enraged ? 2 : 1));
+    if (enraged) {
+      // the moment is the feedback: the spider always announces the
+      // Enraged bite (before, the pop only showed when the target died,
+      // which hid the passive almost every time)
+      pop(b, u, "ENRAGED", "skill");
+    }
     if (enraged && !t.dead) {
       // poison: 3 ticks, 1s apart, 50% ATK (80% at 3-star)
       t.poisonLeft = 3;
       t.poisonIn = 1;
       t.poisonDmg = Math.max(1, Math.round(u.atk * (u.star >= 3 ? 0.8 : 0.5)));
       pop(b, t, "POISON", "skill");
-    } else if (enraged) {
-      pop(b, u, "ENRAGED", "skill");
     }
     u.energy = Math.min(u.maxEnergy, u.energy + 20);
     if (!t.dead) t.energy = Math.min(t.maxEnergy, t.energy + 10);

@@ -271,7 +271,7 @@ export const BUGS: Record<BugId, BugDef> = {
     passive: {
       name: "Enraged",
       desc:
-        "Every 6s the Spider's next bite is enraged: 2× damage and it poisons the target — 3 poison ticks, 1s apart, each dealing 50% of the Spider's ATK (every 5s at 2-star; every 3s at 3-star, with 80% ATK poison ticks).",
+        "Every 5s the Spider's next bite is Enraged: 2× damage and it poisons the target — 3 poison ticks, 1s apart, each dealing 50% of the Spider's ATK. Quicker at higher stars: every 4s at 2-star, every 2.5s at 3-star with 80% ATK poison ticks. The first cycle starts already 40% charged, so the first Enraged bite lands early in every fight.",
     },
     starStats: {
       1: { hp: 550, atk: 100, def: 18 },
@@ -506,7 +506,7 @@ export const SHOP_WEIGHTS: { id: BugId; w: number }[] = [
 ];
 
 export const GAME_INFO = {
-  version: "0.4",
+  version: "0.5",
   units: BUG_ORDER.length,
   commanders: COMMANDERS.length,
   rivals: BOTS.length,

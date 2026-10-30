@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { BUGS, SPECIMEN_IDS, type BugId, type CmdId } from "../game/data";
+import { BUGS, COMMANDERS, SPECIMEN_IDS, type BugId, type CmdId } from "../game/data";
 import { COLS, ROWS, boardXY, type BattleState, type BUnit, type Zone, type PrepUnit } from "../game/engine";
 import { buildVoxelModel, dotTexture, warmVoxelCache, V, type VoxModel } from "../game/voxel";
 import { animateInsectRig } from "../game/animate";
@@ -290,6 +290,12 @@ export function Scene3D({
       foeModel: VoxModel | null;
       allyHolder: THREE.Group | null;
       foeHolder: THREE.Group | null;
+      allyBanner: THREE.MeshBasicMaterial | null;
+      foeBanner: THREE.MeshBasicMaterial | null;
+      allyRing: THREE.MeshBasicMaterial | null;
+      foeRing: THREE.MeshBasicMaterial | null;
+      allySpawn: number;
+      foeSpawn: number;
     } = {
       allyId: "",
       foeId: "",
@@ -297,6 +303,12 @@ export function Scene3D({
       foeModel: null,
       allyHolder: null,
       foeHolder: null,
+      allyBanner: null,
+      foeBanner: null,
+      allyRing: null,
+      foeRing: null,
+      allySpawn: 1,
+      foeSpawn: 1,
     };
 
     let turntable: THREE.Group | null = null;
@@ -313,7 +325,7 @@ export function Scene3D({
     if (!showcase) {
       // 1. Recessed Cabinet Bed
       const caseBase = new THREE.Mesh(
-        track(new THREE.BoxGeometry(COLS + 0.84, 0.42, ROWS + 0.84)),
+        track(new THREE.BoxGeometry(COLS + 0.84, 0.42, ROWS + 2.3)),
         track(new THREE.MeshStandardMaterial({ color: 0x1a120d, roughness: 0.86, metalness: 0.08 }))
       );
       caseBase.position.set(3.5, -0.25, 3);
@@ -328,6 +340,17 @@ export function Scene3D({
       groutBed.position.set(3.5, -0.036, 3);
       groutBed.receiveShadow = true;
       scene.add(groutBed);
+
+      // brass corner caps — the cabinet's reinforced corners
+      for (const [cx, cz] of [[-0.42, -0.42], [COLS + 0.42, -0.42], [-0.42, ROWS + 0.42], [COLS + 0.42, ROWS + 0.42]]) {
+        const cap = new THREE.Mesh(
+          track(new THREE.BoxGeometry(0.3, 0.46, 0.3)),
+          track(new THREE.MeshStandardMaterial({ color: 0xe6a53c, roughness: 0.32, metalness: 0.8 }))
+        );
+        cap.position.set(cx, 0.19, cz);
+        cap.castShadow = true;
+        scene.add(cap);
+      }
 
       // 2. 42 Physical 3D Chamfered Tactical Tiles
       const rawTileGeo = new THREE.CylinderGeometry(0.615, 0.662, 0.08, 4, 1);
@@ -355,7 +378,7 @@ export function Scene3D({
         new THREE.MeshBasicMaterial({
           color: 0xffffff,
           transparent: true,
-          opacity: 0.32,
+          opacity: 0.5,
           depthWrite: false,
           polygonOffset: true,
           polygonOffsetFactor: -4,
@@ -377,9 +400,9 @@ export function Scene3D({
           tilesMesh.setMatrixAt(idx, m4);
 
           if (ally) {
-            cTmp.setHex(checker ? 0x1e382e : 0x162922);
+            cTmp.setHex(checker ? 0x1f4234 : 0x173028);
           } else {
-            cTmp.setHex(checker ? 0x2c1b18 : 0x211513);
+            cTmp.setHex(checker ? 0x361e19 : 0x271814);
           }
           tilesMesh.setColorAt(idx, cTmp);
 
@@ -454,22 +477,50 @@ export function Scene3D({
         scene.add(corner);
       }
 
-      const pedGeo = track(new THREE.CylinderGeometry(0.3, 0.34, 0.12, 8));
-      const allyPed = new THREE.Mesh(pedGeo, brassMat);
-      allyPed.position.set(-0.21, 0.34, ROWS + 0.21);
-      scene.add(allyPed);
-      const foePed = new THREE.Mesh(pedGeo, brassMat);
-      foePed.position.set(COLS + 0.21, 0.34, -0.21);
-      scene.add(foePed);
+      // Commander plinths — centre of each short end of the table, both
+      // war-lords visible at once: YOUR commander on your edge, the rival
+      // commander facing you across the board.
+      const mkPlinth = (z: number) => {
+        const g = new THREE.Group();
+        const plinth = new THREE.Mesh(track(new THREE.BoxGeometry(0.92, 0.26, 0.92)), woodMat);
+        plinth.position.y = 0.13;
+        plinth.receiveShadow = true;
+        g.add(plinth);
+        const cap = new THREE.Mesh(track(new THREE.CylinderGeometry(0.3, 0.36, 0.14, 8)), brassMat);
+        cap.position.y = 0.33;
+        cap.castShadow = true;
+        g.add(cap);
+        const ringGeo = track(new THREE.RingGeometry(0.2, 0.32, 24));
+        ringGeo.rotateX(-Math.PI / 2);
+        const ringMat = track(new THREE.MeshBasicMaterial({ color: 0xf0a93b, transparent: true, opacity: 0.55, depthWrite: false }));
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.position.y = 0.405;
+        g.add(ring);
+        const bannerGeo = track(new THREE.PlaneGeometry(0.88, 0.4));
+        const bannerMat = track(new THREE.MeshBasicMaterial({ color: 0xf0a93b, transparent: true, opacity: 0.92, side: THREE.DoubleSide }));
+        const banner = new THREE.Mesh(bannerGeo, bannerMat);
+        banner.position.set(0, 0.56, z > 0 ? 0.5 : -0.5);
+        banner.rotation.x = z > 0 ? 0.12 : -0.12;
+        g.add(banner);
+        g.position.set(COLS / 2, 0.28, z);
+        scene.add(g);
+        return { ring, bannerMat };
+      };
+      const allyParts = mkPlinth(ROWS + 0.95);
+      const foeParts = mkPlinth(-0.95);
+      totemState.allyRing = allyParts.ring.material as THREE.MeshBasicMaterial;
+      totemState.foeRing = foeParts.ring.material as THREE.MeshBasicMaterial;
+      totemState.allyBanner = allyParts.bannerMat;
+      totemState.foeBanner = foeParts.bannerMat;
 
       totemState.allyHolder = new THREE.Group();
-      totemState.allyHolder.position.set(-0.21, 0.4, ROWS + 0.21);
-      totemState.allyHolder.rotation.y = 0.55;
+      totemState.allyHolder.position.set(COLS / 2, 0.44, ROWS + 0.95);
+      totemState.allyHolder.rotation.y = 0.08;
       scene.add(totemState.allyHolder);
 
       totemState.foeHolder = new THREE.Group();
-      totemState.foeHolder.position.set(COLS + 0.21, 0.4, -0.21);
-      totemState.foeHolder.rotation.y = Math.PI + 0.55;
+      totemState.foeHolder.position.set(COLS / 2, 0.44, -0.95);
+      totemState.foeHolder.rotation.y = Math.PI - 0.08;
       scene.add(totemState.foeHolder);
 
       // Frontline Conduit & Sconces
@@ -1121,6 +1172,50 @@ export function Scene3D({
         }
       }
 
+      // ——— AGGREGATE FLUFF: the tiny silk wool real spiders leave where
+      // strands cross — soft micro-puffs that catch the light ———
+      for (let i = 0; i < 46; i++) {
+        const a = rnd() * Math.PI * 2;
+        const rr = 24 + Math.pow(rnd(), 0.8) * (R - 30);
+        const fx = hub[0] + Math.cos(a) * rr;
+        const fy = hub[1] + Math.sin(a) * rr;
+        for (let k = 0; k < 4; k++) {
+          g.beginPath();
+          g.arc(fx + (rnd() - 0.5) * 5, fy + (rnd() - 0.5) * 5, 0.7 + rnd() * 1.2, 0, Math.PI * 2);
+          g.fillStyle = `rgba(240,234,250,${0.14 + rnd() * 0.2})`;
+          g.fill();
+        }
+      }
+
+      // ——— WRAPPED PREY: two silk bundles bundled into the web — the
+      // larder. Layered bandage strands over a shadowed core + gleam. ———
+      for (const [bx, by] of [[hub[0] + 74, hub[1] + 30], [hub[0] - 88, hub[1] - 52]]) {
+        g.save();
+        g.translate(bx, by);
+        g.rotate(0.6 + rnd() * 0.5);
+        g.beginPath();
+        g.ellipse(0, 1.2, 13, 7.5, 0, 0, Math.PI * 2);
+        g.fillStyle = "rgba(26,16,38,0.5)";
+        g.fill();
+        g.beginPath();
+        g.ellipse(0, -1, 11.5, 6.3, 0, 0, Math.PI * 2);
+        g.fillStyle = "rgba(233,226,244,0.9)";
+        g.fill();
+        g.strokeStyle = "rgba(180,158,214,0.75)";
+        g.lineWidth = 1.1;
+        for (let k = -2; k <= 2; k++) {
+          g.beginPath();
+          g.moveTo(k * 4.4, -6.2);
+          g.quadraticCurveTo(k * 5.2, 0, k * 4.4, 6);
+          g.stroke();
+        }
+        g.beginPath();
+        g.arc(-7.5, -3, 1.7, 0, Math.PI * 2);
+        g.fillStyle = "rgba(255,255,255,0.9)";
+        g.fill();
+        g.restore();
+      }
+
       // ——— DEW: droplets hang ON the silk — shadow ring + bright core ———
       for (const [dx, dy] of dew) {
         const dr = 0.9 + rnd() * 1.1;
@@ -1239,9 +1334,6 @@ export function Scene3D({
       let en = 0;
       for (const w of b.webs) {
         const grand = w.kind === "grand";
-        // reserve exactly what THIS web kind needs, so two grand webs plus
-        // two snares fit the pool with zero waste
-        if (n > WEB_POOL_N - (grand ? 10 : 2)) break;
         const age = (webAge.get(w.id) ?? 0) + dt;
         webAge.set(w.id, age);
         // — spawn → SPREAD timeline —
@@ -1297,7 +1389,9 @@ export function Scene3D({
           colB.setHex(0x1c1424);
           tint = colA.lerp(colB, 1 - dissolve).getHex();
         }
-        // layer 1: the main drape
+        // layer 1: the main drape (always drawn — every later layer only
+        // renders if the pool still has room, so webs share silk gracefully)
+        if (n >= WEB_POOL_N) continue;
         webS.set(sw, sh2, 1);
         webE.set(-Math.PI / 2, 0, rot);
         webQ.setFromEuler(webE);
@@ -1320,7 +1414,7 @@ export function Scene3D({
           webS.set(uw * fit2, uh * fit2, 1);
           webE.set(-Math.PI / 2, 0, rot2);
           webQ.setFromEuler(webE);
-          projTmp.set(cx, 0.038 + dropY, cz);
+          projTmp.set(cx, 0.085 + dropY, cz);
           m4.compose(projTmp, webQ, webS);
           webMesh.setMatrixAt(n, m4);
           webMesh.setColorAt(n, projCol.setHex(grand ? 0x8f6cc8 : 0xbfa0f0));
@@ -1387,6 +1481,30 @@ export function Scene3D({
             [COLS / 2, 0.1, 0.15, 0.15, 2], //                      S top -> SW
             [0.1, ROWS / 2, 0.15, ROWS - 0.15, 3], //               W top -> NW
           ];
+          // mid-edge guys: drape rim rises to the wall tops at N/S/E/W
+          const mids: [number, number, number, number][] = [
+            [COLS / 2, ROWS - 0.75, COLS / 2, ROWS - 0.1],
+            [COLS / 2, 0.75, COLS / 2, 0.1],
+            [0.75, ROWS / 2, 0.1, ROWS / 2],
+            [COLS - 0.75, ROWS / 2, COLS - 0.1, ROWS / 2],
+          ];
+          for (const [ax, az, bx, bz] of mids) {
+            if (n >= WEB_POOL_N) break;
+            const dx = bx - ax;
+            const dz = bz - az;
+            const dy = 0.05 - wallH;
+            const len = Math.hypot(dx, dy, dz);
+            const yaw = Math.atan2(dx, dz);
+            const pitch = Math.acos(Math.max(-1, Math.min(1, dy / len)));
+            webE.set(pitch, yaw, 0, "YXZ");
+            webQ.setFromEuler(webE);
+            webS.set(0.045, len, 1);
+            projTmp.set((ax + bx) / 2, (wallH + 0.05) / 2, (az + bz) / 2);
+            m4.compose(projTmp, webQ, webS);
+            webMesh.setMatrixAt(n, m4);
+            webMesh.setColorAt(n, projCol.setHex(0xcdb6f2));
+            n++;
+          }
           for (const [ax, az, bx, bz, gi] of rig) {
             if (n >= WEB_POOL_N) break;
             const dx = bx - ax;
@@ -1780,23 +1898,30 @@ export function Scene3D({
     /* ── Commander Totems ── */
     function syncTotems(cmdAId: string, cmdBId: string) {
       if (showcase) return;
+      const cmdAccent = (id: string) => COMMANDERS.find((c) => c.id === id)?.accent ?? "#F0A93B";
       if (totemState.allyId !== cmdAId && totemState.allyHolder) {
         totemState.allyModel?.dispose();
         totemState.allyHolder.clear();
         const m = buildVoxelModel(cmdAId, 1);
-        m.group.scale.setScalar(0.56);
+        m.group.scale.setScalar(0.8);
         totemState.allyHolder.add(m.group);
         totemState.allyModel = m;
         totemState.allyId = cmdAId;
+        totemState.allySpawn = 0;
+        totemState.allyBanner?.color.set(cmdAccent(cmdAId));
+        totemState.allyRing?.color.set(cmdAccent(cmdAId));
       }
       if (totemState.foeId !== cmdBId && totemState.foeHolder) {
         totemState.foeModel?.dispose();
         totemState.foeHolder.clear();
         const m = buildVoxelModel(cmdBId, 1);
-        m.group.scale.setScalar(0.56);
+        m.group.scale.setScalar(0.8);
         totemState.foeHolder.add(m.group);
         totemState.foeModel = m;
         totemState.foeId = cmdBId;
+        totemState.foeSpawn = 0;
+        totemState.foeBanner?.color.set(cmdAccent(cmdBId));
+        totemState.foeRing?.color.set(cmdAccent(cmdBId));
       }
     }
 
@@ -2919,13 +3044,21 @@ export function Scene3D({
       syncTotems(p.cmdA, p.cmdB);
       if (totemState.allyModel && totemState.allyHolder) {
         animateInsectRig(totemState.allyModel, p.cmdA, t, 1001, false, 0, 0, 0, 0, 0, false, 0, dt, 0);
-        totemState.allyHolder.position.y = 0.4 + Math.sin(t * 2.1) * 0.018;
-        totemState.allyHolder.rotation.y = 0.55 + Math.sin(t * 0.7) * 0.14;
+        totemState.allySpawn = Math.min(1, totemState.allySpawn + dt * 1.7);
+        const asB = 1 + 2.70158 * Math.pow(totemState.allySpawn - 1, 3) + 1.70158 * Math.pow(totemState.allySpawn - 1, 2);
+        totemState.allyHolder.scale.setScalar(Math.max(0.001, asB));
+        totemState.allyHolder.position.y = 0.44 + Math.sin(t * 2.1) * 0.014;
+        totemState.allyHolder.rotation.y = 0.08 + Math.sin(t * 0.7) * 0.05;
+        if (totemState.allyRing) totemState.allyRing.opacity = 0.4 + Math.sin(t * 2.4) * 0.18;
       }
       if (totemState.foeModel && totemState.foeHolder) {
         animateInsectRig(totemState.foeModel, p.cmdB, t + 1.2, 1002, false, 0, 0, 0, 0, 0, false, 0, dt, 0);
-        totemState.foeHolder.position.y = 0.4 + Math.sin(t * 2.1 + 1.5) * 0.018;
-        totemState.foeHolder.rotation.y = Math.PI + 0.55 + Math.sin(t * 0.7 + 1.5) * 0.14;
+        totemState.foeSpawn = Math.min(1, totemState.foeSpawn + dt * 1.7);
+        const fsB = 1 + 2.70158 * Math.pow(totemState.foeSpawn - 1, 3) + 1.70158 * Math.pow(totemState.foeSpawn - 1, 2);
+        totemState.foeHolder.scale.setScalar(Math.max(0.001, fsB));
+        totemState.foeHolder.position.y = 0.44 + Math.sin(t * 2.1 + 1.5) * 0.014;
+        totemState.foeHolder.rotation.y = Math.PI - 0.08 + Math.sin(t * 0.7 + 1.5) * 0.05;
+        if (totemState.foeRing) totemState.foeRing.opacity = 0.4 + Math.sin(t * 2.4 + 1.5) * 0.18;
       }
 
       if (tilesMesh && tileRimsMesh) {

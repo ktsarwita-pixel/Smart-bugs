@@ -7,6 +7,7 @@ export type BugId = "stag" | "bomb" | "mantis" | "dragonfly" | "spider";
 export type CmdId = "matriarch" | "lampyris" | "worm";
 
 export interface BugDef {
+  rarity?: Rarity;
   id: BugId;
   name: string;
   short: string;
@@ -32,6 +33,7 @@ export interface BugDef {
 export const BUGS: Record<BugId, BugDef> = {
   stag: {
     id: "stag",
+    rarity: "COMMON" as Rarity,
     name: "Stag Beetle",
     short: "STAG",
     latin: "Lucanus cervus",
@@ -79,6 +81,7 @@ export const BUGS: Record<BugId, BugDef> = {
   },
   bomb: {
     id: "bomb",
+    rarity: "UNCOMMON" as Rarity,
     name: "Bombardier",
     short: "BOMB",
     latin: "Brachinus tarsatus",
@@ -126,6 +129,7 @@ export const BUGS: Record<BugId, BugDef> = {
   },
   mantis: {
     id: "mantis",
+    rarity: "UNCOMMON" as Rarity,
     name: "Praying Mantis",
     short: "MANTIS",
     latin: "Mantis religiosa",
@@ -170,6 +174,7 @@ export const BUGS: Record<BugId, BugDef> = {
   },
   dragonfly: {
     id: "dragonfly",
+    rarity: "RARE" as Rarity,
     name: "Azure Dragonfly",
     short: "DRAGONFLY",
     latin: "Anax junius",
@@ -250,6 +255,7 @@ export const BUGS: Record<BugId, BugDef> = {
 
   spider: {
     id: "spider",
+    rarity: "EPIC" as Rarity,
     name: "Spider",
     short: "SPIDER",
     latin: "Latrodectus mactans",
@@ -457,6 +463,8 @@ export const COMMANDERS: CmdDef[] = [
 
 export const cmdById = (id: CmdId) => COMMANDERS.find((c) => c.id === id)!;
 
+export type Rarity = "COMMON" | "UNCOMMON" | "RARE" | "EPIC";
+
 export interface BotDef {
   id: string;
   name: string;
@@ -495,6 +503,42 @@ export const BOTS: BotDef[] = [
     power: 1.06,
     lean: ["mantis", "dragonfly", "spider"],
   },
+  {
+    id: "beetle",
+    name: "Beetle Bastion",
+    short: "BEETLE",
+    latin: "Lucanus elephas",
+    cmd: "worm",
+    power: 0.98,
+    lean: ["stag", "bomb", "stag"],
+  },
+  {
+    id: "fireant",
+    name: "Fire Ant Union",
+    short: "F.ANT",
+    latin: "Solenopsis invicta",
+    cmd: "matriarch",
+    power: 1.06,
+    lean: ["stag", "mantis", "spider"],
+  },
+  {
+    id: "cricket",
+    name: "Cricket Choir",
+    short: "CRICKET",
+    latin: "Gryllus assimilis",
+    cmd: "lampyris",
+    power: 0.9,
+    lean: ["dragonfly", "bomb", "dragonfly"],
+  },
+  {
+    id: "roach",
+    name: "Roach Cartel",
+    short: "ROACH",
+    latin: "Periplaneta americana",
+    cmd: "worm",
+    power: 1.1,
+    lean: ["stag", "spider", "bomb"],
+  },
 ];
 
 export const SHOP_WEIGHTS: { id: BugId; w: number }[] = [
@@ -506,7 +550,7 @@ export const SHOP_WEIGHTS: { id: BugId; w: number }[] = [
 ];
 
 export const GAME_INFO = {
-  version: "0.5",
+  version: "0.6",
   units: BUG_ORDER.length,
   commanders: COMMANDERS.length,
   rivals: BOTS.length,

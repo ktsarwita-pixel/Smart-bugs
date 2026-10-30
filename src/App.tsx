@@ -77,6 +77,7 @@ import {
   rankedColonies,
   resolveMatchRound,
   survivingColonies,
+  getRoundFixtures,
 } from "./game/match";
 
 type Phase = "title" | "cmd" | "prep" | "battle" | "result" | "spectate" | "final";
@@ -152,6 +153,14 @@ interface Report {
   echo: boolean;
 }
 
+const RARITY_STYLE: Record<string, string> = {
+  COMMON: "#9C8F7E",
+  UNCOMMON: "#56DCA8",
+  RARE: "#4EA8DE",
+  EPIC: "#C77DFF",
+};
+const RARITIES = ["COMMON", "UNCOMMON", "RARE", "EPIC"] as const;
+
 export default function App() {
   const [phase, setPhase] = useState<Phase>("title");
   const [focusId, setFocusId] = useState<string>("stag");
@@ -196,6 +205,12 @@ export default function App() {
   const bots = useMemo(() => match.colonies.filter((c) => c.botIdx !== null).map((c) => ({
     idx: c.botIdx!, hp: c.hp, alive: c.hp > 0, place: c.place,
   })), [match.colonies]);
+
+  // every OTHER duel happening this round (the war around your table)
+  const elsewhere = useMemo(
+    () => getRoundFixtures(match).filter((f) => f.aId !== PLAYER_ID && f.bId !== PLAYER_ID),
+    [match],
+  );
 
   const boardUnits = useMemo(() => units.filter((u) => u.zone === "board"), [units]);
   const benchUnits = useMemo(() => units.filter((u) => u.zone === "bench"), [units]);
@@ -1646,7 +1661,7 @@ export default function App() {
                 <span className="label text-[6.5px] text-[#8C7E6E]">{t("Colony ladder")}</span>
                 <span className="label text-[6.5px] text-[#8C7E6E]">{t("1 survivor wins")}</span>
               </div>
-              <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${GAME_INFO.colonies}, minmax(0, 1fr))` }}>
+              <div className="grid grid-cols-4 gap-1">
                 {[
                   { key: "you", you: true, isFoe: false, name: "YOU", hp, alive: hp > 0, place: playerColony.place },
                   ...bots.map((b) => ({
@@ -1692,6 +1707,18 @@ export default function App() {
                   </div>
                 ))}
               </div>
+              {elsewhere.length > 0 && (
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <span className="label text-[6px] text-[#6E6252]">{t("ELSEWHERE THIS ROUND")}</span>
+                  {elsewhere.map((f, i) => (
+                    <span key={i} className="label text-[6px] text-[#9C8F7E]">
+                      {t(colonyName(f.aId))}
+                      <span className="px-0.5 text-[#F05A36]">×</span>
+                      {t(colonyName(f.bId))}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -2175,6 +2202,14 @@ export default function App() {
                 <div className="mb-1 flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <span className="label text-[7.5px] text-[#9C8F7E]">{t("PIPKIN SUPPLY")}</span>
+                    <span className="ml-2 flex items-center gap-1.5">
+                      {RARITIES.map((r) => (
+                        <span key={r} className="flex items-center gap-0.5">
+                          <span className="h-[4px] w-[4px] rounded-full" style={{ background: RARITY_STYLE[r] }} />
+                          <span className="label text-[5.5px] text-[#8C7E6E]">{t(r)}</span>
+                        </span>
+                      ))}
+                    </span>
                     {shopLocked && (
                       <span className="label bg-[#F0A93B] px-1 py-px text-[6.5px] text-[#090604]">{t("HELD")}</span>
                     )}
@@ -2274,6 +2309,12 @@ export default function App() {
                             <span className="mt-0.5 flex w-full items-center justify-center gap-1">
                               <RankBadge id={id} size={12} />
                               <span className="label truncate text-[7px] text-[#EDE2CB]">{BUGS[id].short}</span>
+                            </span>
+                            <span
+                              className="label mt-0.5 w-full text-center text-[5.5px]"
+                              style={{ color: RARITY_STYLE[BUGS[id].rarity ?? "COMMON"] }}
+                            >
+                              {t(BUGS[id].rarity ?? "COMMON")}
                             </span>
                             <span
                               className="mt-0.5 block h-[2px] w-full"

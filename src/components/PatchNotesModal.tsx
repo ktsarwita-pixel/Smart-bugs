@@ -15,6 +15,18 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    v: "0.6",
+    title: "THE COLONY WARS",
+    items: [
+      "THE WAR GROWS: 3 rival colonies are now 7 — Beetle Bastion, Fire Ant Union, Cricket Choir and Roach Cartel join the ladder. 8 colonies enter, one survivor wins.",
+      "Match UI overhaul: the colony ladder is a 4-wide battle grid with live HP and places, plus a fixture strip showing every duel happening elsewhere this round.",
+      "Pipkin Supply now shows RARITY — Common, Uncommon, Rare and Epic — on every card and in the shop header.",
+      "Drawer overhaul: your commander and the enemy commander stand on brass plinths with banners at the table ends, arriving with a ceremony each time the opponent changes; richer tiles, brass corner caps, brighter deploy rims.",
+      "Spiderwebs round four: silk fluff at strand crossings, wrapped prey bundles in the larder, mid-edge guy threads and a two-plane silk tent for real depth.",
+      "Smarter web renderer: graceful silk-sharing — many webs now coexist without stealing each other's strands.",
+    ],
+  },
+  {
     v: "0.5",
     title: "REAL SILK",
     items: [

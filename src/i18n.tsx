@@ -528,6 +528,7 @@ const ID: Record<string, string> = {
   "Bugs fielded / line capacity": "Serangga diturunkan / kapasitas barisan",
   "{n} in a row — +{g} gold next payout": "{n} kali beruntun — +{g} emas pada pembayaran berikutnya",
   "You versus {name}": "Kamu melawan {name}",
+  "You versus {name} — tap to scout their lineup": "Kamu melawan {name} — ketuk untuk mengintai formasi mereka",
   "{name}: {hp} HP": "{name}: {hp} HP",
   "{name}: eliminated, place #{n}": "{name}: tereliminasi, peringkat #{n}",
   "BENCHED": "DI BANGKU",

@@ -515,6 +515,7 @@ export default function App() {
     settledBattleRef.current = null;
     setBattleSnap({ ...initial });
     setSelected(null);
+    setScouting(false); // the lineup panel is a prep tool — close it for the fight
     setSimLive(false);
     setPhase("battle");
   };
@@ -1624,14 +1625,35 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Matchup plaque */}
-              <div className={`vs-plaque vs-cell min-w-[110px] flex-1 ${inCombat ? "vs-plaque--combat" : ""}`} aria-label={tf("You versus {name}", { name: foe.name })}>
-                <SpecimenIcon id={cmd ?? "matriarch"} size={24} badge="none" />
-                <span className="label hidden text-[7px] text-[#56DCA8] min-[420px]:inline">{t("YOU")}</span>
-                <span className="vs-word">VS</span>
-                <span className="label max-w-[16ch] truncate text-[7px] text-[#F05A36]">{foe.short}</span>
-                <SpecimenIcon id={foe.cmd} size={24} badge="none" />
-              </div>
+              {/* Matchup plaque — a REAL control now: tap it to scout the foe
+                  lineup (same state as the INTIP/SCOUT button and the V key).
+                  It was a dead div before, so phones tapping "VS" got nothing —
+                  the literal "vs is unresponsive" report. Inert in combat. */}
+              {inCombat ? (
+                <div className="vs-plaque vs-cell min-w-[110px] flex-1 vs-plaque--combat" aria-label={tf("You versus {name}", { name: foe.name })}>
+                  <SpecimenIcon id={cmd ?? "matriarch"} size={24} badge="none" />
+                  <span className="label hidden text-[7px] text-[#56DCA8] min-[420px]:inline">{t("YOU")}</span>
+                  <span className="vs-word">VS</span>
+                  <span className="label max-w-[16ch] truncate text-[7px] text-[#F05A36]">{foe.short}</span>
+                  <SpecimenIcon id={foe.cmd} size={24} badge="none" />
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setScouting((v) => !v)}
+                  aria-pressed={scouting}
+                  title={t("Scout the next opponent (V)")}
+                  className={`vs-plaque vs-cell min-w-[110px] flex-1 ${scouting ? "vs-plaque--scouting" : ""}`}
+                  aria-label={tf("You versus {name} — tap to scout their lineup", { name: foe.name })}
+                >
+                  <SpecimenIcon id={cmd ?? "matriarch"} size={24} badge="none" />
+                  <span className="label hidden text-[7px] text-[#56DCA8] min-[420px]:inline">{t("YOU")}</span>
+                  <span className="vs-word">VS</span>
+                  <span className="label max-w-[16ch] truncate text-[7px] text-[#F05A36]">{foe.short}</span>
+                  <SpecimenIcon id={foe.cmd} size={24} badge="none" />
+                  <IconScout size={11} className={`vs-scout-ico shrink-0 ${scouting ? "text-[#F05A36]" : "text-[#8C7E6E]"}`} />
+                </button>
+              )}
 
               {/* Resources */}
               <div className="deck-cluster">
@@ -1671,6 +1693,32 @@ export default function App() {
                 <IconHelp size={14} />
               </button>
             </div>
+
+            {/* Foe lineup panel — opens under the plaque itself so the response
+                appears at the finger, not down in the shop row. Same `scouting`
+                state as the INTIP/SCOUT button and the V key; auto-closes when
+                the round starts (startBattle) and on next/restart. */}
+            {scouting && !inCombat && (
+              <div className="rise mx-2 mb-1.5 border border-[#8E2A16] bg-[#1A100D] p-1.5">
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="label text-[7px] text-[#F05A36]">
+                    <IconScout size={10} /><span>{foe.short} {t("WILL FIELD")}</span>
+                  </span>
+                  <span className="latin text-[10.5px] text-[#8C7E6E]">{t(cmdById(foe.cmd).perk)}</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {scoutTeam.map((e) => (
+                    <div
+                      key={`${e.bugId}${e.star}`}
+                      className="flex items-center gap-1 border border-[#3B322A] bg-[#120D09] px-1 py-0.5"
+                    >
+                      <SpecimenIcon id={e.bugId} size={20} star={e.star} badge="none" />
+                      <span className="font-mono text-[9px] font-bold text-[#EDE2CB]">×{e.n}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Colony ladder — ONE-LINE rail (hidden on phones in combat to save the stage):
                 slim snap-scroll cells so all 8 colonies read in a single glance,
@@ -2269,27 +2317,6 @@ export default function App() {
                     {adminButton("h-11 w-11 px-0")}
                   </div>
                 </div>
-                {scouting && (
-                  <div className="rise mb-1.5 border border-[#8E2A16] bg-[#1A100D] p-1.5">
-                    <div className="mb-1 flex items-center justify-between">
-                      <span className="label text-[7px] text-[#F05A36]">
-                        <IconScout size={10} /><span>{foe.short} {t("WILL FIELD")}</span>
-                      </span>
-                      <span className="latin text-[10.5px] text-[#8C7E6E]">{t(cmdById(foe.cmd).perk)}</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {scoutTeam.map((e) => (
-                        <div
-                          key={`${e.bugId}${e.star}`}
-                          className="flex items-center gap-1 border border-[#3B322A] bg-[#120D09] px-1 py-0.5"
-                        >
-                          <SpecimenIcon id={e.bugId} size={20} star={e.star} badge="none" />
-                          <span className="font-mono text-[9px] font-bold text-[#EDE2CB]">×{e.n}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
                 <div className="grid grid-cols-5 gap-1 min-[420px]:gap-1.5">
                   {shop.map((id, i) => {
                     const owned1 = id ? ownedCounts[id].s1 : 0;

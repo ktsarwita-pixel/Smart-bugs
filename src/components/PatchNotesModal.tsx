@@ -15,6 +15,19 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    v: "0.4",
+    title: "THE SILK FLOOD",
+    items: [
+      "Webs SPREAD: every web blooms from its strike point and floods across its full rect — nest walls race up the drawer sides right after, then the egg sacs pop in.",
+      "Containment law (advanced math): webs are spun sheets fitted with exact rotated-footprint math — silk physically cannot leave the drawer anymore, at any angle, on any edge.",
+      "Nest walls now line the INSIDE of the frame (tops tip inward) — no silk crosses the board edge.",
+      "New cloth details: radial spread streaks, curled drag hooks, softer rim, more dew.",
+      "Bigger silk splats when a web detonates — extra strands and dew motes.",
+      "HOW TO PLAY gains THE BATTLE DESK: one-tap deploy, swap mode, inspector and the HUD explained.",
+      "Fixed a stale 'Widow' mention left in the tactics tab.",
+    ],
+  },
+  {
     v: "0.3",
     title: "THE SPIDER ARRIVES",
     items: [

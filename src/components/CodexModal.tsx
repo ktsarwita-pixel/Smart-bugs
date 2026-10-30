@@ -215,7 +215,7 @@ export function CodexModal({ open, onClose }: Props) {
                 {
                   n: "02",
                   t: "DEPLOY ON THE 3D DRAWER",
-                  d: "Tap a bug, then tap any green 3D tile on your side—or hit the 1-tap DEPLOY button for smart row placement (Stag in front, Mantis and Widow on the flanks, Bombardier in rear).",
+                  d: "Tap a bug, then tap any green 3D tile on your side—or hit the 1-tap DEPLOY button for smart row placement (Stag in front, Mantis and Spider on the flanks, Bombardier in rear).",
                 },
                 {
                   n: "03",
@@ -240,7 +240,12 @@ export function CodexModal({ open, onClose }: Props) {
                 {
                   n: "07",
                   t: "WEBS & VENOM",
-                  d: "The Spider (5G) webs the WHOLE board at battle start: enemies are slowed 50% and take 500 damage per second for the entire fight. At full Energy it spits a big 3×3 web onto the densest enemy pack — stepping on it deals 750 damage and slows 30%, and that web dissolves after 5 seconds. Its Enraged bite hits for 2× damage and adds 3 poison ticks 1s apart.",
+                  d: "The Spider (5G) webs the WHOLE board at battle start: enemies are slowed 50% and take 500 damage per second for the entire fight. At full Energy it spits a big 3×3 web onto the densest enemy pack — stepping on it deals 750 damage and slows 30%, and that web dissolves after 5 seconds. Its Enraged bite hits for 2× damage and adds 3 poison ticks 1s apart. Every web BLOOMS from its strike point and floods outward, and the spun silk is fitted with exact math so it can never hang past the drawer.",
+                },
+                {
+                  n: "08",
+                  t: "THE BATTLE DESK",
+                  d: "The HUD keeps you oriented: the round counter shows alive-colony pips, a chunky timer counts down the pre-roll, and ROUND + FIGHT flare when a battle starts. Placement: ONE tap on a bench bug deploys it to a smart row; tap a field bug then a tile to move it; when your line is full, tapping a field bug arms SWAP mode — tap a bench bug to trade them. Press the inspector ('i') on any specimen to study its stats. PATCH NOTES on the title screen lists every update so far.",
                 },
               ].map((item) => (
                 <div key={item.n} className="border border-[#3B322A] bg-[#1C1611] p-3">

@@ -294,7 +294,6 @@
   transition:
     transform 130ms cubic-bezier(0.22, 1, 0.36, 1),
     border-color 130ms ease;
-  will-change: transform;
 }
 @media (hover: hover) {
   .lift:hover:not(:disabled) {
@@ -321,6 +320,39 @@
   white-space: nowrap; /* narrow 5-col cards must never letter-wrap it */
   color: #7b6e5f;
   background: rgba(12, 9, 7, 0.76);
+}
+
+/* ── Touch responsiveness kit ───────────────────────────────
+   manipulation: kills the double-tap-zoom delay + pinch-jank on
+   every control (the biggest single "phone feels laggy" win).
+   Transparent tap highlight: the .lift press already gives feedback. */
+button,
+[role="button"],
+a,
+input,
+select,
+label {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Invisible hit-area expanders for controls that must stay visually
+   small but need a fingertip-sized touch zone (no layout shift). */
+.hit-y {
+  position: relative;
+}
+.hit-y::after {
+  content: "";
+  position: absolute;
+  inset: -7px 0;
+}
+.hit-24 {
+  position: relative;
+}
+.hit-24::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
 }
 
 .safe-b {
@@ -1111,7 +1143,8 @@ html[data-motion="reduced"] .ult-ready {
     display: none;
   }
   .deck .help-btn {
-    width: 28px;
+    width: 34px;
+    height: 38px;
     margin-right: 2px;
   }
 }
@@ -1219,23 +1252,18 @@ html[data-motion="reduced"] .ult-ready {
 }
 
 /* Colony ladder: ONE-LINE ranked rail — slim snap-scroll cells, no wall */
+/* One-line rail that ALWAYS shows all 8 colonies: a fixed 8-column grid
+   (flex-basis overflowed and clipped the 8th cell on ~412px phones). */
 .ladder-strip {
-  display: flex;
-  gap: 4px;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
-}
-.ladder-strip::-webkit-scrollbar {
-  display: none;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 3px;
 }
 .ladder-cell {
   position: relative;
-  flex: 1 0 47px;
-  scroll-snap-align: start;
   border: 1px solid #3b322a;
   background: #100c09;
-  padding: 3px 5px 4px;
+  padding: 3px 4px 4px;
   min-width: 0;
   transition:
     opacity 220ms ease,

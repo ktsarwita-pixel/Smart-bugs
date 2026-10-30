@@ -7,6 +7,7 @@ import { CodexModal } from "./components/CodexModal";
 import { RoundResults } from "./components/RoundResults";
 import { AdminPanel } from "./components/AdminPanel";
 import { SettingsModal } from "./components/SettingsModal";
+import { UiDoctor } from "./components/UiDoctor";
 import { fill, useSettings } from "./i18n";
 import {
   IconPlay,
@@ -1078,7 +1079,7 @@ export default function App() {
             </div>
             <button
               onClick={() => setGuideOpen(true)}
-              className="lift flex min-h-[44px] items-center gap-1.5 border border-[#4A3828] bg-[#18120E] px-3 py-1.5 label text-[8.5px] text-[#EDE2CB] hover:border-[#F0A93B]"
+              className="lift flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 border border-[#4A3828] bg-[#18120E] px-3 py-1.5 label text-[8.5px] text-[#EDE2CB] hover:border-[#F0A93B]"
             >
               <IconHelp size={13} className="text-[#F0A93B]" /> <span className="hidden min-[420px]:inline">{t("FIELD GUIDE")}</span>
             </button>
@@ -1086,7 +1087,7 @@ export default function App() {
               type="button"
               onClick={() => setSettingsOpen(true)}
               aria-label={t("SETTINGS")}
-              className="lift flex min-h-[44px] items-center justify-center gap-1.5 border border-[#4A3828] bg-[#18120E] px-3 py-1.5 label text-[8.5px] text-[#EDE2CB] hover:border-[#F0A93B]"
+              className="lift flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 border border-[#4A3828] bg-[#18120E] px-3 py-1.5 label text-[8.5px] text-[#EDE2CB] hover:border-[#F0A93B]"
             >
               <IconSettings size={14} />
               <span className="hidden min-[420px]:inline">{t("SETTINGS")}</span>
@@ -1275,6 +1276,7 @@ export default function App() {
         <PatchNotesModal open={patchOpen} onClose={() => setPatchOpen(false)} />
         {adminPanel}
         <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        <UiDoctor />
       </div>
     );
   }
@@ -1299,7 +1301,7 @@ export default function App() {
               <span className="label text-[8.5px] text-[#F0A93B]">{t("SELECT 1 OF")} {GAME_INFO.commanders} {t("COMMANDERS")}</span>
               <button
                 onClick={() => setGuideOpen(true)}
-                className="lift flex min-h-[44px] items-center gap-1.5 border border-[#3B322A] bg-[#16110D] px-2.5 py-1.5 label text-[8px] text-[#F0A93B]"
+                className="lift flex min-h-[44px] min-w-[44px] shrink-0 items-center gap-1.5 border border-[#3B322A] bg-[#16110D] px-2.5 py-1.5 label text-[8px] text-[#F0A93B]"
               >
                 <IconHelp size={11} />
                 <span>{t("GUIDE")}</span>
@@ -1308,7 +1310,7 @@ export default function App() {
                 type="button"
                 onClick={() => setSettingsOpen(true)}
                 aria-label={t("SETTINGS")}
-                className="grid h-11 w-11 place-items-center border border-[#32291F] bg-[#16110D] text-[#EDE2CB] active:translate-y-[1px]"
+                className="grid h-11 w-11 min-w-[44px] shrink-0 place-items-center border border-[#32291F] bg-[#16110D] text-[#EDE2CB] active:translate-y-[1px]"
               >
                 <IconSettings size={15} />
               </button>
@@ -1424,6 +1426,7 @@ export default function App() {
         <CodexModal open={guideOpen} onClose={() => setGuideOpen(false)} />
         {adminPanel}
         <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        <UiDoctor />
       </div>
     );
   }
@@ -1467,6 +1470,7 @@ export default function App() {
           {adminButton("mt-3 w-full")}
           {adminPanel}
         <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        <UiDoctor />
         </main>
       </div>
     );
@@ -1543,6 +1547,7 @@ export default function App() {
             {adminButton("mt-3 w-full")}
             {adminPanel}
         <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        <UiDoctor />
           </div>
         </div>
       </div>
@@ -1652,7 +1657,7 @@ export default function App() {
               <button
                 onClick={() => setGuideOpen(true)}
                 aria-label={t("Open Field Guide")}
-                className="lift help-btn my-1 mr-1.5 grid w-[34px] shrink-0 self-center place-items-center border border-[#3B322A] bg-[#100C09] text-[#F0A93B] hover:border-[#F0A93B]"
+                className="lift hit-24 help-btn my-1 mr-1.5 grid h-[38px] w-[38px] shrink-0 self-center place-items-center border border-[#3B322A] bg-[#100C09] text-[#F0A93B] hover:border-[#F0A93B]"
               >
                 <IconHelp size={14} />
               </button>
@@ -1815,7 +1820,7 @@ export default function App() {
                   <button
                     onClick={() => setSelected(null)}
                     aria-label={t("Deselect")}
-                    className="p-1 text-[#8C7E6E] hover:text-[#EDE2CB]"
+                    className="hit-24 grid h-8 w-8 shrink-0 place-items-center text-[#8C7E6E] hover:text-[#EDE2CB]"
                   >
                     <IconClose size={10} />
                   </button>
@@ -1964,7 +1969,7 @@ export default function App() {
                         onClick={() => setSpeed(sv)}
                         aria-pressed={speed === sv}
                         title={tf("Battle speed set to {v}×.", { v: sv })}
-                        className={`label px-2.5 py-1.5 text-[8px] ${
+                        className={`label min-h-[40px] px-4 text-[8px] ${
                           i < 2 ? "border-r border-[#4A3828]" : ""
                         } ${
                           speed === sv
@@ -1980,7 +1985,7 @@ export default function App() {
                     type="button"
                     onClick={() => setSettingsOpen(true)}
                     aria-label={t("SETTINGS")}
-                    className="grid h-11 w-11 place-items-center border border-[#3B322A] bg-[#100C09] text-[#EDE2CB] active:translate-y-[1px]"
+                    className="grid h-11 w-11 min-w-[44px] shrink-0 place-items-center border border-[#3B322A] bg-[#100C09] text-[#EDE2CB] active:translate-y-[1px]"
                   >
                     <IconSettings size={16} />
                   </button>
@@ -2196,7 +2201,7 @@ export default function App() {
                                 e.stopPropagation();
                                 setSelected(u.uid);
                               }}
-                              className="absolute right-0.5 top-0.5 grid h-4 w-4 place-items-center border border-[#4A3828] bg-[#0D0907]/90 font-pixel text-[7px] text-[#9C8F7E] hover:text-[#F0A93B]"
+                              className="hit-24 absolute right-0.5 top-0.5 grid h-6 w-6 place-items-center border border-[#4A3828] bg-[#0D0907]/90 font-pixel text-[8px] text-[#9C8F7E] hover:text-[#F0A93B]"
                             >
                               i
                             </span>
@@ -2231,7 +2236,7 @@ export default function App() {
                     <button
                       onClick={() => setScouting((v) => !v)}
                       title={t("Scout the next opponent (V)")}
-                      className={`label flex items-center gap-1 border px-2 py-0.5 text-[7px] ${
+                      className={`label hit-y relative flex min-h-[32px] items-center gap-1 border px-2 text-[7px] ${
                         scouting
                           ? "border-[#E0522F] bg-[#2A1512] text-[#F05A36]"
                           : "border-[#3B322A] text-[#9C8F7E] hover:border-[#E0522F] hover:text-[#F05A36]"
@@ -2243,7 +2248,7 @@ export default function App() {
                     <button
                       onClick={toggleLock}
                       title={t("Lock the shop so it carries into the next drawer (L)")}
-                      className={`label flex items-center gap-1 border px-2 py-0.5 text-[7px] ${
+                      className={`label hit-y relative flex min-h-[32px] items-center gap-1 border px-2 text-[7px] ${
                         shopLocked
                           ? "border-[#F0A93B] bg-[#241B14] text-[#F0A93B]"
                           : "border-[#3B322A] text-[#9C8F7E] hover:border-[#F0A93B] hover:text-[#F0A93B]"
@@ -2350,7 +2355,7 @@ export default function App() {
                 <button
                   onClick={reroll}
                   disabled={gold < 2}
-                  className="lift flex min-h-[38px] flex-col items-center justify-center border-2 border-[#4A3828] bg-[#18120E] px-2 py-1 shadow-[0_3px_0_#0C0906] hover:border-[#6B4B24] disabled:opacity-35"
+                  className="lift flex min-h-[44px] flex-col items-center justify-center border-2 border-[#4A3828] bg-[#18120E] px-2 py-1 shadow-[0_3px_0_#0C0906] hover:border-[#6B4B24] disabled:opacity-35"
                 >
                   <div className="flex items-center gap-1">
                     <IconReroll size={10} className="text-[#EDE2CB]" />
@@ -2362,7 +2367,7 @@ export default function App() {
                 <button
                   onClick={levelUp}
                   disabled={gold < levelCost || level >= MAX_FIELD_SIZE}
-                  className="lift flex min-h-[38px] flex-col items-center justify-center border-2 border-[#4A3828] bg-[#18120E] px-2 py-1 shadow-[0_3px_0_#0C0906] hover:border-[#6B4B24] disabled:opacity-35"
+                  className="lift flex min-h-[44px] flex-col items-center justify-center border-2 border-[#4A3828] bg-[#18120E] px-2 py-1 shadow-[0_3px_0_#0C0906] hover:border-[#6B4B24] disabled:opacity-35"
                 >
                   <div className="flex items-center gap-1">
                     <IconUpgrade size={10} className="text-[#EDE2CB]" />
@@ -2378,7 +2383,7 @@ export default function App() {
                 <button
                   onClick={engage}
                   aria-label={boardUnits.length ? tf("Engage battle — {n} deployed", { n: boardUnits.length }) : t("Engage battle — auto-deploys from bench")}
-                  className={`lift flex min-h-[38px] items-center justify-center gap-1.5 border-2 border-[#56DCA8] bg-[#1F7A5A] px-3 py-1 font-pixel text-[10px] text-[#090604] shadow-[0_3px_0_#0D3B2A] ${
+                  className={`lift flex min-h-[44px] items-center justify-center gap-1.5 border-2 border-[#56DCA8] bg-[#1F7A5A] px-3 py-1 font-pixel text-[10px] text-[#090604] shadow-[0_3px_0_#0D3B2A] ${
                     phase === "prep" && (boardUnits.length > 0 || benchUnits.length > 0) ? "ready-pulse" : ""
                   }`}
                 >
@@ -2520,6 +2525,7 @@ export default function App() {
       <CodexModal open={guideOpen} onClose={() => setGuideOpen(false)} />
         {adminPanel}
         <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        <UiDoctor />
     </div>
   );
 }

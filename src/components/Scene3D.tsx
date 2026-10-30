@@ -2513,9 +2513,12 @@ export function Scene3D({
     };
 
     const el = renderer.domElement;
+    // passive move/up: the handlers never preventDefault, and marking them
+    // passive frees the compositor from waiting on the main thread for every
+    // touch-drag frame (visible as rotation jank on mid phones).
     el.addEventListener("pointerdown", onDown);
-    el.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
+    el.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("pointerup", onUp, { passive: true });
     el.addEventListener("pointerleave", onLeave);
 
     /* ── Render Loop ── */

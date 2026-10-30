@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { IconClose, IconGlobe, IconSettings } from "./CustomIcons";
 import { useSettings, type Lang } from "../i18n";
 
@@ -18,6 +18,12 @@ const LANGS: { id: Lang; native: string; latin: string }[] = [
  */
 export function SettingsModal({ open, onClose }: Props) {
   const { lang, setLang, motion, setMotion, potato, setPotato, t } = useSettings();
+  const [doctor, setDoctor] = useState(() => localStorage.getItem("sb-doctor") === "1");
+  const setDoctorState = (v: boolean) => {
+    setDoctor(v);
+    try { localStorage.setItem("sb-doctor", v ? "1" : "0"); } catch { /* storage blocked */ }
+    window.dispatchEvent(new CustomEvent("sb-doctor", { detail: v }));
+  };
   // Escape closes the sheet — must sit above the early return (hook order).
   useEffect(() => {
     if (!open) return;
@@ -153,6 +159,35 @@ export function SettingsModal({ open, onClose }: Props) {
           </div>
           <p className="mt-2 text-[10px] leading-snug text-[#7B6E5F]">
             {t("Potato mode turns off shadows and glow, drops the render resolution, and hides fireflies. For weaker phones and laptops.")}
+          </p>
+
+          <div className="mt-4 mb-2 flex items-center gap-2">
+            <IconSettings size={13} className="text-[#75D9E8]" />
+            <h3 className="label text-[8px] text-[#75D9E8]">{t("UI DOCTOR")}</h3>
+          </div>
+          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t("UI DOCTOR")}>
+            {([true, false] as const).map((option) => {
+              const on = doctor === option;
+              return (
+                <button
+                  key={String(option)}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => setDoctorState(option)}
+                  className={`lift min-h-[48px] border px-3 py-2 text-left font-mono text-[10px] ${
+                    on
+                      ? "border-[#75D9E8] bg-[#0B2A31] text-[#BDF8FF]"
+                      : "border-[#3B322A] bg-[#17110C] text-[#B3A594]"
+                  }`}
+                >
+                  {option === true ? t("On — find broken taps") : t("Off — normal play")}
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-[10px] leading-snug text-[#7B6E5F]">
+            {t("Overlay that hunts unresponsive UI: tiny tap targets, covered buttons, clipped panels, and dropped frames. Shows an FPS meter and a copyable report.")}
           </p>
         </div>
 

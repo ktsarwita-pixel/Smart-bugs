@@ -167,8 +167,10 @@ export default function App() {
   /* ── /advanced — PRIVATE test-range route ───────────────────────
      Plain-path check with NO hooks above it: the advanced page is a
      separate mount, so hook order in the game screens never shifts.
-     Lock the route for release by flipping DEV_BUILD in AdvancedView. */
-  if (DEV_BUILD && window.location.pathname.replace(/\/+$/, "").endsWith("/advanced")) {
+     Accepts both spellings (/advanced and /advenced) so a typo in the
+     URL never lands on the game. Lock the route for release by
+     flipping DEV_BUILD in AdvancedView. */
+  if (DEV_BUILD && /^\/adv(anced|enced)\/?$/i.test(window.location.pathname)) {
     return <AdvancedView onExit={() => { window.location.assign("/"); }} />;
   }
 

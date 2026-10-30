@@ -430,11 +430,11 @@ function damage(b: BattleState, _src: BUnit, tgt: BUnit, raw: number, projectile
   // shown to players.
   // The only modifiers left are the two that are openly written on
   // the tin: the Worm-hole Vulnerable mark (1.5×, its tooltip says so)
-  // and the dragonfly's Slipstream passive (20% vs non-projectiles,
+  // and the dragonfly's Slipstream passive (50% vs non-projectiles,
   // its Codex entry says so). Skills multiply ATK exactly as stated
   // (e.g. Pincer Lock = 2.1 × ATK).
   const amp = tgt.vuln > 0 ? 1.5 : 1;
-  const slipstream = tgt.bugId === "dragonfly" && !projectile ? 0.2 : 1;
+  const slipstream = tgt.bugId === "dragonfly" && !projectile ? 0.5 : 1;
   const dmg = Math.max(1, Math.round(raw * amp * slipstream));
   tgt.hp -= dmg;
   tgt.flash = 0.3;

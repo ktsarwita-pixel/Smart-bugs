@@ -194,7 +194,7 @@ export const BUGS: Record<BugId, BugDef> = {
     skillMinStar: 3,
     passive: {
       name: "Slipstream",
-      desc: "Takes only 20% damage from non-projectile attacks. Bombardier shells still deal full damage.",
+      desc: "Takes only 50% damage from non-projectile attacks (nerfed from 20%). Bombardier shells still deal full damage.",
     },
     starStats: {
       1: { hp: 400, atk: 60, def: 12 },

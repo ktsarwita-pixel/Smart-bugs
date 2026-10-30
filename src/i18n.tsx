@@ -147,7 +147,7 @@ const ID: Record<string, string> = {
   "Airstrike": "Serbuan Udara",
   "3-star ultimate. The Dragonfly climbs (untouchable while airborne), dives onto the densest enemy cluster, and leaves a 2s field (2 ticks). Each tick deals 110% of your whole living team's combined ATK — 220% (2.2×) total — to enemies inside. More and stronger allies alive = bigger ticks; as allies fall, ticks weaken.": "Ultimate bintang 3. Capung terbang naik (tidak bisa diserang saat di udara), menukik ke kerumunan musuh terpadat, lalu meninggalkan area efek 2 detik (2 tick). Tiap tick memberi damage 110% dari total ATK gabungan seluruh tim-mu yang masih hidup — total 220% (2.2×) — ke musuh di dalamnya. Semakin banyak & kuat teman yang hidup, semakin besar tick-nya; saat teman gugur, tick melemah.",
   "Slipstream": "Jejak Angin",
-  "Takes only 20% damage from non-projectile attacks. Bombardier shells still deal full damage.": "Hanya menerima 20% damage dari serangan bukan proyektil. Peluru Bombardier tetap memberi damage penuh.",
+  "Takes only 50% damage from non-projectile attacks (nerfed from 20%). Bombardier shells still deal full damage.": "Hanya menerima 50% damage dari serangan non-proyektil (dinerf dari 20%). Cangkang Bombardier tetap memberi damage penuh.",
   "The Termite Queen": "Ratu Rayap",
   "The Lantern Oracle": "Peramal Lentera",
   "Queen of the Mound": "Ratu Gundukan",

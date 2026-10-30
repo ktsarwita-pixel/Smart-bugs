@@ -1144,9 +1144,18 @@ export function Scene3D({
         }
       }
 
+      // ——— BRIDGE ROPES: long anchoring threads corner → mid-field ———
+      for (const [cx2, cy2] of corners) {
+        strand(
+          [[cx2, cy2], [R + (rnd() - 0.5) * 56, R + (rnd() - 0.5) * 56]],
+          1.25, 0.5, true,
+        );
+      }
+
       // ——— OUTPOSTS: small true orb webs the spinner tends between fights ———
       const outposts: Pt[] = [
         [size * 0.24, size * 0.3], [size * 0.76, size * 0.26], [size * 0.7, size * 0.74],
+        [size * 0.3, size * 0.6], [size * 0.62, size * 0.48],
       ];
       for (const [ox, oy] of outposts) {
         const orad = 34 + rnd() * 8;
@@ -1358,9 +1367,11 @@ export function Scene3D({
         // 0.7s instead of popping out of existence
         const dissolve = w.life === undefined ? 1 : Math.max(0, Math.min(1, (w.life ?? 5) / 0.7));
         const dScale = 0.85 + 0.15 * dissolve;
-        // old-cloth billow: slow anisotropic breathing + drift
-        const billowX = 1 + Math.sin(time * 0.9 + w.id * 2.1) * 0.03;
-        const billowZ = 1 + Math.cos(time * 0.7 + w.id * 1.3) * 0.03;
+        // old-cloth billow: slow anisotropic breathing + drift, with a
+        // longer WIND GUST wave travelling across the silk
+        const gust = 1 + Math.sin(time * 0.31 + w.id * 0.7) * 0.016 + Math.sin(time * 0.83 + w.id * 1.9) * 0.007;
+        const billowX = (1 + Math.sin(time * 0.9 + w.id * 2.1) * 0.03) * gust;
+        const billowZ = (1 + Math.cos(time * 0.7 + w.id * 1.3) * 0.03) * gust;
         // desired sheet rect (before containment)
         const dw = (grand ? COLS + 0.9 : w.half * 2 + 0.6) * billowX * grow * twang;
         const dh = (grand ? ROWS + 0.9 : w.half * 2 + 0.6) * billowZ * grow * twang;
@@ -1381,9 +1392,17 @@ export function Scene3D({
         const cz = grand ? ROWS / 2 : Math.min(Math.max(w.y, hz), ROWS - hz);
         // silk shimmer: two violet tones breathing through the holes
         const shim = 0.5 + 0.5 * Math.sin(time * 1.7 + w.id * 1.9);
-        let tint = grand
-          ? (shim > 0.5 ? 0xe3c2ff : 0xb48ae8)
-          : (shim > 0.5 ? 0xffffff : 0xd9c2ff);
+        colA.setHex(grand ? 0xe3c2ff : 0xffffff);
+        colB.setHex(grand ? 0xb48ae8 : 0xd9c2ff);
+        let tint = colA.lerp(colB, shim).getHex();
+        // iridescence: as the light walks the sheet, a pale-teal sheen
+        // blooms and fades — silk reads wet and alive
+        const teal = Math.sin(time * 0.23 + w.id * 0.9);
+        if (teal > 0.82) {
+          colA.setHex(tint);
+          colB.setHex(0x9fd8e8);
+          tint = colA.lerp(colB, ((teal - 0.82) / 0.18) * 0.5).getHex();
+        }
         if (dissolve < 1) {
           colA.setHex(tint);
           colB.setHex(0x1c1424);
@@ -1890,6 +1909,10 @@ export function Scene3D({
       camera.updateProjectionMatrix();
       if (sceneReady) renderer.render(scene, camera);
     }
+    // pre-warm every shader program in the scene so the first battle
+    // doesn't hitch while the GPU compiles materials mid-fight
+    renderer.compile(scene, camera);
+
     frame();
 
     const ro = new ResizeObserver(() => frame());
@@ -3115,10 +3138,14 @@ export function Scene3D({
 
       /* ── Units Update ── */
       seen.clear();
+      frameParity ^= 1;
       if (battleOn && liveBattle) {
         const bUnits = liveBattle.units;
         for (let i = 0; i < bUnits.length; i++) {
           const r = bUnits[i];
+          // dying units idle at 15Hz — their curl/sink is slow, the saving
+          // is real in the endgame when half the roster is a corpse
+          if ((r.dead || r.fade < 1) && frameParity) continue;
           let wantRot = r.side === "ally" ? 0 : Math.PI;
           let bd = Infinity;
           let bx = 0;

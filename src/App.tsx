@@ -2263,7 +2263,7 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                <div className="grid grid-cols-5 gap-1">
+                <div className="grid grid-cols-3 min-[420px]:grid-cols-5 gap-1.5">
                   {shop.map((id, i) => {
                     const owned1 = id ? ownedCounts[id].s1 : 0;
                     const willMoult = !!id && owned1 >= 2;
@@ -2275,54 +2275,56 @@ export default function App() {
                         key={i}
                         onClick={() => buy(i)}
                         disabled={!id || !affordable}
-                        className={`lift relative flex flex-col items-center justify-between border bg-[#120D09] px-1 pt-2 pb-1 ${
+                        className={`lift relative flex min-w-0 flex-col items-center justify-between gap-0.5 border bg-gradient-to-b from-[#17110C] to-[#0F0B08] px-1 pt-2 pb-1.5 ${
                           !id
                             ? "sold border-[#241C16]"
                             : !affordable
                               ? "border-[#2D231B] opacity-45"
                               : willMoult
-                                ? "moult-glow border-[#F0A93B] bg-[#1F170E]"
+                                ? "moult-glow border-[#F0A93B] from-[#241a0e] to-[#171008]"
                                 : isPair
                                   ? "border-[#56DCA8]/75 hover:border-[#F0A93B]"
-                                  : "border-[#3B322A] hover:border-[#F0A93B]"
+                                  : "border-[#38302A] hover:border-[#F0A93B]"
                         }`}
                       >
                         {id ? (
                           <>
                             {/* Moult / Pair ribbon */}
                             {willMoult && (
-                              <span className="absolute left-0 top-0 flex items-center gap-0.5 bg-[#56DCA8] px-1 font-pixel text-[6px] leading-[1.4] text-[#090604]">
+                              <span className="absolute left-0 top-0 flex items-center gap-0.5 rounded-br-md bg-[#56DCA8] py-px pl-1 pr-1.5 font-pixel text-[6px] leading-[1.4] text-[#090604]">
                                 <IconStar size={6} />
                                 <span>{t("UP")}</span>
                               </span>
                             )}
                             {!willMoult && isPair && (
-                              <span className="absolute left-0 top-0 bg-[#28473B] px-1 font-mono text-[6.5px] font-bold leading-[1.3] text-[#56DCA8]">
+                              <span className="absolute left-0 top-0 rounded-br-md bg-[#28473B] py-px pl-1 pr-1.5 font-mono text-[6.5px] font-bold leading-[1.3] text-[#56DCA8]">
                                 2/3
                               </span>
                             )}
-                            <span className="absolute right-0 top-0 bg-[#F0A93B] px-1 font-pixel text-[7px] leading-[1.4] text-[#090604]">
+                            <span className="absolute right-0.5 top-0.5 rounded-sm bg-[#F0A93B] px-1 font-pixel text-[7px] leading-[1.45] text-[#090604] shadow-[0_1px_0_rgba(0,0,0,.5)]">
                               {BUGS[id].cost}
                             </span>
 
-                            <SpecimenIcon id={id} size={35} badge="none" />
-                            <span className="mt-0.5 flex w-full items-center justify-center gap-1">
+                            <SpecimenIcon id={id} size={38} badge="none" />
+                            <span className="mt-0.5 flex w-full min-w-0 items-center justify-center gap-1">
                               <RankBadge id={id} size={12} />
                               <span className="label truncate text-[7px] text-[#EDE2CB]">{BUGS[id].short}</span>
                             </span>
-                            <span
-                              className="label mt-0.5 w-full text-center text-[5.5px]"
-                              style={{ color: RARITY_STYLE[BUGS[id].rarity ?? "COMMON"] }}
-                            >
-                              {t(BUGS[id].rarity ?? "COMMON")}
+                            <span className="flex w-full flex-col items-center gap-0.5">
+                              <span
+                                className="label text-center text-[5.5px] uppercase tracking-wide"
+                                style={{ color: RARITY_STYLE[BUGS[id].rarity ?? "COMMON"] }}
+                              >
+                                {t(BUGS[id].rarity ?? "COMMON")}
+                              </span>
+                              <span
+                                className="block h-[2.5px] w-4/5 rounded-full opacity-90"
+                                style={{ background: RARITY_STYLE[BUGS[id].rarity ?? "COMMON"] }}
+                              />
                             </span>
-                            <span
-                              className="mt-0.5 block h-[2px] w-full"
-                              style={{ background: BUGS[id].accent }}
-                            />
                           </>
                         ) : (
-                          <span className="grid h-[48px] place-items-center text-[9px] text-[#3B322A]">·</span>
+                          <span className="grid h-[48px] w-full place-items-center text-[10px] text-[#332A22]">◇</span>
                         )}
                       </button>
                     );

@@ -8,6 +8,7 @@ import { RoundResults } from "./components/RoundResults";
 import { AdminPanel } from "./components/AdminPanel";
 import { SettingsModal } from "./components/SettingsModal";
 import { UiDoctor } from "./components/UiDoctor";
+import { AdvancedView, DEV_BUILD } from "./components/AdvancedView";
 import { fill, useSettings } from "./i18n";
 import {
   IconPlay,
@@ -163,6 +164,14 @@ const RARITY_STYLE: Record<string, string> = {
 const RARITIES = ["COMMON", "UNCOMMON", "RARE", "EPIC"] as const;
 
 export default function App() {
+  /* ── /advanced — PRIVATE test-range route ───────────────────────
+     Plain-path check with NO hooks above it: the advanced page is a
+     separate mount, so hook order in the game screens never shifts.
+     Lock the route for release by flipping DEV_BUILD in AdvancedView. */
+  if (DEV_BUILD && window.location.pathname.replace(/\/+$/, "").endsWith("/advanced")) {
+    return <AdvancedView onExit={() => { window.location.assign("/"); }} />;
+  }
+
   const [phase, setPhase] = useState<Phase>("title");
   const [focusId, setFocusId] = useState<string>("stag");
   const [guideOpen, setGuideOpen] = useState(false);
@@ -1604,19 +1613,17 @@ export default function App() {
                 </div>
                 <div className="deck-stat" title={tf("Round {r} — {n} colonies still alive", { r: round + 1, n: activeCount })}>
                   <span className="deck-num text-[#F0A93B]">{round + 1}</span>
-                  <span className="deck-cap">
-                    {t("Round")}<br />
-                    <span className="deck-pips" aria-label={`${activeCount} alive`}>
-                      {Array.from({ length: Math.max(activeCount, 2) }).map((_, i) => (
-                        <i key={i} data-on={i < activeCount ? 1 : 0} />
-                      ))}
-                    </span>
+                  <span className="deck-cap">{t("Round")}</span>
+                  <span className="deck-pips" aria-label={`${activeCount} alive`}>
+                    {Array.from({ length: Math.max(activeCount, 2) }).map((_, i) => (
+                      <i key={i} data-on={i < activeCount ? 1 : 0} />
+                    ))}
                   </span>
                 </div>
               </div>
 
               {/* Matchup plaque */}
-              <div className={`vs-plaque min-w-[150px] flex-1 ${inCombat ? "vs-plaque--combat" : ""}`} aria-label={tf("You versus {name}", { name: foe.name })}>
+              <div className={`vs-plaque vs-cell min-w-[110px] flex-1 ${inCombat ? "vs-plaque--combat" : ""}`} aria-label={tf("You versus {name}", { name: foe.name })}>
                 <SpecimenIcon id={cmd ?? "matriarch"} size={24} badge="none" />
                 <span className="label hidden text-[7px] text-[#56DCA8] min-[420px]:inline">{t("YOU")}</span>
                 <span className="vs-word">VS</span>
@@ -2173,7 +2180,7 @@ export default function App() {
                           onBench(i);
                         }}
                         title={u ? tf("{name} — tap to deploy instantly", { name: t(BUGS[u.bugId].name) }) : t("Empty bench slot")}
-                        className={`lift bench-slot relative grid h-10 place-items-center border sm:h-12 ${
+                        className={`lift bench-slot relative grid h-11 place-items-center border sm:h-12 ${
                           isSel ? "border-[#F0A93B] bg-[#241B14]" : "border-[#3B322A] bg-[#120D09]"
                         } ${!u && benchUnits.length >= BENCH_SIZE ? "bench-slot--over" : ""}`}
                         style={{
@@ -2323,7 +2330,7 @@ export default function App() {
                               {BUGS[id].cost}
                             </span>
 
-                            <SpecimenIcon id={id} size={38} badge="none" />
+                            <SpecimenIcon id={id} size={44} badge="none" />
                             <span className="mt-0.5 flex w-full min-w-0 items-center justify-center gap-1">
                               <RankBadge id={id} size={12} />
                               <span className="label truncate text-[7px] text-[#EDE2CB]">{BUGS[id].short}</span>
@@ -2342,7 +2349,7 @@ export default function App() {
                             </span>
                           </>
                         ) : (
-                          <span className="grid h-[44px] w-full place-items-center text-[10px] text-[#332A22] min-[420px]:h-[48px]">◇</span>
+                          <span className="grid h-[52px] w-full place-items-center text-[10px] text-[#332A22] min-[420px]:h-[56px]">◇</span>
                         )}
                       </button>
                     );

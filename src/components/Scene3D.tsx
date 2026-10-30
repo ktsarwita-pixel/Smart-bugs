@@ -1023,7 +1023,7 @@ export function Scene3D({
      * identical across runs.
      */
     function makeWebTexture() {
-      const size = 512;
+      const size = 1024;
       const c = document.createElement("canvas");
       c.width = c.height = size;
       const g = c.getContext("2d")!;
@@ -1044,7 +1044,8 @@ export function Scene3D({
         g.moveTo(pts[0][0], pts[0][1]);
         for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]);
       };
-      // three-pass silk strand: shadow, core, glint
+      // four-pass silk strand: dark under-shadow, tinted core, crisp glint,
+      // then a BROKEN highlight (dashed) so strands read wet and hand-spun
       const strand = (pts: Pt[], w: number, a: number, vio = false) => {
         path(pts);
         g.strokeStyle = `rgba(22,13,36,${a * 0.5})`;
@@ -1058,6 +1059,23 @@ export function Scene3D({
         g.strokeStyle = `rgba(255,255,255,${a * 0.75})`;
         g.lineWidth = Math.max(0.5, w * 0.4);
         g.stroke();
+        path(pts);
+        g.setLineDash([7, 10 + rnd() * 14]);
+        g.strokeStyle = `rgba(255,255,255,${a * 0.5})`;
+        g.lineWidth = Math.max(0.4, w * 0.28);
+        g.stroke();
+        g.setLineDash([]);
+      };
+      // silk FIZZ: 1-2 hair-fine fibrils trailing a strand — the halo real
+      // silk gets under a lamp (drawn at 0.25 alpha so it never muddies)
+      const fuzz = (pts: Pt[], seedA: number) => {
+        for (let k = 0; k < 2; k++) {
+          const off = (rnd() - 0.5) * 4.5;
+          path(pts.map(([x, y], i) => [x + off + Math.sin(i * 1.7 + seedA + k) * 2.1, y + (rnd() - 0.5) * 2.2] as Pt));
+          g.strokeStyle = `rgba(244,238,255,${0.16 + rnd() * 0.1})`;
+          g.lineWidth = 0.55;
+          g.stroke();
+        }
       };
       const quad = (p0: Pt, mx: number, my: number, p1: Pt): Pt[] => {
         const pts: Pt[] = [];
@@ -1089,7 +1107,7 @@ export function Scene3D({
       const hub: Pt = [R + (rnd() - 0.5) * 22, R + (rnd() - 0.5) * 22];
       strand([[hub[0] - 5, hub[1]], [hub[0] + 5, hub[1]]], 2.2, 0.9);
       strand([[hub[0], hub[1] - 5], [hub[0], hub[1] + 5]], 2.2, 0.9);
-      const SPOKES = 16;
+      const SPOKES = 26;
       const spokeA: number[] = [];
       for (let i = 0; i < SPOKES; i++) {
         const a0 = (i / SPOKES) * Math.PI * 2 + (rnd() - 0.5) * 0.12;
@@ -1098,6 +1116,7 @@ export function Scene3D({
         const tip: Pt = [hub[0] + Math.cos(a0) * len, hub[1] + Math.sin(a0) * len];
         const midR = len * (0.5 + (rnd() - 0.5) * 0.06); // spokes sag a touch
         strand(quad(hub, hub[0] + Math.cos(a0 + 0.05) * midR, hub[1] + Math.sin(a0 + 0.05) * midR + 6, tip), 1.7, 0.8, i % 3 === 0);
+        if (i % 2 === 0) fuzz(quad(hub, hub[0] + Math.cos(a0 + 0.05) * midR, hub[1] + Math.sin(a0 + 0.05) * midR + 6, tip), i);
       }
 
       // ——— CAPTURE SPIRAL: rings widen outward, segments sag toward the
@@ -1118,7 +1137,7 @@ export function Scene3D({
           const mx = hub[0] + Math.cos(am) * rm;
           const my = hub[1] + Math.sin(am) * rm;
           strand(quad(p0, mx, my, p1), 1.15, 0.72, ring % 2 === 1);
-          if (rnd() < 0.24 && dew.length < 90) dew.push(p1);
+          if (rnd() < 0.24 && dew.length < 150) dew.push(p1);
         }
         r = nextR;
         ring++;
@@ -1160,6 +1179,7 @@ export function Scene3D({
       const outposts: Pt[] = [
         [size * 0.24, size * 0.3], [size * 0.76, size * 0.26], [size * 0.7, size * 0.74],
         [size * 0.3, size * 0.6], [size * 0.62, size * 0.48],
+        [size * 0.08, size * 0.52], [size * 0.9, size * 0.62],
       ];
       for (const [ox, oy] of outposts) {
         const orad = 34 + rnd() * 8;
@@ -1202,7 +1222,7 @@ export function Scene3D({
 
       // ——— WRAPPED PREY: two silk bundles bundled into the web — the
       // larder. Layered bandage strands over a shadowed core + gleam. ———
-      for (const [bx, by] of [[hub[0] + 74, hub[1] + 30], [hub[0] - 88, hub[1] - 52]]) {
+      for (const [bx, by] of [[hub[0] + 74, hub[1] + 30], [hub[0] - 88, hub[1] - 52], [hub[0] + 12, hub[1] - 96]]) {
         g.save();
         g.translate(bx, by);
         g.rotate(0.6 + rnd() * 0.5);
@@ -1312,6 +1332,31 @@ export function Scene3D({
     if (!showcase) scene.add(eggMesh);
     const eggS = new THREE.Vector3();
 
+    // ——— Dew GLINTS: instanced additive sparks that sit ON the silk ———
+    // One InstancedMesh, zero draw calls per glint; each carries a phase so
+    // the update loop can twinkle them (sin, no textures). They hug each
+    // sheet inside 0.94 of its half-extent, so containment is inherited.
+    const GLINT_N = 48;
+    const glintGeo = new THREE.PlaneGeometry(1, 1);
+    const glintMat = new THREE.MeshBasicMaterial({
+      color: 0xbfe9ff,
+      transparent: true,
+      opacity: 0.0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const glintMesh = new THREE.InstancedMesh(glintGeo, glintMat, GLINT_N);
+    glintMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    glintMesh.frustumCulled = false;
+    glintMesh.count = 0;
+    glintMesh.renderOrder = 4;
+    if (!showcase) scene.add(glintMesh);
+    const glintPhase = new Float32Array(GLINT_N);
+    for (let i = 0; i < GLINT_N; i++) glintPhase[i] = (i * 0.6180339887) % 1; // golden-ratio phases
+    const glintQ = new THREE.Quaternion();
+    const glintM = new THREE.Matrix4();
+    const glintS = new THREE.Vector3();
+
     // ——— CONTAINMENT LAW (exact rotated-rect fitting) ———
     // A sheet of size (rw, rh) spun by θ has axis-aligned footprint
     //   W = rw·|cosθ| + rh·|sinθ|,  H = rw·|sinθ| + rh·|cosθ|.
@@ -1338,6 +1383,8 @@ export function Scene3D({
       if (!b || !b.webs.length) {
         if (webMesh.count !== 0) webMesh.count = 0;
         if (eggMesh.count !== 0) eggMesh.count = 0;
+        if (glintMesh.count !== 0) glintMesh.count = 0;
+        glintMat.opacity = 0;
         webAge.clear();
         return;
       }
@@ -1345,6 +1392,7 @@ export function Scene3D({
       for (const id of Array.from(webAge.keys())) if (!liveIds.has(id)) webAge.delete(id);
       let n = 0;
       let en = 0;
+      let glintN = 0;
       for (const w of b.webs) {
         const grand = w.kind === "grand";
         const age = (webAge.get(w.id) ?? 0) + dt;
@@ -1573,12 +1621,33 @@ export function Scene3D({
           eggMesh.setMatrixAt(en, m4);
           en++;
         }
+
+        // DEW GLINTS: 12 sparks per web scattered inside the sheet's
+        // half-extent × 0.94 (containment inherited), each twinkling on its
+        // golden-ratio phase — light catching the droplets as the silk sways.
+        const GN = grand ? 14 : 8;
+        for (let gi = 0; gi < GN && glintN < GLINT_N; gi++) {
+          const ph = glintPhase[glintN % GLINT_N];
+          const tw = Math.max(0, Math.sin(time * 2.4 + ph * Math.PI * 2 + w.id * 1.3));
+          const gx = cx + (Math.sin(ph * 12.9898 + w.id * 7.7) * 0.5) * sw * 0.94;
+          const gz = cz + (Math.sin(ph * 78.233 + w.id * 3.1) * 0.5) * sh2 * 0.94;
+          const gs = 0.016 + tw * 0.02;
+          glintQ.setFromEuler(webE.set(-Math.PI / 2, 0, 0));
+          glintS.set(gs, gs, 1);
+          projTmp.set(gx, 0.105 + dropY, gz);
+          glintM.compose(projTmp, glintQ, glintS);
+          glintMesh.setMatrixAt(glintN, glintM);
+          glintN++;
+        }
       }
       webMesh.count = n;
       webMesh.instanceMatrix.needsUpdate = true;
       if (webMesh.instanceColor) webMesh.instanceColor.needsUpdate = true;
       eggMesh.count = en;
       eggMesh.instanceMatrix.needsUpdate = true;
+      glintMesh.count = glintN;
+      glintMesh.instanceMatrix.needsUpdate = true;
+      glintMat.opacity = 0.85;
     }
 
     /**

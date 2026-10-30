@@ -321,6 +321,9 @@
   color: #7b6e5f;
   background: rgba(12, 9, 7, 0.76);
 }
+html[lang="id"] .sold::after {
+  content: "TERJUAL";
+}
 
 /* ── Touch responsiveness kit ───────────────────────────────
    manipulation: kills the double-tap-zoom delay + pinch-jank on
@@ -1118,23 +1121,34 @@ html[data-motion="reduced"] .ult-ready {
   }
 }
 @media (max-width: 479.98px) {
+  /* the row NEVER overflows: clusters may shrink, the plaque keeps a floor.
+     (Long ID captions used to eat the row and crush the VS plaque to 61px.) */
   .deck-row {
     padding: 5px 3px 4px 0;
+    flex-wrap: nowrap;
+    overflow: hidden;
   }
   .deck-cluster {
-    gap: 7px;
-    padding: 0 5px;
+    gap: 6px;
+    padding: 0 4px;
+    flex-shrink: 1;
+    min-width: 0;
   }
   .deck-stat {
     gap: 4px;
+    flex-shrink: 1;
+    min-width: 0;
   }
+  /* text captions off on tiny phones — icons + numbers + pips carry the row;
+     pips live OUTSIDE the caption now so they survive this */
   .deck-stat .deck-cap {
-    font-size: 5.5px;
+    display: none;
   }
   .deck .vs-plaque {
-    min-width: 0;
+    min-width: 94px;
+    flex: 1 1 0;
     gap: 5px;
-    padding: 3px 6px;
+    padding: 3px 4px;
   }
   .deck .vs-plaque .label {
     display: none; /* icons + VS carry the matchup under 480px */

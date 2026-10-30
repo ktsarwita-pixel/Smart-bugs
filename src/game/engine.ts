@@ -54,6 +54,8 @@ export interface BUnit {
   cast: number;
   dead: boolean;
   fade: number;
+  /** Seconds since death — drives the corpse timeline (settle → rest → sink). */
+  deadT: number;
   dive: AirstrikeDive | null;
   /** Spider only: seconds until the next bite is Enraged (0 = armed). */
   enrageIn: number;
@@ -277,6 +279,7 @@ function mkUnit(uid: number, bugId: BugId, star: number, side: "ally" | "foe", x
     cast: 0,
     dead: false,
     fade: 1,
+    deadT: 0,
     dive: null,
     enrageIn: bugId === "spider" ? enrageInterval(star) * 0.4 : 0,
     poisonLeft: 0,
@@ -443,7 +446,8 @@ function damage(b: BattleState, _src: BUnit, tgt: BUnit, raw: number, projectile
   if (tgt.hp <= 0) {
     tgt.hp = 0;
     tgt.dead = true;
-    tgt.fade = 0.5;
+    tgt.fade = 1;
+    tgt.deadT = 0;
     tgt.dive = null;
     pop(b, tgt, "KO", "ko");
   }
@@ -881,7 +885,10 @@ export function stepBattle(b: BattleState, dt: number): BattleState {
 
   for (const u of b.units) {
     if (u.dead) {
-      u.fade -= dt;
+      // Corpse timeline: settle + rest fully opaque (the death pose plays at
+      // full rig rate), then sink into the soil and fade over ~0.9s.
+      u.deadT += dt;
+      if (u.deadT > 2.4) u.fade = Math.max(0, u.fade - dt * 1.15);
       continue;
     }
     u.cd = Math.max(0, u.cd - dt);

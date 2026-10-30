@@ -15,6 +15,16 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    v: "0.61",
+    title: "THE FALLEN REST",
+    items: [
+      "FIXED — fallen bugs no longer blink out mid-death-fall. Corpses now play the full death pose, REST on the tile, then sink into the soil and fade — each kill lands with a dust puff, a soft ring and a grounded shadow.",
+      "The VS plaque is a real control now: tap it to scout the next foe's lineup — the panel opens right under the plaque, the INTIP/SCOUT button and the V key share the same state, and the plaque lights red while scouting.",
+      "Responsive pass: the command deck scales UP on big phones, tablets and desktop (bigger numbers, taller plaque, roomier slab) and squeezes down cleanly on 320px phones — nothing wraps, clips or shrinks to an untappable sliver.",
+      "QOL: your battle speed (1×/2×/3×) is remembered between rounds, matches and restarts; Enter or N advances the round-result screen; its button comes pre-focused.",
+    ],
+  },
+  {
     v: "0.6",
     title: "THE COLONY WARS",
     items: [

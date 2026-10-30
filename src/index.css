@@ -1163,6 +1163,91 @@ html[data-motion="reduced"] .ult-ready {
   }
 }
 
+/* ── Tiny phones (320–359px): the slab squeezes, nothing wraps or clips ── */
+@media (max-width: 359.98px) {
+  .deck-row {
+    padding: 4px 2px 3px 0;
+  }
+  .deck-cluster {
+    gap: 4px;
+    padding: 0 3px;
+  }
+  .deck-stat {
+    gap: 3px;
+    min-height: 30px;
+  }
+  .deck .vs-plaque {
+    min-width: 84px;
+    gap: 4px;
+    padding: 3px 3px;
+  }
+  .deck .vs-plaque SpecimenIcon,
+  .deck .vs-plaque .spec-icon {
+    transform: scale(0.88);
+  }
+  .deck .help-btn {
+    width: 30px;
+    height: 36px;
+  }
+}
+
+/* ── Big phones / small tablets (≥600px): the deck breathes ── */
+@media (min-width: 600px) {
+  .deck-row {
+    padding: 7px 10px 6px;
+  }
+  .deck-stat {
+    gap: 8px;
+  }
+  .deck-stat .deck-num {
+    font-size: 15px;
+  }
+  .deck-stat .deck-cap {
+    font-size: 7.5px;
+  }
+  .vs-plaque {
+    min-height: 40px;
+  }
+  .vs-plaque .vs-word {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+}
+
+/* ── Tablets & desktop (≥1024px): full-size command slab ── */
+@media (min-width: 1024px) {
+  .deck-row {
+    padding: 9px 14px 8px;
+  }
+  .deck-cluster {
+    gap: 12px;
+    padding: 0 12px;
+  }
+  .deck-stat {
+    gap: 9px;
+    min-height: 40px;
+  }
+  .deck-stat .deck-num {
+    font-size: 16px;
+  }
+  .deck-stat .deck-cap {
+    font-size: 8px;
+  }
+  .vs-plaque {
+    min-height: 44px;
+    gap: 9px;
+    min-width: 150px;
+  }
+  .vs-plaque .vs-word {
+    font-size: 11px;
+    padding: 3px 6px;
+  }
+  .deck .help-btn {
+    width: 42px;
+    height: 42px;
+  }
+}
+
 /* ════════════════════════════════════════════════════════════
    FIELD LAB CONSOLE v3 — cohesion & micro-polish pass
    Themed scrollbars, tactile deck chips, bevelled unit cards,

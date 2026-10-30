@@ -193,7 +193,18 @@ export default function App() {
   const [shop, setShop] = useState<(BugId | null)[]>(rollShop);
   const [match, setMatch] = useState(createMatch);
   const [selected, setSelected] = useState<number | null>(null);
-  const [speed, setSpeed] = useState<1 | 2 | 3>(1);
+  const [speed, setSpeed] = useState<1 | 2 | 3>(() => {
+    // QOL: remembered battle speed — survives rounds, matches and restarts
+    try {
+      const v = Number(localStorage.getItem("smartbugs.speed"));
+      return v === 2 || v === 3 ? (v as 1 | 2 | 3) : 1;
+    } catch {
+      return 1;
+    }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("smartbugs.speed", String(speed)); } catch { /* private mode */ }
+  }, [speed]);
   const [toast, setToast] = useState("");
   const [report, setReport] = useState<Report | null>(null);
   const [shopLocked, setShopLocked] = useState(false);
@@ -647,7 +658,7 @@ export default function App() {
     setBattleSnap(null);
     setReport(null);
     setSelected(null);
-    setSpeed(1);
+    // speed preference deliberately persists across restarts (QOL)
   };
 
   const resolveSpectatorRound = useCallback(() => {
@@ -992,7 +1003,7 @@ export default function App() {
 
   /* ── Keyboard shortcuts (desktop) ─────────────────────────── */
   useEffect(() => {
-    if (phase !== "prep" && phase !== "battle") return;
+    if (phase !== "prep" && phase !== "battle" && phase !== "result") return;
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
@@ -1003,6 +1014,10 @@ export default function App() {
       if (k === "?" ) { setGuideOpen((v) => !v); e.preventDefault(); return; }
       if (phase === "battle") {
         if (k === " " || k === "s") { setSpeed((v) => (v === 1 ? 2 : v === 2 ? 3 : 1)); e.preventDefault(); }
+        return;
+      }
+      if (phase === "result") {
+        if (k === "enter" || k === "n") { next(); e.preventDefault(); }
         return;
       }
       // prep-only
@@ -2543,6 +2558,7 @@ export default function App() {
 
             <button
               onClick={next}
+              autoFocus
               className="lift flex items-center justify-center gap-2 mt-4 w-full border-2 border-[#241B14] bg-[#1F7A5A] py-3 font-pixel text-[11px] text-[#FFF3DC] shadow-[0_4px_0_#0D3B2A]"
             >
               <span>

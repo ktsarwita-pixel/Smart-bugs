@@ -52,6 +52,8 @@ interface UnitObj {
   bob: number;
   lunge: number;
   deadT: number;
+  /** one-shot detector for the death moment (dust puff + grounded shadow) */
+  prevDead: boolean;
   prevCast: number;
   prevCd: number;
   /** 0→1 deploy pop when the voxel sculpt first mounts (instant if reduced motion) */
@@ -2382,6 +2384,7 @@ export function Scene3D({
         bob: (uid * 1.7) % 6,
         lunge: 0,
         deadT: 0,
+        prevDead: false,
         prevCast: 0,
         prevCd: cd,
         shadow,
@@ -2798,13 +2801,30 @@ export function Scene3D({
       const hop = cast > 0 && id !== "dragonfly" ? Math.sin((1 - cast / 0.55) * Math.PI) * 0.18 : 0;
 
       const bobY = dead ? 0 : moving ? Math.abs(Math.sin(u.bob)) * 0.048 : Math.sin(u.bob) * 0.012;
-      u.inner.position.y = flight ? 0 : bobY + hop;
+      // corpses sink beneath the soil as they fade — the body goes INTO the
+      // ground, never pops out of existence
+      const corpseSink = dead ? -(1 - Math.min(1, Math.max(0, fade))) * 0.34 : 0;
+      u.inner.position.y = flight ? 0 : bobY + hop + corpseSink;
       u.inner.rotation.x = flight ? flight.pitch : u.inner.rotation.x * Math.exp(-dt * 16);
       u.inner.rotation.z = flight ? flight.bank : u.inner.rotation.z * Math.exp(-dt * 16);
 
       if (dead) {
         u.deadT += dt;
-        const o = Math.min(1, Math.max(0, fade * 2));
+        // One-shot at the death moment: a soil puff and a soft ring so the
+        // kill actually LANDS, plus a contact shadow while the corpse rests.
+        if (!u.prevDead) {
+          u.prevDead = true;
+          spawnDust(u.holder.position.x, u.holder.position.z, isCompact ? 5 : 8, 0xbda98a, 0.6);
+          spawnRing(rx, ry, 0x8a6a4a);
+        }
+        if (u.shadow) {
+          const so = 0.24 * Math.min(1, Math.max(0, fade));
+          (u.shadow.material as THREE.MeshBasicMaterial).opacity = so;
+          u.shadow.position.set(u.holder.position.x, UNIT_GROUND + 0.0035, u.holder.position.z);
+          u.shadow.scale.setScalar(u.scale);
+          u.shadow.visible = so > 0.01;
+        }
+        const o = Math.min(1, Math.max(0, fade));
         u.model.bodyMat.transparent = true;
         u.model.bodyMat.opacity = o;
         if (u.model.glowMat) {
@@ -3233,7 +3253,7 @@ export function Scene3D({
           const r = bUnits[i];
           // dying units idle at 15Hz — their curl/sink is slow, the saving
           // is real in the endgame when half the roster is a corpse
-          if ((r.dead || r.fade < 1) && frameParity) continue;
+          if (r.dead && r.fade < 1 && frameParity) continue;
           let wantRot = r.side === "ally" ? 0 : Math.PI;
           let bd = Infinity;
           let bx = 0;

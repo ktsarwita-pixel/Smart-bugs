@@ -560,11 +560,15 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     crownPivot = [0, 14, -5];
     maxY = 14;
   } else if (id === "spider") {
-    // BLACK WIDOW — glossy black carapace, a bulbous abdomen carrying the
-    // signature red hourglass on its back, and a red-gleaming eye band over
-    // the fangs. Legs are REAL spider legs: knee rises ABOVE the back, foot
-    // planted wide — four per side, front pair longest. Fangs (arms, riding
-    // the head) curl down-in from the face.
+    // BLACK WIDOW v3 — redesigned. Same identity (glossy black chitin, red
+    // hourglass, hot red eyes), better anatomy and a real shoulder: a
+    // continuous HIP RAIL of thick leg-base voxels runs down each side
+    // (y 1..4, z −3..5 at |x| = 2) and every leg femur now roots at |x| = 3,
+    // face-adjacent to that rail. The skitter rocks the leg sets ±0.42 rad
+    // and the death curl 0.72 rad around pivot (0,2,0) — at every phase of
+    // both swings the rotated root still touches the rail (or the abdomen),
+    // so no gait phase can ever open the gaps the old narrow-rooted legs
+    // showed while moving.
     const skinD = "#140D1C";
     const skinM = "#221730";
     const fuzz = "#3E2C50";
@@ -576,38 +580,46 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     const legD = "#0A0710";
     const legL = "#33243F";
 
-    // Cephalothorax: compact front mass with a fuzzy top.
-    torsoS.ellipsoid(0, 3.4, -1.6, 2.1, 1.9, 1.9, (x, y, _z) => {
+    // Cephalothorax: compact sleek front mass, fuzzy crown.
+    torsoS.ellipsoid(0, 3.4, -1.6, 2.0, 1.8, 1.9, (x, y, _z) => {
       if (y <= 1) return null;
       if (y >= 5) return { hex: fuzz };
       return { hex: x !== 0 && Math.abs(x) >= 2 ? skinD : skinM };
     });
-    // Abdomen: the big glossy rear balloon with the RED HOURGLASS painted
-    // on its back (two wide bands pinched to a waist) and a dark under-belly;
-    // two-cell spinnerets at the tail tip.
-    torsoS.ellipsoid(0, 3.7, 3.8, 2.9, 2.5, 3.1, (x, y, z) => {
+    // Abdomen: the big glossy rear globe — wider and rounder than v2 — with
+    // the RED HOURGLASS (two bands pinched to a waist), a red crown spot and
+    // a dark under-belly; two-cell spinnerets at the tail tip.
+    torsoS.ellipsoid(0, 3.9, 3.9, 2.9, 2.7, 3.0, (x, y, z) => {
       if (y <= 1) return null;
-      if (z >= 6) return { hex: skinD }; // spinneret base
+      if (z >= 6.4) return { hex: skinD }; // spinneret base
       if (y >= 6 && Math.abs(x) <= 1) {
-        const dz = z - 3.3;
-        if (Math.abs(dz) >= 1 && Math.abs(dz) <= 1.9) return { hex: mark }; // hourglass bands
-        if (Math.abs(dz) < 1 && x === 0) return { hex: mark }; // pinched waist
+        const dz = z - 3.9;
+        if (Math.abs(dz) >= 1.1 && Math.abs(dz) <= 2.1) return { hex: mark }; // hourglass bands
+        if (Math.abs(dz) < 0.55 && x === 0) return { hex: mark }; // pinched waist
       }
-      if (y >= 5 && x === 0 && Math.abs(z - 1.4) < 0.6) return { hex: pale }; // red crown spot
-      if (y >= 5) return { hex: fuzz };
+      if (y >= 5.6 && x === 0 && Math.abs(z - 1.6) < 0.6) return { hex: pale }; // red crown spot
+      if (y >= 5.6) return { hex: fuzz };
       return { hex: Math.abs(x) >= 2 ? skinD : skinM };
     });
-    torsoS.set(0, 4, 6, pale); // spinneret
+    torsoS.set(0, 4, 7, pale); // spinneret
     torsoS.set(0, 3, 7, skinD);
-    torsoS.sym(1, 4, 6, skinM);
-    // Waist fill: seal the thorax->abdomen junction so no pocket reads through.
+    torsoS.sym(1, 4, 7, skinM);
+    // Pedicel: seal the thorax->abdomen junction so no pocket reads through.
     torsoS.box(-1, 3, 0, 1, 5, 1, skinM);
     torsoS.sym(2, 3, 0, skinD);
     torsoS.sym(2, 3, 1, skinD);
+    // HIP RAILS: the muscular leg bases, welded to the body sides. Every
+    // leg root (|x| = 3) stays face-adjacent to this rail through the whole
+    // skitter/death swing — computed against pivot (0,2,0) at ±0.42/0.72 rad.
+    for (let zr = -3; zr <= 5; zr++) {
+      torsoS.sym(2, 1, zr, skinD);
+      torsoS.sym(2, 2, zr, skinM);
+      torsoS.sym(2, 3, zr, zr % 2 === 0 ? skinM : skinD);
+      torsoS.sym(2, 4, zr, fuzz);
+    }
 
-    // Eyes: a sleek black face with ONE big hot-red main pair (the widow's
-    // menacing spotlight eyes) and a thin darker gleam row above. The old
-    // multi-row red/pink mix read as a noisy checker slab.
+    // Eyes: sleek black face with ONE big hot-red main pair and a thin
+    // inner glint beside each; matte brow above.
     headPivot = [0, 3.4, -2.6];
     torsoPivot = [0, 3.2, 0.2];
     headS.ellipsoid(0, 3.8, -3.6, 1.9, 1.5, 1.3, (_x, y) => ({
@@ -619,8 +631,9 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     headS.box(-2, 3, -5, 2, 3, -5, skinD); // face plate under the eyes
     headS.sym(2, 2, -5, skinD); // jaw corners
 
-    // Fangs: two hooked chelicerae curling down-in from the face. They ride
-    // the HEAD (armsOnHead), so the bite animation tracks the look direction.
+    // Fangs: two hooked chelicerae curling down-in from the face (they ride
+    // the HEAD, so the bite tracks the look direction), with pedipalps
+    // beside them as the little "hands" spiders hold up.
     leftArmPivot = [-0.9, 3.2, -4.2];
     rightArmPivot = [0.9, 3.2, -4.2];
     leftArmS.line(-0.9, 3.2, -4.6, -1.9, 2.4, -5.2, skinM);
@@ -631,17 +644,15 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     rightArmS.line(1.9, 2.4, -5.2, 1.4, 1.2, -5.6, fang);
     rightArmS.set(1.4, 1.2, -5.6, eyeB, true);
     rightArmS.set(1.6, 1.8, -5.4, skinD);
-    // Pedipalps: two short feelers beside the fangs (part of the arms mesh,
-    // static side nubs — they read as the little "hands" spiders hold up).
     leftArmS.line(-1.2, 3.4, -4.4, -2.4, 3.2, -5.4, legL);
     leftArmS.set(-2.4, 3.2, -5.4, legL);
     rightArmS.line(1.2, 3.4, -4.4, 2.4, 3.2, -5.4, legL);
     rightArmS.set(2.4, 3.2, -5.4, legL);
 
-    // Eight legs — four per side, knees arching over the back like a real
-    // spider. Front pair long and forward, rear pair swept back. legsA =
-    // the LEFT set, legsB = the RIGHT set; the gait rocks the two sets
-    // against each other (a scurrying scuttle, no alternating tripods).
+    // Eight legs — four per side, knees arching over the back. Roots at
+    // |x| = 3 ride the hip rails; front pair longest and forward, rear pair
+    // short and swept back. legsA = LEFT set, legsB = RIGHT set; the gait
+    // rocks the two sets against each other (scurrying scuttle).
     const spiderLeg = (
       S: VoxSculptor,
       sx: number,
@@ -651,7 +662,7 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
       kz: number,
       fz: number
     ) => {
-      S.line(sx * 2, 3.5, hz, sx * kx, ky, kz, legL); // femur up to the knee
+      S.line(sx * 3, 3, hz, sx * kx, ky, kz, legL); // femur: rail -> knee
       S.set(sx * kx, ky, kz, legL);
       S.set(sx * kx, ky + 1, kz, legL); // knee joint ball
       S.line(sx * kx, ky, kz, sx * 7, 0, fz, legD); // tibia down to the foot
@@ -659,17 +670,17 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
       S.set(sx * 8, 0, fz, legD); // tarsus tip
     };
     // front pair (long, reaching forward)
-    spiderLeg(legsAS, -1, -2.4, 4.6, 6.6, -4.4, -3);
-    spiderLeg(legsBS, 1, -2.4, 4.6, 6.6, -4.4, -3);
+    spiderLeg(legsAS, -1, -2.4, 4.8, 7.0, -4.6, -3);
+    spiderLeg(legsBS, 1, -2.4, 4.8, 7.0, -4.6, -3);
     // mid pair (the big striding legs)
-    spiderLeg(legsAS, -1, 0.4, 5.2, 6.2, 0.6, 1.6);
-    spiderLeg(legsBS, 1, 0.4, 5.2, 6.2, 0.6, 1.6);
+    spiderLeg(legsAS, -1, 0.4, 5.4, 6.6, 0.6, 1.6);
+    spiderLeg(legsBS, 1, 0.4, 5.4, 6.6, 0.6, 1.6);
     // rear-mid pair
-    spiderLeg(legsAS, -1, 2.6, 4.4, 5.6, 4.2, 5.4);
-    spiderLeg(legsBS, 1, 2.6, 4.4, 5.6, 4.2, 5.4);
+    spiderLeg(legsAS, -1, 2.6, 4.6, 6.0, 4.2, 5.4);
+    spiderLeg(legsBS, 1, 2.6, 4.6, 6.0, 4.2, 5.4);
     // rear pair (short, swept back)
-    spiderLeg(legsAS, -1, 4.4, 3.4, 5.0, 6.6, 8.2);
-    spiderLeg(legsBS, 1, 4.4, 3.4, 5.0, 6.6, 8.2);
+    spiderLeg(legsAS, -1, 4.4, 3.6, 5.4, 6.6, 8);
+    spiderLeg(legsBS, 1, 4.4, 3.6, 5.4, 6.6, 8);
 
     crownPivot = [0, 7, -3];
     maxY = 8;

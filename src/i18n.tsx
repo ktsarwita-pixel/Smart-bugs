@@ -555,19 +555,22 @@ const ID: Record<string, string> = {
 
 const SettingsCtx = createContext<Ctx | null>(null);
 const KEY = "smartbugs.settings";
+/** v2: everyone lands back in ENGLISH once (players who picked Bahasa
+ *  Indonesia can still switch back in Settings — it just stops being the
+ *  remembered default from before this update). */
+const SETTINGS_REV = 2;
 
 function load(): Settings {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<Settings>;
-      if (parsed.lang === "id" || parsed.lang === "en") {
-        return {
-          lang: parsed.lang,
-          motion: parsed.motion === "reduced" ? "reduced" : "full",
-          potato: parsed.potato === true,
-        };
-      }
+    const parsed = raw ? (JSON.parse(raw) as Partial<Settings & { rev?: number }>) : {};
+    const stale = (parsed.rev ?? 1) < SETTINGS_REV;
+    if (parsed.lang === "id" || parsed.lang === "en") {
+      return {
+        lang: stale ? "en" : parsed.lang,
+        motion: parsed.motion === "reduced" ? "reduced" : "full",
+        potato: parsed.potato === true,
+      };
     }
   } catch {
     /* storage may be unavailable */
@@ -595,7 +598,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(KEY, JSON.stringify(settings));
+      localStorage.setItem(KEY, JSON.stringify({ ...settings, rev: SETTINGS_REV }));
     } catch {
       /* ignore */
     }

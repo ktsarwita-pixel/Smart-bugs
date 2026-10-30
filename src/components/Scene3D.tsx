@@ -1165,7 +1165,7 @@ export function Scene3D({
     // all four corners. The grand web is one huge sheet spanning the whole
     // board (plus a counter-rotating under-layer that shimmers through the
     // holes); each After-Web snare is the same cloth at 3×3 scale.
-    const WEB_POOL_N = 16; // grand drape+under+wash+walls (7) + up to 4 snare sheets
+    const WEB_POOL_N = 24; // 2 full grand kits (drape+wash+walls+rigging = 10) + 2 snare kits (2) — exact fit
     const webGeo = new THREE.PlaneGeometry(1, 1);
     const webMat = new THREE.MeshBasicMaterial({
       map: webTex ?? undefined,
@@ -1238,8 +1238,10 @@ export function Scene3D({
       let n = 0;
       let en = 0;
       for (const w of b.webs) {
-        if (n >= WEB_POOL_N - 6) break;
         const grand = w.kind === "grand";
+        // reserve exactly what THIS web kind needs, so two grand webs plus
+        // two snares fit the pool with zero waste
+        if (n > WEB_POOL_N - (grand ? 10 : 2)) break;
         const age = (webAge.get(w.id) ?? 0) + dt;
         webAge.set(w.id, age);
         // — spawn → SPREAD timeline —
@@ -1256,12 +1258,20 @@ export function Scene3D({
         const k = Math.min(1, Math.max(0, age - (grand ? 0 : 0.26)) / 0.55);
         const back = 1 + 2.70158 * Math.pow(k - 1, 3) + 1.70158 * Math.pow(k - 1, 2);
         const grow = 0.07 + 0.93 * back; // seed → overshoot ≈ 1.05 → 1
+        // landing TWANG: fresh silk oscillates and damps (fed through the
+        // containment fit below, so the wobble can never push silk out)
+        const twA = age - (grand ? 0 : 0.26);
+        const twang = twA > 0 ? 1 + Math.sin(twA * 13) * 0.05 * Math.exp(-2.6 * twA) : 1;
+        // end-of-life DISSOLVE: the snare shrinks and darkens in its last
+        // 0.7s instead of popping out of existence
+        const dissolve = w.life === undefined ? 1 : Math.max(0, Math.min(1, (w.life ?? 5) / 0.7));
+        const dScale = 0.85 + 0.15 * dissolve;
         // old-cloth billow: slow anisotropic breathing + drift
         const billowX = 1 + Math.sin(time * 0.9 + w.id * 2.1) * 0.03;
         const billowZ = 1 + Math.cos(time * 0.7 + w.id * 1.3) * 0.03;
         // desired sheet rect (before containment)
-        const dw = (grand ? COLS + 0.9 : w.half * 2 + 0.6) * billowX * grow;
-        const dh = (grand ? ROWS + 0.9 : w.half * 2 + 0.6) * billowZ * grow;
+        const dw = (grand ? COLS + 0.9 : w.half * 2 + 0.6) * billowX * grow * twang;
+        const dh = (grand ? ROWS + 0.9 : w.half * 2 + 0.6) * billowZ * grow * twang;
         // CONTAINMENT LAW — exact for any spin, billow or pop (see fitSpin).
         // The grand drape keeps spin 0 and is clamped per-axis so it still
         // touches all four corners; snares use the tamed variety spin and
@@ -1269,8 +1279,8 @@ export function Scene3D({
         // the spun corners stay inside the drawer.
         let rot = grand ? 0 : Math.sin(time * 0.5 + w.id * 2.4) * 0.05 + ((w.id % 5) - 2) * 0.21;
         if (!grand) rot *= 1 + 2.2 * settle;
-        const sw = grand ? Math.min(dw, COLS) : dw * fitSpin(dw, dh, rot, COLS, ROWS);
-        const sh2 = grand ? Math.min(dh, ROWS) : dh * fitSpin(dw, dh, rot, COLS, ROWS);
+        const sw = (grand ? Math.min(dw, COLS) : dw * fitSpin(dw, dh, rot, COLS, ROWS)) * dScale;
+        const sh2 = (grand ? Math.min(dh, ROWS) : dh * fitSpin(dw, dh, rot, COLS, ROWS)) * dScale;
         const rc = Math.abs(Math.cos(rot));
         const rs = Math.abs(Math.sin(rot));
         const hx = (sw / 2) * rc + (sh2 / 2) * rs;
@@ -1279,9 +1289,14 @@ export function Scene3D({
         const cz = grand ? ROWS / 2 : Math.min(Math.max(w.y, hz), ROWS - hz);
         // silk shimmer: two violet tones breathing through the holes
         const shim = 0.5 + 0.5 * Math.sin(time * 1.7 + w.id * 1.9);
-        const tint = grand
+        let tint = grand
           ? (shim > 0.5 ? 0xe3c2ff : 0xb48ae8)
           : (shim > 0.5 ? 0xffffff : 0xd9c2ff);
+        if (dissolve < 1) {
+          colA.setHex(tint);
+          colB.setHex(0x1c1424);
+          tint = colA.lerp(colB, 1 - dissolve).getHex();
+        }
         // layer 1: the main drape
         webS.set(sw, sh2, 1);
         webE.set(-Math.PI / 2, 0, rot);
@@ -1291,8 +1306,9 @@ export function Scene3D({
         webMesh.setMatrixAt(n, m4);
         webMesh.setColorAt(n, projCol.setHex(tint));
         n++;
-        // layer 2: counter-drifting under-sheet, peeking through the tatters
-        if (n < WEB_POOL_N) {
+        // layer 2 (snares only): counter-drifting under-sheet — the grand
+        // skips it: a full-board translucent quad saved every single frame
+        if (!grand && n < WEB_POOL_N) {
           const rot2 = -rot * 1.7 - 0.035;
           const uw = sw * 0.92;
           const uh = sh2 * 0.92;
@@ -1312,8 +1328,9 @@ export function Scene3D({
         }
         // layer 3 (grand): the SPREAD WAVE — a bright sheet flooding outward
         // from the strike point across the whole floor, then fading into
-        // the drape. Reads as silk washing to every corner of the drawer.
-        if (grand && n < WEB_POOL_N) {
+        // the drape. Drawn only while it moves: after ~1s it has merged
+        // with the drape and the instance slot is freed for good.
+        if (grand && age < 1.05 && n < WEB_POOL_N) {
           const wp = Math.min(1, age / 0.9);
           const washK = 0.22 + 0.78 * (1 - Math.pow(1 - wp, 3));
           webS.set(sw * washK, sh2 * washK, 1);
@@ -1359,6 +1376,32 @@ export function Scene3D({
             m4.compose(projTmp, webQ, webS);
             webMesh.setMatrixAt(n, m4);
             webMesh.setColorAt(n, projCol.setHex(wallTint));
+            n++;
+          }
+          // SILK RIGGING: four taut guy-lines from the wall tops to the
+          // drawer corners — the nest's ropes. Thin sloped ribbons with a
+          // tiny yaw sway; every endpoint stays inside the board.
+          const rig: [number, number, number, number, number][] = [
+            [COLS / 2, ROWS - 0.1, COLS - 0.15, ROWS - 0.15, 0], // N top -> NE
+            [COLS - 0.1, ROWS / 2, COLS - 0.15, 0.15, 1], //        E top -> SE
+            [COLS / 2, 0.1, 0.15, 0.15, 2], //                      S top -> SW
+            [0.1, ROWS / 2, 0.15, ROWS - 0.15, 3], //               W top -> NW
+          ];
+          for (const [ax, az, bx, bz, gi] of rig) {
+            if (n >= WEB_POOL_N) break;
+            const dx = bx - ax;
+            const dz = bz - az;
+            const dy = 0.06 - wallH;
+            const len = Math.hypot(dx, dy, dz);
+            const yaw = Math.atan2(dx, dz) + Math.sin(time * 1.3 + gi * 1.9 + w.id) * 0.02;
+            const pitch = Math.acos(Math.max(-1, Math.min(1, dy / len)));
+            webE.set(pitch, yaw, 0, "YXZ");
+            webQ.setFromEuler(webE);
+            webS.set(0.06, len, 1);
+            projTmp.set((ax + bx) / 2, (wallH + 0.06) / 2, (az + bz) / 2);
+            m4.compose(projTmp, webQ, webS);
+            webMesh.setMatrixAt(n, m4);
+            webMesh.setColorAt(n, projCol.setHex(0xc9aaf5));
             n++;
           }
         }

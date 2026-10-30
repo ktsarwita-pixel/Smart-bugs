@@ -296,6 +296,8 @@ export function Scene3D({
       foeRing: THREE.MeshBasicMaterial | null;
       allySpawn: number;
       foeSpawn: number;
+      allyLift: number;
+      foeLift: number;
     } = {
       allyId: "",
       foeId: "",
@@ -309,6 +311,8 @@ export function Scene3D({
       foeRing: null,
       allySpawn: 1,
       foeSpawn: 1,
+      allyLift: 0,
+      foeLift: 0,
     };
 
     let turntable: THREE.Group | null = null;
@@ -1919,17 +1923,27 @@ export function Scene3D({
     ro.observe(hostEl);
 
     /* ── Commander Totems ── */
+    // Per-commander pedestal tune: the holder baseline (y=0.44) was set for
+    // the tall insect commanders; the worm grub is half their height AND its
+    // sculpt rests ~0.056 above its own origin, so on the shared holder its
+    // body sat BELOW the brass cap top (0.68) — the grub visibly sank into
+    // the commander plinth with only its head dome peeking out. Short models
+    // get a lift that seats their feet on the cap plus a slightly larger
+    // totem scale so the silhouette still reads across the board.
+    const totemTune = (id: string) => (id === "worm" ? { scale: 0.95, lift: 0.18 } : { scale: 0.8, lift: 0 });
     function syncTotems(cmdAId: string, cmdBId: string) {
       if (showcase) return;
       const cmdAccent = (id: string) => COMMANDERS.find((c) => c.id === id)?.accent ?? "#F0A93B";
       if (totemState.allyId !== cmdAId && totemState.allyHolder) {
         totemState.allyModel?.dispose();
         totemState.allyHolder.clear();
+        const tune = totemTune(cmdAId);
         const m = buildVoxelModel(cmdAId, 1);
-        m.group.scale.setScalar(0.8);
+        m.group.scale.setScalar(tune.scale);
         totemState.allyHolder.add(m.group);
         totemState.allyModel = m;
         totemState.allyId = cmdAId;
+        totemState.allyLift = tune.lift;
         totemState.allySpawn = 0;
         totemState.allyBanner?.color.set(cmdAccent(cmdAId));
         totemState.allyRing?.color.set(cmdAccent(cmdAId));
@@ -1937,11 +1951,13 @@ export function Scene3D({
       if (totemState.foeId !== cmdBId && totemState.foeHolder) {
         totemState.foeModel?.dispose();
         totemState.foeHolder.clear();
+        const tune = totemTune(cmdBId);
         const m = buildVoxelModel(cmdBId, 1);
-        m.group.scale.setScalar(0.8);
+        m.group.scale.setScalar(tune.scale);
         totemState.foeHolder.add(m.group);
         totemState.foeModel = m;
         totemState.foeId = cmdBId;
+        totemState.foeLift = tune.lift;
         totemState.foeSpawn = 0;
         totemState.foeBanner?.color.set(cmdAccent(cmdBId));
         totemState.foeRing?.color.set(cmdAccent(cmdBId));
@@ -3070,7 +3086,7 @@ export function Scene3D({
         totemState.allySpawn = Math.min(1, totemState.allySpawn + dt * 1.7);
         const asB = 1 + 2.70158 * Math.pow(totemState.allySpawn - 1, 3) + 1.70158 * Math.pow(totemState.allySpawn - 1, 2);
         totemState.allyHolder.scale.setScalar(Math.max(0.001, asB));
-        totemState.allyHolder.position.y = 0.44 + Math.sin(t * 2.1) * 0.014;
+        totemState.allyHolder.position.y = 0.44 + totemState.allyLift + Math.sin(t * 2.1) * 0.014;
         totemState.allyHolder.rotation.y = 0.08 + Math.sin(t * 0.7) * 0.05;
         if (totemState.allyRing) totemState.allyRing.opacity = 0.4 + Math.sin(t * 2.4) * 0.18;
       }
@@ -3079,7 +3095,7 @@ export function Scene3D({
         totemState.foeSpawn = Math.min(1, totemState.foeSpawn + dt * 1.7);
         const fsB = 1 + 2.70158 * Math.pow(totemState.foeSpawn - 1, 3) + 1.70158 * Math.pow(totemState.foeSpawn - 1, 2);
         totemState.foeHolder.scale.setScalar(Math.max(0.001, fsB));
-        totemState.foeHolder.position.y = 0.44 + Math.sin(t * 2.1 + 1.5) * 0.014;
+        totemState.foeHolder.position.y = 0.44 + totemState.foeLift + Math.sin(t * 2.1 + 1.5) * 0.014;
         totemState.foeHolder.rotation.y = Math.PI - 0.08 + Math.sin(t * 0.7 + 1.5) * 0.05;
         if (totemState.foeRing) totemState.foeRing.opacity = 0.4 + Math.sin(t * 2.4 + 1.5) * 0.18;
       }

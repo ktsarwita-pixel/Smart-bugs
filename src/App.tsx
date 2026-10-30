@@ -1584,25 +1584,30 @@ export default function App() {
       <div className="game-grid mx-auto max-w-[1160px]">
         {/* ── LEFT / TOP STAGE: Header + Standings + 3D Drawer ── */}
         <div className="flex min-h-0 flex-1 flex-col lg:border lg:border-[#3B322A] lg:bg-[#130E0A]">
-          {/* ── FIELD LAB COMMAND DECK (v2): vitals · VS · resources · ladder ── */}
+          {/* ── FIELD LAB COMMAND DECK (v3): one continuous command slab ──
+              Single-row vitals · VS · resources separated by hairlines instead
+              of boxed chips, and a one-line colony ladder rail. On phones the
+              whole deck is ~70px — every pixel the old wrapped chip grid
+              wasted now goes to the 3D stage. */}
           <div className="deck shrink-0">
-            <div className="flex flex-wrap items-stretch gap-1.5 px-2 pt-2 sm:px-3">
-              {/* Colony vitals */}
-              <div className="deck-stat" title={t("Your colony HP — reach zero and you're out")}>
-                <IconHeart size={15} />
-                <span className="deck-num" style={{ color: hp > 30 ? "#56DCA8" : "#F05A36" }}>{hp}</span>
-                <span className="deck-cap">{t("Colony HP")}</span>
-              </div>
-              <div className="deck-stat" title={tf("Round {r} — {n} colonies still alive", { r: round + 1, n: activeCount })}>
-                <span className="deck-num text-[#F0A93B]">{round + 1}</span>
-                <span className="deck-cap">
-                  {t("Round")}<br />
-                  <span className="deck-pips" aria-label={`${activeCount} alive`}>
-                    {Array.from({ length: Math.max(activeCount, 2) }).map((_, i) => (
-                      <i key={i} data-on={i < activeCount ? 1 : 0} />
-                    ))}
+            <div className="deck-row">
+              <div className="deck-cluster">
+                <div className="deck-stat" title={t("Your colony HP — reach zero and you're out")}>
+                  <IconHeart size={14} />
+                  <span className="deck-num" style={{ color: hp > 30 ? "#56DCA8" : "#F05A36" }}>{hp}</span>
+                  <span className="deck-cap">{t("Colony HP")}</span>
+                </div>
+                <div className="deck-stat" title={tf("Round {r} — {n} colonies still alive", { r: round + 1, n: activeCount })}>
+                  <span className="deck-num text-[#F0A93B]">{round + 1}</span>
+                  <span className="deck-cap">
+                    {t("Round")}<br />
+                    <span className="deck-pips" aria-label={`${activeCount} alive`}>
+                      {Array.from({ length: Math.max(activeCount, 2) }).map((_, i) => (
+                        <i key={i} data-on={i < activeCount ? 1 : 0} />
+                      ))}
+                    </span>
                   </span>
-                </span>
+                </div>
               </div>
 
               {/* Matchup plaque */}
@@ -1615,53 +1620,53 @@ export default function App() {
               </div>
 
               {/* Resources */}
-              <div className="deck-stat" title={tf("Gold — +{n} interest next round", { n: interestNext })}>
-                <IconCoin size={15} />
-                <span key={goldFlash} className="gold-flash deck-num text-[#F0A93B]">{gold}</span>
-                <span className="deck-cap">{t("Gold")}<br />+{interestNext} {t("int.")}</span>
-              </div>
-              <div className="deck-stat" title={t("Bugs fielded / line capacity")}>
-                <span className="deck-num" style={{ color: boardUnits.length > 0 ? "#56DCA8" : "#F0A93B" }}>
-                  {boardUnits.length}/{level}
-                </span>
-                <span className="deck-cap">{t("Line")}</span>
-              </div>
-              {streak !== 0 && (
-                <div
-                  className="deck-stat"
-                  title={tf("{n} in a row — +{g} gold next payout", { n: Math.abs(streak), g: streakBonus(streak) })}
-                  style={{
-                    borderColor: streak > 0 ? "#1F7A5A" : "#8E2A16",
-                    background: streak > 0 ? "#10231C" : "#24110D",
-                  }}
-                >
-                  {streak > 0 ? (
-                    <IconTrendUp size={11} className="text-[#56DCA8]" />
-                  ) : (
-                    <IconTrendDown size={11} className="text-[#F05A36]" />
-                  )}
-                  <span className="deck-num" style={{ color: streak > 0 ? "#56DCA8" : "#F05A36" }}>
-                    {streak > 0 ? `W${streak}` : `L${-streak}`}
-                  </span>
-                  {streakBonus(streak) > 0 && <span className="deck-cap" style={{ color: "#F0A93B" }}>+{streakBonus(streak)}g</span>}
+              <div className="deck-cluster">
+                <div className="deck-stat" title={tf("Gold — +{n} interest next round", { n: interestNext })}>
+                  <IconCoin size={14} />
+                  <span key={goldFlash} className="gold-flash deck-num text-[#F0A93B]">{gold}</span>
+                  <span className="deck-cap">{t("Gold")}<br />+{interestNext} {t("int.")}</span>
                 </div>
-              )}
+                <div className="deck-stat" title={t("Bugs fielded / line capacity")}>
+                  <span className="deck-num" style={{ color: boardUnits.length > 0 ? "#56DCA8" : "#F0A93B" }}>
+                    {boardUnits.length}/{level}
+                  </span>
+                  <span className="deck-cap">{t("Line")}</span>
+                </div>
+                {streak !== 0 && (
+                  <div
+                    className="deck-stat"
+                    title={tf("{n} in a row — +{g} gold next payout", { n: Math.abs(streak), g: streakBonus(streak) })}
+                  >
+                    {streak > 0 ? (
+                      <IconTrendUp size={11} className="streak-ico text-[#56DCA8]" />
+                    ) : (
+                      <IconTrendDown size={11} className="streak-ico text-[#F05A36]" />
+                    )}
+                    <span className="deck-num" style={{ color: streak > 0 ? "#56DCA8" : "#F05A36" }}>
+                      {streak > 0 ? `W${streak}` : `L${-streak}`}
+                    </span>
+                    {streakBonus(streak) > 0 && <span className="deck-cap" style={{ color: "#F0A93B" }}>+{streakBonus(streak)}g</span>}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => setGuideOpen(true)}
                 aria-label={t("Open Field Guide")}
-                className="lift grid min-h-[34px] w-[38px] place-items-center border border-[#3B322A] bg-[#100C09] text-[#F0A93B] hover:border-[#F0A93B]"
+                className="lift help-btn my-1 mr-1.5 grid w-[34px] shrink-0 self-center place-items-center border border-[#3B322A] bg-[#100C09] text-[#F0A93B] hover:border-[#F0A93B]"
               >
-                <IconHelp size={15} />
+                <IconHelp size={14} />
               </button>
             </div>
 
-            {/* Colony ladder — ranked rail, current foe ringed in red (hidden on phones in combat to save the stage) */}
-            <div className={`px-2 pb-2 pt-1.5 sm:px-3 ${inCombat ? "hidden min-[720px]:block" : ""}`}>
-              <div className="mb-1 flex items-center justify-between">
-                <span className="label text-[6.5px] text-[#8C7E6E]">{t("Colony ladder")}</span>
-                <span className="label text-[6.5px] text-[#8C7E6E]">{t("1 survivor wins")}</span>
+            {/* Colony ladder — ONE-LINE rail (hidden on phones in combat to save the stage):
+                slim snap-scroll cells so all 8 colonies read in a single glance,
+                never the old two-row wall that ate the prep screen. */}
+            <div className={`deck-ladder px-2 pb-1.5 pt-1 sm:px-3 ${inCombat ? "hidden min-[720px]:block" : ""}`}>
+              <div className="mb-0.5 flex items-center justify-between">
+                <span className="label text-[6px] text-[#8C7E6E]">{t("Colony ladder")}</span>
+                <span className="label text-[6px] text-[#8C7E6E]">{t("1 survivor wins")}</span>
               </div>
-              <div className="grid grid-cols-4 gap-1">
+              <div className="ladder-strip" role="list">
                 {[
                   { key: "you", you: true, isFoe: false, name: "YOU", hp, alive: hp > 0, place: playerColony.place },
                   ...bots.map((b) => ({
@@ -1676,27 +1681,29 @@ export default function App() {
                 ].map((s, i) => (
                   <div
                     key={s.key}
+                    role="listitem"
                     className="ladder-cell"
                     data-you={s.you ? 1 : 0}
                     data-foe={s.isFoe && s.alive ? 1 : 0}
                     data-alive={s.alive ? 1 : 0}
                     title={s.alive ? tf("{name}: {hp} HP", { name: t(s.name), hp: s.hp }) : tf("{name}: eliminated, place #{n}", { name: t(s.name), n: s.place ?? "—" })}
                   >
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="flex min-w-0 items-center gap-1">
-                        <span className="ladder-rank">{i + 1}</span>
-                        {s.isFoe && s.alive && (
-                          <span className="clash-seal grid h-[13px] w-[13px] shrink-0 place-items-center rounded-full" aria-hidden="true">
-                            <IconClash size={9} className="text-[#FFE2D6]" />
-                          </span>
-                        )}
-                        <span className="label truncate text-[7px]" style={{ color: s.you ? "#F0A93B" : "#EDE2CB" }}>{t(s.name)}</span>
-                      </span>
-                      <span className="font-mono text-[9px] font-bold tabular-nums text-[#EDE2CB]">
+                    <div className="flex min-w-0 items-center gap-1">
+                      <span className="ladder-rank">{i + 1}</span>
+                      {s.isFoe && s.alive && (
+                        <span className="clash-seal grid h-[11px] w-[11px] shrink-0 place-items-center rounded-full" aria-hidden="true">
+                          <IconClash size={8} className="text-[#FFE2D6]" />
+                        </span>
+                      )}
+                      <span className="label min-w-0 flex-1 truncate text-[6.5px]" style={{ color: s.you ? "#F0A93B" : "#EDE2CB" }}>{t(s.name)}</span>
+                      <span
+                        className="font-mono text-[8.5px] font-bold tabular-nums"
+                        style={{ color: s.alive ? (s.you ? "#56DCA8" : "#EDE2CB") : "#6B5F52" }}
+                      >
                         {s.alive ? s.hp : `#${s.place}`}
                       </span>
                     </div>
-                    <div className="bar-shell mt-1">
+                    <div className="bar-shell mt-0.5 h-[3px]">
                       <i
                         style={{
                           width: `${Math.max(0, Math.min(100, s.hp))}%`,
@@ -1708,22 +1715,24 @@ export default function App() {
                 ))}
               </div>
               {elsewhere.length > 0 && (
-                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                  <span className="label text-[6px] text-[#6E6252]">{t("ELSEWHERE THIS ROUND")}</span>
-                  {elsewhere.map((f, i) => (
-                    <span key={i} className="label text-[6px] text-[#9C8F7E]">
-                      {t(colonyName(f.aId))}
-                      <span className="px-0.5 text-[#F05A36]">×</span>
-                      {t(colonyName(f.bId))}
-                    </span>
-                  ))}
+                <div className="mt-0.5 flex items-center gap-x-2 overflow-hidden whitespace-nowrap">
+                  <span className="label shrink-0 text-[5.5px] text-[#6E6252]">{t("ELSEWHERE THIS ROUND")}</span>
+                  <span className="label truncate text-[5.5px] text-[#9C8F7E]">
+                    {elsewhere.map((f, i) => (
+                      <span key={i}>
+                        {t(colonyName(f.aId))}
+                        <span className="px-0.5 text-[#F05A36]">×</span>
+                        {t(colonyName(f.bId))}{"  "}
+                      </span>
+                    ))}
+                  </span>
                 </div>
               )}
             </div>
           </div>
 
           {/* 3D Specimen Drawer Viewport (Fills Flexible Height!) */}
-          <div className="relative min-h-[150px] flex-1 bg-[#0D0907] min-[720px]:min-h-[175px]">
+          <div className="relative min-h-[235px] flex-1 bg-[#0D0907] min-[720px]:min-h-[175px]">
             <Scene3D
               mode={phase === "prep" ? "prep" : "battle"}
               prep={units}
@@ -1740,9 +1749,11 @@ export default function App() {
               className="h-full w-full"
             />
 
-            {/* Compact Opponent Corner Tag */}
+            {/* Compact Opponent Corner Tag — desktop staple; on phones combat
+                hides it (the deck VS plaque already carries the matchup) so
+                the stage stays clean mid-fight */}
             {!sel && (
-              <div className="pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-2 border border-[#3B322A]/90 bg-[#120D09]/90 px-2 py-1">
+              <div className={`pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-2 border border-[#3B322A]/90 bg-[#120D09]/90 px-2 py-1 ${inCombat ? "hidden min-[720px]:flex" : ""}`}>
                 <SpecimenIcon id={foe.cmd} size={30} badge="none" />
                 <RankBadge id={foe.cmd} size={14} />
                 <div className="leading-tight">
@@ -1903,7 +1914,7 @@ export default function App() {
             /* ── BATTLE TELEMETRY DOCK ────────────────────────── */
             <div className="dock-in flex flex-1 flex-col justify-between p-2.5 sm:p-3">
               <div>
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                   <span className="label text-[8px] text-[#56DCA8]">{t("COMBAT TELEMETRY")}</span>
                   {armedHoles > 0 && (
                     <span
@@ -1995,9 +2006,11 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* ── AIRSTRIKE FORECAST: the live math behind the dragonfly ult ── */}
+                {/* ── AIRSTRIKE FORECAST: the live math behind the dragonfly ult
+                    (full panels need room — phones get the ULT/AIR badges on
+                    the unit cards below instead) ── */}
                 {allyDragonfly3 && (
-                  <div className="forecast mt-2" role="status">
+                  <div className="forecast mt-2 hidden min-[560px]:block" role="status">
                     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                       <span className="label flex items-center gap-1.5 text-[7.5px] text-[#75D9E8]">
                         <IconSpeed size={11} /> {t("AIRSTRIKE FORECAST — YOURS")}
@@ -2019,7 +2032,7 @@ export default function App() {
                   </div>
                 )}
                 {foeDragonfly3 && (
-                  <div className="forecast mt-2" role="status" style={{ borderColor: "rgba(240,90,54,.6)", background: "#1B0B07" }}>
+                  <div className="forecast mt-2 hidden min-[560px]:block" role="status" style={{ borderColor: "rgba(240,90,54,.6)", background: "#1B0B07" }}>
                     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                       <span className="label flex items-center gap-1.5 text-[7.5px] text-[#F05A36]">
                         <IconSpeed size={11} /> {t("ENEMY AIRSTRIKE WARNING")}
@@ -2080,7 +2093,7 @@ export default function App() {
                                   <span style={{ color: side === "ally" ? "#56DCA8" : "#F05A36" }}>
                                     {Math.max(0, u.hp)}<span className="text-[#6B5F52]">/{u.maxHp}</span>
                                   </span>
-                                  <span className="text-[#F0A93B]">ATK {u.atk}</span>
+                                  <span className="hidden text-[#F0A93B] min-[480px]:inline">ATK {u.atk}</span>
                                 </div>
                                 <div className="bar-shell mt-0.5">
                                   <i style={{ width: `${hpPct}%`, background: side === "ally" ? "#56DCA8" : "#F05A36" }} />
@@ -2126,7 +2139,7 @@ export default function App() {
             </div>
           ) : (
             /* ── PREP COMMAND DOCK: Bench + Shop + Actions ─────── */
-            <div className="dock-in flex flex-1 flex-col justify-end">
+            <div className="dock-in flex flex-1 flex-col justify-start">
               {/* Bench Row (6 Slots) */}
               <div className="px-2 pt-1.5 pb-1.5 sm:px-3">
                 <div className="mb-1 flex items-center justify-between">
@@ -2155,7 +2168,7 @@ export default function App() {
                           onBench(i);
                         }}
                         title={u ? tf("{name} — tap to deploy instantly", { name: t(BUGS[u.bugId].name) }) : t("Empty bench slot")}
-                        className={`lift bench-slot relative grid h-11 place-items-center border sm:h-12 ${
+                        className={`lift bench-slot relative grid h-10 place-items-center border sm:h-12 ${
                           isSel ? "border-[#F0A93B] bg-[#241B14]" : "border-[#3B322A] bg-[#120D09]"
                         } ${!u && benchUnits.length >= BENCH_SIZE ? "bench-slot--over" : ""}`}
                         style={{
@@ -2202,7 +2215,7 @@ export default function App() {
                 <div className="mb-1 flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <span className="label text-[7.5px] text-[#9C8F7E]">{t("PIPKIN SUPPLY")}</span>
-                    <span className="ml-2 flex items-center gap-1.5">
+                    <span className="ml-2 hidden items-center gap-1.5 min-[480px]:ml-2 min-[480px]:flex">
                       {RARITIES.map((r) => (
                         <span key={r} className="flex items-center gap-0.5">
                           <span className="h-[4px] w-[4px] rounded-full" style={{ background: RARITY_STYLE[r] }} />
@@ -2263,7 +2276,7 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                <div className="grid grid-cols-3 min-[420px]:grid-cols-5 gap-1.5">
+                <div className="grid grid-cols-5 gap-1 min-[420px]:gap-1.5">
                   {shop.map((id, i) => {
                     const owned1 = id ? ownedCounts[id].s1 : 0;
                     const willMoult = !!id && owned1 >= 2;
@@ -2324,7 +2337,7 @@ export default function App() {
                             </span>
                           </>
                         ) : (
-                          <span className="grid h-[48px] w-full place-items-center text-[10px] text-[#332A22]">◇</span>
+                          <span className="grid h-[44px] w-full place-items-center text-[10px] text-[#332A22] min-[420px]:h-[48px]">◇</span>
                         )}
                       </button>
                     );
@@ -2337,7 +2350,7 @@ export default function App() {
                 <button
                   onClick={reroll}
                   disabled={gold < 2}
-                  className="lift flex min-h-[40px] flex-col items-center justify-center border-2 border-[#4A3828] bg-[#18120E] px-2 py-1 shadow-[0_3px_0_#0C0906] hover:border-[#6B4B24] disabled:opacity-35"
+                  className="lift flex min-h-[38px] flex-col items-center justify-center border-2 border-[#4A3828] bg-[#18120E] px-2 py-1 shadow-[0_3px_0_#0C0906] hover:border-[#6B4B24] disabled:opacity-35"
                 >
                   <div className="flex items-center gap-1">
                     <IconReroll size={10} className="text-[#EDE2CB]" />
@@ -2349,7 +2362,7 @@ export default function App() {
                 <button
                   onClick={levelUp}
                   disabled={gold < levelCost || level >= MAX_FIELD_SIZE}
-                  className="lift flex min-h-[40px] flex-col items-center justify-center border-2 border-[#4A3828] bg-[#18120E] px-2 py-1 shadow-[0_3px_0_#0C0906] hover:border-[#6B4B24] disabled:opacity-35"
+                  className="lift flex min-h-[38px] flex-col items-center justify-center border-2 border-[#4A3828] bg-[#18120E] px-2 py-1 shadow-[0_3px_0_#0C0906] hover:border-[#6B4B24] disabled:opacity-35"
                 >
                   <div className="flex items-center gap-1">
                     <IconUpgrade size={10} className="text-[#EDE2CB]" />
@@ -2365,7 +2378,7 @@ export default function App() {
                 <button
                   onClick={engage}
                   aria-label={boardUnits.length ? tf("Engage battle — {n} deployed", { n: boardUnits.length }) : t("Engage battle — auto-deploys from bench")}
-                  className={`lift flex min-h-[40px] items-center justify-center gap-1.5 border-2 border-[#56DCA8] bg-[#1F7A5A] px-3 py-1 font-pixel text-[10px] text-[#090604] shadow-[0_3px_0_#0D3B2A] ${
+                  className={`lift flex min-h-[38px] items-center justify-center gap-1.5 border-2 border-[#56DCA8] bg-[#1F7A5A] px-3 py-1 font-pixel text-[10px] text-[#090604] shadow-[0_3px_0_#0D3B2A] ${
                     phase === "prep" && (boardUnits.length > 0 || benchUnits.length > 0) ? "ready-pulse" : ""
                   }`}
                 >

@@ -1,6 +1,5 @@
 {
   "rewrites": [
-    { "source": "/", "has": [{ "type": "query", "key": "advenced" }], "destination": "/preview/index.html" },
     { "source": "/advanced", "destination": "/index.html" },
     { "source": "/advanced/", "destination": "/index.html" },
     { "source": "/advenced", "destination": "/index.html" },

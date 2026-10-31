@@ -11,7 +11,14 @@ for dir in repo-preview repo-public; do
 done
 rm -rf dist
 mkdir -p dist/preview dist/advanced dist/advenced
-cp repo-public/dist/index.html dist/index.html
+# Static files take precedence over Vercel rewrites at /. Route the test
+# query before the public bundle executes; keep the public bundle unchanged.
+python3 - <<'PYROUTE'
+from pathlib import Path
+html = Path("repo-public/dist/index.html").read_text()
+router = "<script>if(new URLSearchParams(location.search).has('advenced'))location.replace('/preview/'+location.search+location.hash);</script>"
+Path("dist/index.html").write_text(html.replace("<head>", "<head>" + router, 1))
+PYROUTE
 cp repo-public/dist/index.html dist/advanced/index.html
 cp repo-public/dist/index.html dist/advenced/index.html
 cp repo-preview/dist/index.html dist/preview/index.html

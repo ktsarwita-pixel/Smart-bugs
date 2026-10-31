@@ -1943,7 +1943,8 @@ button:not(:disabled).pressable:active,
 html[data-motion="reduced"] .lift, html[data-motion="reduced"] .shop-toggle,
 html[data-motion="reduced"] .action-bar button, html[data-motion="reduced"] .ladder-button,
 html[data-motion="reduced"] .result-health__track > span { transition: none; }
-.result-body { overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #8e775a transparent; }
+.result-body { overscroll-behavior: contain; scrollbar-width: none; }
+.result-body::-webkit-scrollbar { display: none; }
 .result-next { flex: none; }
 @media (max-width: 719.98px) {
   .shop-heading .shop-toggle { flex: 0 0 62px; }

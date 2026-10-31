@@ -23,7 +23,8 @@ try {
    const viable=frames.filter(f=>f.time<resultTime-100); assert.ok(viable.length,'no visible frames');
    return viable.reduce((best,f)=>Math.abs(f.time-(mark[0]+delay))<Math.abs(best.time-(mark[0]+delay))?f:best).data;
  };
- const images=[pick(75,250),pick(100,1250)];
+ assert.equal(marks[0]?.[1],0,'web must start at the one-tile footprint');
+ const images=[pick(50,250),pick(100,1250)];
  const pixels=await page.evaluate(async images=>{
    const results=[];
    for (const src of images) {

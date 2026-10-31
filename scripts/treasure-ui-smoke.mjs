@@ -53,6 +53,18 @@ try {
       assert.equal(await page.locator('.result-details').getAttribute('open'),'');
       assert.ok(await page.getByText('ROUND STIPEND').isVisible());
       assert.ok(await page.locator('.result-details section').count());
+      const scrollInfo = await body.evaluate(el => {
+        const range = el.scrollHeight - el.clientHeight;
+        const width = getComputedStyle(el).scrollbarWidth;
+        const webkitDisplay = getComputedStyle(el, '::-webkit-scrollbar').display;
+        el.scrollTop = range;
+        return {range, width, webkitDisplay, position:el.scrollTop};
+      });
+      assert.ok(scrollInfo.range > 0 && scrollInfo.position > 0, 'expanded details should still scroll');
+      assert.equal(scrollInfo.width, 'none');
+      assert.equal(scrollInfo.webkitDisplay, 'none');
+      assert.ok(await page.locator('.result-next').isVisible());
+      await body.evaluate(el => { el.scrollTop = 0; });
       await page.locator('.result-details summary').tap();
       assert.equal(await page.locator('.result-details').getAttribute('open'),null);
     }

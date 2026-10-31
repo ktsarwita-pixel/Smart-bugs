@@ -1525,7 +1525,7 @@ export function Scene3D({
         const hz = (sw / 2) * rs + (sh2 / 2) * rc;
         const cx = grand ? COLS / 2 : Math.min(Math.max(w.x, hx), COLS - hx);
         const cz = grand ? ROWS / 2 : Math.min(Math.max(w.y, hz), ROWS - hz);
-        if (grand) setGrandWebScale(grandScaleMatrix, grow, cx, cz);
+        if (grand) setGrandWebScale(grandScaleMatrix, grow, cx, cz, COLS, ROWS);
         // silk shimmer: two violet tones breathing through the holes
         const shim = 0.5 + 0.5 * Math.sin(silkTime * 1.7 + w.id * 1.9);
         colA.setHex(grand ? 0xe3c2ff : 0xffffff);
@@ -1564,8 +1564,8 @@ export function Scene3D({
           snareRim.setColorAt(rimN, projCol.setRGB(dissolve, dissolve, dissolve));
           rimN++;
         }
-        // NEST WALLS retain their original shape and follow the same uniform
-        // impact-centered scale as the floor, so the whole web grows together.
+        // NEST WALLS follow the same impact-centered scale as the floor.
+        // X and Z differ slightly so a single tile grows to a 7×6 drawer.
         if (grand) {
           const wallH = 0.95;
           const lean = 0.16; // tops tip INWARD, against the drawer
@@ -1604,14 +1604,15 @@ export function Scene3D({
         if (grand && !potatoOn && canopyCount < MAX_CANOPIES) {
           canopyCount++;
           const rise = 1;
+          const sx = grandScaleMatrix.elements[0], sy = grandScaleMatrix.elements[5], sz = grandScaleMatrix.elements[10];
           const fade = (motionEnabled ? Math.min(1, age / 0.3) : 1) * dissolve;
           const phase = silkTime;
           const vertex = (ray: number, radius: number) => {
             const angle = ray * Math.PI * 2 / CANOPY_RAYS;
             const dome = (1 - radius * radius) * (1.15 + 0.06 * Math.sin(phase * 1.6 + w.id));
-            canopyPositions[canopyVertices * 3] = cx + canopyCos[ray] * sw * 0.46 * radius * grow;
-            canopyPositions[canopyVertices * 3 + 1] = 0.052 + (0.09 + dome * rise - 0.052) * grow;
-            canopyPositions[canopyVertices * 3 + 2] = cz + canopySin[ray] * sh2 * 0.46 * radius * grow;
+            canopyPositions[canopyVertices * 3] = cx + canopyCos[ray] * sw * 0.46 * radius * sx;
+            canopyPositions[canopyVertices * 3 + 1] = 0.052 + (0.09 + dome * rise - 0.052) * sy;
+            canopyPositions[canopyVertices * 3 + 2] = cz + canopySin[ray] * sh2 * 0.46 * radius * sz;
             const pulse = (0.55 + 0.45 * Math.max(0, Math.sin(phase * 2.2 - radius * 8 + angle * 2))) * fade;
             canopyColors[canopyVertices * 3] = 0.7 * pulse;
             canopyColors[canopyVertices * 3 + 1] = 0.54 * pulse;

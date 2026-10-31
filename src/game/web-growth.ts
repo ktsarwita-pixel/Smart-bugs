@@ -5,9 +5,9 @@ export const GRAND_WEB_GROW_SECONDS = 2.8;
 export function grandWebGrowth(age: number, motion: boolean): number {
   if (!motion) return 1;
   const progress = Math.max(0, Math.min(1, age / GRAND_WEB_GROW_SECONDS));
-  // The silk visibly advances for the whole animation instead of rushing to
-  // near-full size in the first few frames.
-  return 0.025 + 0.975 * progress;
+  // Progress, not scale: the board is 7×6, so each horizontal axis needs
+  // its own scale to begin at exactly one tile and finish at each edge.
+  return progress;
 }
 
 /** A projectile can outlive combat visually. Do not reveal its web until its
@@ -21,8 +21,12 @@ export function visualGrandImpactReady(
   return !shot || (progress.get(shot.id) ?? 0) >= 1;
 }
 
-/** Uniform world-space scale about the web's impact point, reused per frame. */
-export function setGrandWebScale(matrix: Matrix4, factor: number, x: number, z: number, ground = 0.052): Matrix4 {
-  const s = Math.max(0, Math.min(1, factor));
-  return matrix.makeScale(s, s, s).setPosition(x * (1 - s), ground * (1 - s), z * (1 - s));
+/** Scale the original full-board web about impact. At zero the 7×6 sheet
+ * occupies exactly 1×1 tile; at one it occupies the entire drawer. */
+export function setGrandWebScale(matrix: Matrix4, progress: number, x: number, z: number, cols: number, rows: number, ground = 0.052): Matrix4 {
+  const p = Math.max(0, Math.min(1, progress));
+  const sx = (1 + (cols - 1) * p) / cols;
+  const sz = (1 + (rows - 1) * p) / rows;
+  const sy = (sx + sz) / 2;
+  return matrix.makeScale(sx, sy, sz).setPosition(x * (1 - sx), ground * (1 - sy), z * (1 - sz));
 }

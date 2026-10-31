@@ -14,6 +14,6 @@ try {
  await page.locator('.result-card').waitFor({timeout:45000});
  const values=await page.evaluate(()=>window.__growth);
  if (reduced) assert.ok(values.length && values.every(v=>v===100),`reduced motion should show the complete web immediately: ${values}`);
- else { assert.ok(values.length>=3,`need visible growth frames: ${values}`); assert.ok(Math.min(...values)<=30,`growth must start small: ${values}`); assert.ok(Math.max(...values)>=90,`growth must reach the drawer edges before results: ${values}`); }
+ else { assert.ok(values.length>=3,`need visible growth frames: ${values}`); assert.equal(values[0],0,`growth must start at the one-tile footprint: ${values}`); assert.ok(Math.max(...values)>=90,`growth must reach the drawer edges before results: ${values}`); }
  assert.deepEqual(errors,[]);console.log('PASS real battle web reveal:', values.join(','));
 } finally { await browser.close(); }

@@ -33,6 +33,8 @@ const ID: Record<string, string> = {
   "No HP lost": "HP tidak berkurang",
   "Before round: {hp}/{max} HP": "Sebelum ronde: {hp}/{max} HP",
   "{n} HP lost": "Kehilangan {n} HP",
+  "Inspect bench units": "Periksa unit cadangan",
+  "Inspect {name}": "Periksa {name}",
   "BACKGROUND": "LATAR BELAKANG",
   "Dark mode": "Mode gelap",
   "Light mode": "Mode terang",

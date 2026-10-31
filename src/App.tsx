@@ -204,6 +204,8 @@ export default function App() {
   const [shop, setShop] = useState<(BugId | null)[]>(rollShop);
   const [match, setMatch] = useState(createMatch);
   const [selected, setSelected] = useState<number | null>(null);
+  const [benchInspectMode, setBenchInspectMode] = useState(false);
+  useEffect(() => { if (phase !== "prep") setBenchInspectMode(false); }, [phase]);
   const [speed, setSpeed] = useState<1 | 2 | 3>(() => {
     // QOL: remembered battle speed — survives rounds, matches and restarts
     try {
@@ -440,6 +442,7 @@ export default function App() {
       placed++;
     }
     if (placed > 0) {
+      setBenchInspectMode(false);
       setUnits(nextUnits);
       say(tf("DEPLOYED {n} SPECIMENS", { n: placed }), "good");
     }
@@ -2247,6 +2250,12 @@ export default function App() {
                   <span className="label text-[7.5px] text-[#9C8F7E]">
                     {t("BENCH")} ({benchUnits.length}/{BENCH_SIZE})
                   </span>
+                  <div className="bench-heading-actions">
+                  {benchUnits.length > 0 && (
+                    <button type="button" className="bench-inspect-mode label" aria-pressed={benchInspectMode}
+                      aria-label={t("Inspect bench units")} title={t("Inspect bench units")}
+                      onClick={() => setBenchInspectMode((v) => !v)}>{t("INSPECT")}</button>
+                  )}
                   {benchUnits.length > 0 && boardUnits.length < level && (
                     <button
                       onClick={autoFillLine}
@@ -2256,6 +2265,7 @@ export default function App() {
                       <span>{tf("AUTO-DEPLOY ({n} OPEN)", { n: level - boardUnits.length })}</span>
                     </button>
                   )}
+                  </div>
                 </div>
                 <div className="bench-grid grid grid-cols-6 gap-1">
                   {Array.from({ length: BENCH_SIZE }).map((_, i) => {
@@ -2265,8 +2275,11 @@ export default function App() {
                       <div key={i} className="bench-item relative min-w-0">
                       <button
                         type="button"
-                        onClick={() => onBench(i)}
-                        title={u ? tf("{name} — tap to deploy instantly", { name: t(BUGS[u.bugId].name) }) : t("Empty bench slot")}
+                        onClick={() => {
+                          if (benchInspectMode && u) { setSelected(u.uid); setBenchInspectMode(false); }
+                          else onBench(i);
+                        }}
+                        title={u ? benchInspectMode ? tf("Inspect {name}", { name: t(BUGS[u.bugId].name) }) : tf("{name} — tap to deploy instantly", { name: t(BUGS[u.bugId].name) }) : t("Empty bench slot")}
                         className={`lift bench-slot relative grid h-11 w-full place-items-center border sm:h-12 ${
                           isSel ? "border-[#F0A93B] bg-[#241B14]" : "border-[#3B322A] bg-[#120D09]"
                         } ${!u && benchUnits.length >= BENCH_SIZE ? "bench-slot--over" : ""}`}
@@ -2292,15 +2305,6 @@ export default function App() {
                           <span className="bench-slot__index">{i + 1}</span>
                         )}
                       </button>
-                      {u && (
-                        <button
-                          type="button"
-                          aria-label={`${t("INSPECT")} ${t(BUGS[u.bugId].name)}`}
-                          title={t("INSPECT")}
-                          onClick={() => setSelected(u.uid)}
-                          className="bench-inspect absolute right-0 top-0 z-10 grid h-5 w-5 place-items-center border border-[#4A3828] bg-[#0D0907]/95 font-pixel text-[8px] text-[#EDE2CB] hover:text-[#F0A93B]"
-                        >i</button>
-                      )}
                       </div>
                     );
                   })}

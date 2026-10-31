@@ -8,7 +8,14 @@ try {
   await page.goto((process.env.BASE_URL || 'http://127.0.0.1:5176') + '/?advenced');
   await page.getByRole('button', { name: 'PLAY MATCH' }).tap();
   await page.getByRole('button', { name: 'BEGIN ROUND 1' }).first().tap();
+  const stageMetrics = () => page.locator('.battle-stage').evaluate(el => ({ y: el.getBoundingClientRect().top + scrollY, h: el.getBoundingClientRect().height, width: el.clientWidth }));
+  const emptyBoard = await stageMetrics();
   await page.locator('.shop-grid button:not([disabled])').first().tap();
+  assert.deepEqual(await stageMetrics(), emptyBoard, 'buying into bench resized the board');
+  await page.locator('.selected-actions').getByRole('button', { name: 'DEPLOY' }).tap();
+  assert.deepEqual(await stageMetrics(), emptyBoard, 'deploying resized the board');
+  await page.locator('.selected-actions').getByRole('button', { name: 'BENCH' }).tap();
+  assert.deepEqual(await stageMetrics(), emptyBoard, 'returning to bench resized the board');
   await page.locator('.selected-actions').waitFor();
   const board = () => page.locator('.battle-stage').evaluate(el => ({ y: el.getBoundingClientRect().top + scrollY, h: el.getBoundingClientRect().height }));
   const before = await board();
@@ -27,6 +34,8 @@ try {
   assert.doesNotMatch(report, /button\.vs-plaque/);
   assert.doesNotMatch(report, /Open admin panel/);
   assert.doesNotMatch(report, /AUTO-DEPLOY/);
+  assert.doesNotMatch(report, /Inspect bench units/);
+  assert.doesNotMatch(report, /bench-inspect/);
   console.log('PASS reported 384×725 layout and ladder interactions');
   console.log('Remaining scan findings:\n' + report);
   assert.deepEqual(errors, []);

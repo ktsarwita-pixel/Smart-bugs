@@ -84,12 +84,20 @@ try {
       }
       assert.ok(await page.getByText('TAP A BENCH BUG TO DEPLOY IT', { exact: false }).count(), 'board tap did not reach placement handler');
     }
+    const stageBounds = () => page.locator('.battle-stage').evaluate(el => ({ height: el.getBoundingClientRect().height, width: el.getBoundingClientRect().width, y: el.getBoundingClientRect().top + window.scrollY }));
+    const initialBoard = await stageBounds();
     await page.locator('.shop-grid button:not([disabled])').first().tap();
+    assert.deepEqual(await stageBounds(), initialBoard, `${width}: buying resized the board`);
     if (width < 1024) {
       await page.locator('.selected-actions').waitFor();
+      await page.locator('.selected-actions').getByRole('button', { name: 'DEPLOY' }).tap();
+      assert.deepEqual(await stageBounds(), initialBoard, `${width}: deploying resized the board`);
+      await page.locator('.selected-actions').getByRole('button', { name: 'BENCH' }).tap();
+      assert.deepEqual(await stageBounds(), initialBoard, `${width}: returning to bench resized the board`);
       await page.getByRole('button', { name: 'Deselect' }).tap();
       const boardBeforeSelect = await page.locator('.battle-stage').evaluate(el => ({ height: el.getBoundingClientRect().height, y: el.getBoundingClientRect().top + window.scrollY }));
-      await page.locator('.bench-inspect').first().tap();
+      await page.getByRole('button', { name: 'Inspect bench units' }).tap();
+      await page.locator('.bench-slot[title^="Inspect"]').first().tap();
       const boardSelected = await page.locator('.battle-stage').evaluate(el => ({ height: el.getBoundingClientRect().height, y: el.getBoundingClientRect().top + window.scrollY }));
       assert.equal(boardSelected.height, boardBeforeSelect.height, `${width}: selecting a unit resized the board`);
       assert.equal(boardSelected.y, boardBeforeSelect.y, `${width}: selecting a unit moved the board`);

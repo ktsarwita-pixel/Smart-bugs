@@ -2043,3 +2043,11 @@ html[data-motion="reduced"] .cabinet-bg, html[data-motion="reduced"] .battle-mai
 
 html[data-background="light"] .shop-heading .shop-toggle { background-color: #202a27; }
 html[data-background="light"] .shop-heading .shop-toggle[aria-pressed="true"] { background-color: #423329; }
+
+/* Reserve the bench header height whether or not auto-deploy is available.
+   Its controls never overlap bench slots or change the board's dimensions. */
+.bench-section .section-heading { min-height: 40px; flex-wrap: nowrap; }
+.bench-heading-actions { display: flex; align-items: center; justify-content: flex-end; min-width: 0; gap: 4px; }
+.bench-inspect-mode { flex: none; min-width: 40px; min-height: 40px; padding: 0 5px; border: 1px solid #5b4b36; background: #17110c; color: #dcc9a7; font-size: 7px; }
+.bench-inspect-mode[aria-pressed="true"] { border-color: #f0a93b; background: #33271b; color: #ffdc8b; }
+@media (max-width: 380px) { .bench-heading-actions button { font-size: 6px; letter-spacing: .04em; } }

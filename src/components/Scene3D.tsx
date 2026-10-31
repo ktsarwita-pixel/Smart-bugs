@@ -3251,6 +3251,11 @@ export function Scene3D({
         const bUnits = liveBattle.units;
         for (let i = 0; i < bUnits.length; i++) {
           const r = bUnits[i];
+          // Corpses are ALWAYS "seen" even when we skip their update below —
+          // otherwise the sweeper treats the skipped frame as "unit gone",
+          // destroys the corpse model, and the next frame rebuilds it and
+          // re-fires the death dust/ring: the spawn-and-loop effect bug.
+          seen.add(r.uid);
           // dying units idle at 15Hz — their curl/sink is slow, the saving
           // is real in the endgame when half the roster is a corpse
           if (r.dead && r.fade < 1 && frameParity) continue;

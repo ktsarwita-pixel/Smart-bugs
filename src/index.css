@@ -1997,3 +1997,31 @@ html[data-motion="reduced"] .result-health__track > span { transition: none; }
 .ui-doctor details { margin-top: 8px; } .ui-doctor summary { min-height: 36px; padding: 9px 0; color: #75d9e8; cursor: pointer; } .ui-doctor pre { white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; color: #cfc1ad; }
 .ui-doctor__marker { position: absolute; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #a96612; color: white; border: 1px solid white; font-size: 10px; font-weight: bold; } .ui-doctor__marker[data-severity="high"] { background: #b6271a; }
 .ui-doctor__highlight { position: absolute; border: 2px solid #75d9e8; background: #75d9e833; box-shadow: 0 0 0 3px #061d22; }
+
+/* A clear, stable command deck: context controls never sit on the ladder. */
+@media (max-width: 719.98px) {
+  .deck-row .vs-plaque { min-height: 40px; }
+  .ladder-button { min-height: 40px; }
+  .shop-heading > div:last-child > button:last-child { width: 40px; min-width: 40px; height: 40px; }
+}
+.ladder-strip--detail { visibility: hidden; }
+.ladder-detail { min-height: 48px; }
+.ladder-detail button { width: 40px; height: 40px; }
+@media (max-width: 1023.98px) {
+  .battle-stage .selected-actions {
+    position: absolute; z-index: 25; top: 4px; left: 4px; right: 4px;
+    margin: 0; padding: 4px 6px; gap: 4px; flex-wrap: nowrap;
+    box-shadow: 0 5px 16px #000b;
+  }
+  .battle-stage .selected-actions > div:nth-child(2) { flex: 1 1 0; min-width: 0; }
+  .battle-stage .selected-actions > div:last-child { width: auto; margin-left: 0; }
+  .battle-stage .selected-actions button { min-width: 40px; min-height: 40px; }
+  .battle-stage .selected-actions > div:nth-child(2) > div:first-child { overflow: hidden; white-space: nowrap; }
+  .battle-stage .selected-actions > div:nth-child(2) > div:first-child > span:first-child { overflow: hidden; text-overflow: ellipsis; }
+}
+@media (max-width: 480px) {
+  .battle-stage .selected-actions > div:nth-child(2) > div:nth-child(3) { display: none; }
+}
+
+.ladder-detail { top: 18px; bottom: 5px; }
+@media (max-width: 719.98px) { .bench-section .section-heading button { min-height: 40px; } }

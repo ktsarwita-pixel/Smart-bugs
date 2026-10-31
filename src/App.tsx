@@ -1767,7 +1767,7 @@ export default function App() {
                 <span className="label text-[6px] text-[#8C7E6E]">{t("Colony ladder")}</span>
                 <span className="label text-[6px] text-[#8C7E6E]">{t("1 survivor wins")}</span>
               </div>
-              <div className="ladder-strip" role="list">
+              <div className={`ladder-strip ${focusedColony ? "ladder-strip--detail" : ""}`} role="list">
                 {ladderRows.map((s, i) => (
                   <div
                     key={s.key}
@@ -1811,7 +1811,7 @@ export default function App() {
               {focusedColony && (
                 <div className="ladder-detail" role="status">
                   <strong>{t(focusedColony.name)}</strong>
-                  <span>{focusedColony.alive ? tf("{name}: {hp} HP", { name: t(focusedColony.name), hp: focusedColony.hp }) : tf("{name}: eliminated, place #{n}", { name: t(focusedColony.name), n: focusedColony.place ?? "—" })}</span>
+                  <span>{focusedColony.alive ? tf("{hp} HP", { hp: focusedColony.hp }) : tf("Eliminated · place #{n}", { n: focusedColony.place ?? "—" })}</span>
                   <button type="button" onClick={() => setLadderFocus(null)} aria-label={t("CLOSE")}><IconClose size={11} /></button>
                 </div>
               )}
@@ -1831,7 +1831,11 @@ export default function App() {
               )}
             </div>
 
-            {/* Unit actions overlay the deck instead of resizing the board. */}
+          </div>
+
+          {/* 3D Specimen Drawer Viewport (Fills Flexible Height!) */}
+          <div className="battle-stage relative min-h-[235px] flex-1 bg-[#0D0907] min-[720px]:min-h-[175px]">
+            {/* Compact unit controls stay over the upper board, away from the ladder. */}
             {phase === "prep" && sel && (
               <div className="selected-actions rise flex items-center gap-2 border-2 border-[#F0A93B] bg-[#16110D]/96 p-2 shadow-[0_8px_20px_rgba(0,0,0,.8)] lg:hidden">
                 <SpecimenIcon id={sel.bugId} size={40} star={sel.star} selected />
@@ -1881,17 +1885,13 @@ export default function App() {
                   <button
                     onClick={() => setSelected(null)}
                     aria-label={t("Deselect")}
-                    className="hit-24 grid h-8 w-8 shrink-0 place-items-center text-[#8C7E6E] hover:text-[#EDE2CB]"
+                    className="grid h-10 w-10 shrink-0 place-items-center text-[#8C7E6E] hover:text-[#EDE2CB]"
                   >
                     <IconClose size={10} />
                   </button>
                 </div>
               </div>
             )}
-          </div>
-
-          {/* 3D Specimen Drawer Viewport (Fills Flexible Height!) */}
-          <div className="battle-stage relative min-h-[235px] flex-1 bg-[#0D0907] min-[720px]:min-h-[175px]">
             <Scene3D
               mode={phase === "prep" ? "prep" : "battle"}
               prep={units}

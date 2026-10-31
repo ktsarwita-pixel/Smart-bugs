@@ -1884,3 +1884,67 @@ button:not(:disabled).pressable:active,
   .battle-main { min-height: 100dvh; }
   .battle-stage { flex: 1 0 auto; }
 }
+
+/* Standings: never compress eight health numbers into phone-width columns. */
+.ladder-strip { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; overflow: visible; }
+.ladder-cell { min-width: 0; padding: 0; overflow: hidden; }
+.ladder-cell[data-alive="0"] { opacity: .68; }
+.ladder-button {
+  display: block; width: 100%; min-width: 0; min-height: 40px; padding: 4px;
+  text-align: left; color: inherit; background: transparent;
+  transition: background-color 180ms ease, box-shadow 180ms ease;
+}
+.ladder-button[aria-expanded="true"] { background: rgba(240, 169, 59, .14); box-shadow: inset 0 0 0 1px #f0a93b; }
+.ladder-button:focus-visible { outline: 2px solid #f0a93b; outline-offset: -2px; }
+.ladder-heading { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 3px; min-width: 0; }
+.ladder-heading .clash-seal { display: none; }
+.ladder-heading .label { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ladder-hp { white-space: nowrap; font-size: 10px; line-height: 1.2; }
+.ladder-button .bar-shell { height: 5px; margin-top: 4px; }
+.ladder-detail { display: flex; align-items: center; gap: 8px; margin-top: 5px; padding: 5px 8px; border: 1px solid #5a4732; background: #120d09; color: #e7d8bf; font-size: 10px; }
+.ladder-detail strong { color: #f0a93b; }
+.ladder-detail span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ladder-detail button { display: grid; place-items: center; width: 32px; height: 32px; flex: none; color: #e7d8bf; }
+@media (max-width: 900px) {
+  .ladder-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .ladder-button { min-height: 38px; }
+}
+
+/* Press feedback is immediate, while colour and shadow changes settle softly. */
+.lift, .shop-toggle, .action-bar button, .ladder-button {
+  transition: transform 150ms ease, background-color 200ms ease, border-color 200ms ease, color 200ms ease, box-shadow 200ms ease, opacity 200ms ease;
+}
+.shop-toggle { min-width: 0; justify-content: center; }
+.shop-toggle span { white-space: nowrap; }
+.shop-toggle:active:not(:disabled) { transform: translateY(1px) scale(.98); }
+.shop-toggle[aria-pressed="true"] { box-shadow: inset 0 0 0 1px currentColor, 0 0 10px rgba(240, 169, 59, .12); }
+
+/* Round report: readable result hierarchy and an explicit before/after HP. */
+.result-card { overscroll-behavior: contain; }
+.result-card #round-result-title { font-size: clamp(16px, 5vw, 22px); line-height: 1.35; overflow-wrap: anywhere; }
+.result-health { margin-top: 14px; padding: 11px; border: 1px solid rgba(36, 27, 20, .32); background: rgba(36, 27, 20, .07); }
+.result-health__heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.result-health__heading .label { color: #5c4a38; font-size: 8px; }
+.result-health__value { color: #5c4a38; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.result-health__value strong { color: #165c43; font-size: 17px; }
+.result-card[data-win="0"] .result-health__value strong { color: #8e2a16; }
+.result-health__value small { font-size: 10px; }
+.result-health__track { height: 11px; margin-top: 8px; border: 1px solid #71604d; background: #b9a98f; overflow: hidden; }
+.result-health__track > span { display: block; height: 100%; background: linear-gradient(90deg, #1f7a5a, #49ae79); transition: width 300ms ease; }
+.result-card[data-win="0"] .result-health__track > span { background: linear-gradient(90deg, #a3341b, #e26a38); }
+.result-health__caption { margin-top: 5px; color: #5c4a38; font-size: 10px; }
+.result-breakdown > div { gap: 12px; }
+.result-breakdown > div > span:first-child { min-width: 0; line-height: 1.5; }
+.result-breakdown > div > span:last-child { flex: none; white-space: nowrap; }
+.result-next { min-height: 48px; text-align: center; line-height: 1.45; }
+@media (prefers-reduced-motion: reduce) {
+  .lift, .shop-toggle, .action-bar button, .ladder-button, .result-health__track > span { transition: none; }
+}
+html[data-motion="reduced"] .lift, html[data-motion="reduced"] .shop-toggle,
+html[data-motion="reduced"] .action-bar button, html[data-motion="reduced"] .ladder-button,
+html[data-motion="reduced"] .result-health__track > span { transition: none; }
+.result-body { overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #8e775a transparent; }
+.result-next { flex: none; }
+@media (max-width: 719.98px) {
+  .shop-heading .shop-toggle { flex: 0 0 62px; }
+}

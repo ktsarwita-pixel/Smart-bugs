@@ -26,6 +26,22 @@ try {
     assert.ok(metrics.documentWidth <= width, `${width}: page overflows horizontally`);
     assert.ok(metrics.stageHeight >= 120, `${width}: board collapsed`);
     if (width < 580 && metrics.dockBottom <= height) assert.ok(height - metrics.dockBottom < 3, `${width}: unused blank space below dock`);
+    const ladder = await page.evaluate(() => Array.from(document.querySelectorAll('.ladder-cell')).map(cell => {
+      const box = cell.getBoundingClientRect(), hp = cell.querySelector('.ladder-hp').getBoundingClientRect();
+      return { left: hp.left - box.left, right: box.right - hp.right };
+    }));
+    assert.equal(ladder.length, 8, `${width}: missing ladder entries`);
+    assert.ok(ladder.every(hp => hp.left >= 0 && hp.right >= 0), `${width}: ladder HP overflows its cell`);
+    const ladderButton = page.locator('.ladder-button').first();
+    await ladderButton.tap();
+    assert.equal(await ladderButton.getAttribute('aria-expanded'), 'true', `${width}: ladder tap did not open details`);
+    await page.locator('.ladder-detail button').tap();
+    assert.equal(await ladderButton.getAttribute('aria-expanded'), 'false');
+    const lock = page.locator('.shop-toggle').last();
+    await lock.tap();
+    assert.equal(await lock.getAttribute('aria-pressed'), 'true', `${width}: lock did not activate`);
+    await lock.tap();
+    assert.equal(await lock.getAttribute('aria-pressed'), 'false', `${width}: lock did not deactivate`);
     if (width === 320) {
       // A vertical swipe beginning on the WebGL board must scroll the page,
       // not dispatch a board tap or trap the gesture.
@@ -63,6 +79,30 @@ try {
     await page.getByRole('button', { name: '2×' }).tap();
     assert.equal(await page.getByRole('button', { name: '2×' }).getAttribute('aria-pressed'), 'true', `${width}: battle control did not respond`);
     console.log(`PASS ${width}x${height}`);
+  }
+  // Exercise both outcomes through the real simulation settlement path.
+  await page.setViewportSize({ width: 320, height: 568 });
+  for (const outcome of ['WIN', 'LOSE']) {
+    await page.goto(`${base}/?advenced`);
+    await page.evaluate(() => sessionStorage.setItem('smartbugs.admin.unlocked', '1'));
+    await page.reload();
+    await page.getByRole('button', { name: 'PLAY MATCH' }).tap();
+    await page.getByRole('button', { name: 'BEGIN ROUND 1' }).first().tap();
+    await page.locator('.shop-grid button:not([disabled])').first().tap();
+    await page.getByRole('button', { name: /Engage battle/ }).tap();
+    await page.getByText('COMBAT TELEMETRY').waitFor();
+    await page.getByRole('button', { name: 'Open admin panel' }).first().tap();
+    await page.getByRole('tab', { name: 'MATCH' }).tap();
+    await page.getByRole('button', { name: `FORCE ${outcome}` }).tap();
+    await page.getByRole('button', { name: 'Close admin panel' }).tap();
+    await page.locator('.result-card').waitFor();
+    assert.equal(await page.locator('.result-card').getAttribute('data-win'), outcome === 'WIN' ? '1' : '0');
+    const hp = page.locator('.result-health__track');
+    const current = Number(await hp.getAttribute('aria-valuenow'));
+    assert.ok(outcome === 'WIN' ? current === 100 : current < 100, `${outcome}: incorrect colony HP`);
+    assert.equal(await page.locator('.result-body').evaluate(el => el.scrollTop), 0, `${outcome}: result opens scrolled past its heading`);
+    assert.ok(await page.locator('.result-next').isVisible(), `${outcome}: continuation button is hidden`);
+    console.log(`PASS ${outcome} report`);
   }
   assert.deepEqual(errors, [], 'uncaught browser errors');
 } finally {

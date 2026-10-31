@@ -49,6 +49,7 @@ import {
   MAX_FIELD_SIZE,
   SPECIMEN_IDS,
   SHOP_WEIGHTS,
+  STARTING_COLONY_HP,
   cmdById,
   type BugId,
   type CmdId,
@@ -147,6 +148,8 @@ interface Report {
   foeIdx: number;
   dealt: number;
   taken: number;
+  hpBefore: number;
+  hpAfter: number;
   base: number;
   interest: number;
   bonus: number;
@@ -175,6 +178,7 @@ export default function App() {
   }
 
   const [phase, setPhase] = useState<Phase>("title");
+  const [ladderFocus, setLadderFocus] = useState<string | null>(null);
   // Screen changes should not inherit the previous screen's scroll offset.
   // On short phones that could leave the new board above the viewport.
   useEffect(() => {
@@ -611,7 +615,7 @@ export default function App() {
 
     setMatch(updated);
     setGold((g) => g + 5 + interest + bonus);
-    setReport({ win, foeIdx, dealt, taken, base, interest, bonus, streak: nextStreak, streakGold, echo: duel.echo });
+    setReport({ win, foeIdx, dealt, taken, hpBefore: hp, hpAfter: updated.colonies.find((c) => c.id === PLAYER_ID)?.hp ?? hp, base, interest, bonus, streak: nextStreak, streakGold, echo: duel.echo });
     setPhase("result");
   };
 
@@ -640,6 +644,7 @@ export default function App() {
       setShop(rollShop());
     }
     setScouting(false);
+    setLadderFocus(null);
     battleRef.current = null;
     setBattleSnap(null);
     setReport(null);
@@ -1623,6 +1628,12 @@ export default function App() {
     ? Math.max(1, Math.ceil(Math.max(...liveZones.map((z) => z.remaining))))
     : 0;
   const vulnerableCount = battleSnap?.units.filter((u) => !u.dead && u.vuln > 0).length ?? 0;
+  const ladderRows = [
+    { key: "you", you: true, isFoe: false, name: "YOU", hp, alive: hp > 0, place: playerColony.place },
+    ...bots.map((b) => ({ key: BOTS[b.idx].id, you: false, isFoe: b.idx === foeIdx,
+      name: BOTS[b.idx].short, hp: b.hp, alive: b.alive, place: b.place })),
+  ];
+  const focusedColony = ladderRows.find((row) => row.key === ladderFocus);
 
   return (
     <div className="battle-shell cabinet-bg safe-t w-full">
@@ -1757,18 +1768,7 @@ export default function App() {
                 <span className="label text-[6px] text-[#8C7E6E]">{t("1 survivor wins")}</span>
               </div>
               <div className="ladder-strip" role="list">
-                {[
-                  { key: "you", you: true, isFoe: false, name: "YOU", hp, alive: hp > 0, place: playerColony.place },
-                  ...bots.map((b) => ({
-                    key: BOTS[b.idx].id,
-                    you: false,
-                    isFoe: b.idx === foeIdx,
-                    name: BOTS[b.idx].short,
-                    hp: b.hp,
-                    alive: b.alive,
-                    place: b.place,
-                  })),
-                ].map((s, i) => (
+                {ladderRows.map((s, i) => (
                   <div
                     key={s.key}
                     role="listitem"
@@ -1778,7 +1778,10 @@ export default function App() {
                     data-alive={s.alive ? 1 : 0}
                     title={s.alive ? tf("{name}: {hp} HP", { name: t(s.name), hp: s.hp }) : tf("{name}: eliminated, place #{n}", { name: t(s.name), n: s.place ?? "—" })}
                   >
-                    <div className="flex min-w-0 items-center gap-1">
+                    <button type="button" className="ladder-button" aria-expanded={ladderFocus === s.key}
+                      aria-label={s.alive ? tf("{name}: {hp} HP", { name: t(s.name), hp: s.hp }) : tf("{name}: eliminated, place #{n}", { name: t(s.name), n: s.place ?? "—" })}
+                      onClick={() => setLadderFocus((current) => current === s.key ? null : s.key)}>
+                    <div className="ladder-heading">
                       <span className="ladder-rank">{i + 1}</span>
                       {s.isFoe && s.alive && (
                         <span className="clash-seal grid h-[11px] w-[11px] shrink-0 place-items-center rounded-full" aria-hidden="true">
@@ -1787,7 +1790,7 @@ export default function App() {
                       )}
                       <span className="label min-w-0 flex-1 truncate text-[6.5px]" style={{ color: s.you ? "#F0A93B" : "#EDE2CB" }}>{t(s.name)}</span>
                       <span
-                        className="font-mono text-[8.5px] font-bold tabular-nums"
+                        className="ladder-hp font-mono text-[8.5px] font-bold tabular-nums"
                         style={{ color: s.alive ? (s.you ? "#56DCA8" : "#EDE2CB") : "#6B5F52" }}
                       >
                         {s.alive ? s.hp : `#${s.place}`}
@@ -1796,14 +1799,22 @@ export default function App() {
                     <div className="bar-shell mt-0.5 h-[3px]">
                       <i
                         style={{
-                          width: `${Math.max(0, Math.min(100, s.hp))}%`,
+                          width: `${Math.max(0, Math.min(100, s.hp / STARTING_COLONY_HP * 100))}%`,
                           background: s.you ? "#56DCA8" : s.isFoe ? "#F05A36" : "#7B6E5F",
                         }}
                       />
                     </div>
+                    </button>
                   </div>
                 ))}
               </div>
+              {focusedColony && (
+                <div className="ladder-detail" role="status">
+                  <strong>{t(focusedColony.name)}</strong>
+                  <span>{focusedColony.alive ? tf("{name}: {hp} HP", { name: t(focusedColony.name), hp: focusedColony.hp }) : tf("{name}: eliminated, place #{n}", { name: t(focusedColony.name), n: focusedColony.place ?? "—" })}</span>
+                  <button type="button" onClick={() => setLadderFocus(null)} aria-label={t("CLOSE")}><IconClose size={11} /></button>
+                </div>
+              )}
               {elsewhere.length > 0 && (
                 <div className="mt-0.5 flex items-center gap-x-2 overflow-hidden whitespace-nowrap">
                   <span className="label shrink-0 text-[5.5px] text-[#6E6252]">{t("ELSEWHERE THIS ROUND")}</span>
@@ -2318,7 +2329,8 @@ export default function App() {
                     <button
                       onClick={() => setScouting((v) => !v)}
                       title={t("Scout the next opponent (V)")}
-                      className={`label hit-y relative flex min-h-[32px] items-center gap-1 border px-2 text-[7px] ${
+                      aria-pressed={scouting}
+                      className={`shop-toggle label hit-y relative flex min-h-[32px] items-center gap-1 border px-2 text-[7px] ${
                         scouting
                           ? "border-[#E0522F] bg-[#2A1512] text-[#F05A36]"
                           : "border-[#3B322A] text-[#9C8F7E] hover:border-[#E0522F] hover:text-[#F05A36]"
@@ -2330,7 +2342,8 @@ export default function App() {
                     <button
                       onClick={toggleLock}
                       title={t("Lock the shop so it carries into the next drawer (L)")}
-                      className={`label hit-y relative flex min-h-[32px] items-center gap-1 border px-2 text-[7px] ${
+                      aria-pressed={shopLocked}
+                      className={`shop-toggle label hit-y relative flex min-h-[32px] items-center gap-1 border px-2 text-[7px] ${
                         shopLocked
                           ? "border-[#F0A93B] bg-[#241B14] text-[#F0A93B]"
                           : "border-[#3B322A] text-[#9C8F7E] hover:border-[#F0A93B] hover:text-[#F0A93B]"
@@ -2501,8 +2514,9 @@ export default function App() {
       {/* Drawer Result Modal */}
       {phase === "result" && report && (
         <div className="fixed inset-0 z-40 grid place-items-center bg-black/75 px-4 py-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-labelledby="round-result-title">
-          <div className="paper-card rise max-h-[92dvh] w-full max-w-[420px] overflow-y-auto border-2 border-[#241B14] p-4 shadow-[0_12px_0_rgba(0,0,0,.55)]">
-            <div className="flex items-center justify-between">
+          <div className="result-card paper-card rise flex max-h-[92dvh] w-full max-w-[420px] flex-col overflow-hidden border-2 border-[#241B14] p-4 shadow-[0_12px_0_rgba(0,0,0,.55)]" data-win={report.win ? 1 : 0}>
+            <div className="result-body min-h-0 overflow-y-auto">
+            <div className="flex items-center justify-between gap-2">
               <span className="label text-[8px] text-[#8E2A16]">{tf("ROUND {n} REPORT", { n: round + 1 })}</span>
               <span
                 className="px-2 py-0.5 font-pixel text-[8px] text-[#FFF3DC]"
@@ -2531,7 +2545,18 @@ export default function App() {
               <p className="mt-1 text-[10px] text-[#7A5318]">{t("Echo match: only your colony can lose HP; the rival's real colony is not damaged here.")}</p>
             )}
 
-            <div className="mt-3 space-y-1 border-y border-[#241B14]/25 py-2.5">
+            <div className="result-health" aria-label={t("Colony HP")}>
+              <div className="result-health__heading">
+                <span className="label">{t("Colony HP")}</span>
+                <span className="result-health__value">{report.hpBefore} <span aria-hidden="true">→</span> <strong>{report.hpAfter}</strong> <small>/ {STARTING_COLONY_HP}</small></span>
+              </div>
+              <div className="result-health__track" role="progressbar" aria-label={t("Colony HP")} aria-valuemin={0} aria-valuemax={STARTING_COLONY_HP} aria-valuenow={Math.max(0, Math.min(STARTING_COLONY_HP, report.hpAfter))}>
+                <span style={{ width: `${Math.max(0, Math.min(100, report.hpAfter / STARTING_COLONY_HP * 100))}%` }} />
+              </div>
+              <div className="result-health__caption">{report.win ? t("Colony defended") : tf("{n} HP lost", { n: Math.max(0, report.hpBefore - report.hpAfter) })}</div>
+            </div>
+
+            <div className="result-breakdown mt-3 space-y-1 border-y border-[#241B14]/25 py-2.5">
               {[
                 {
                   l: report.win ? t("FOE COLONY DAMAGE") : t("COLONY DAMAGE TAKEN"),
@@ -2565,11 +2590,11 @@ export default function App() {
 
             <RoundResults summary={match.lastRound} paper />
             {adminButton("mt-3 w-full")}
+            </div>
 
             <button
               onClick={next}
-              autoFocus
-              className="lift flex items-center justify-center gap-2 mt-4 w-full border-2 border-[#241B14] bg-[#1F7A5A] py-3 font-pixel text-[11px] text-[#FFF3DC] shadow-[0_4px_0_#0D3B2A]"
+              className="result-next lift flex items-center justify-center gap-2 mt-4 w-full border-2 border-[#241B14] bg-[#1F7A5A] py-3 font-pixel text-[11px] text-[#FFF3DC] shadow-[0_4px_0_#0D3B2A]"
             >
               <span>
                 {match.winnerId

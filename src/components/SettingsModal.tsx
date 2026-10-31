@@ -18,6 +18,23 @@ const LANGS: { id: Lang; native: string; latin: string }[] = [
  */
 export function SettingsModal({ open, onClose }: Props) {
   const { lang, setLang, motion, setMotion, potato, setPotato, t } = useSettings();
+  const [fullscreen, setFullscreen] = useState(() => !!document.fullscreenElement);
+  const [fullscreenError, setFullscreenError] = useState(false);
+  const fullscreenSupported = !!document.fullscreenEnabled && !!document.documentElement.requestFullscreen;
+  useEffect(() => {
+    const sync = () => setFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
+  const toggleFullscreen = async () => {
+    setFullscreenError(false);
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen();
+    } catch {
+      setFullscreenError(true);
+    }
+  };
   const [doctor, setDoctor] = useState(() => localStorage.getItem("sb-doctor") === "1");
   const setDoctorState = (v: boolean) => {
     setDoctor(v);
@@ -102,6 +119,23 @@ export function SettingsModal({ open, onClose }: Props) {
               );
             })}
           </div>
+
+          <div className="mt-4 mb-2 flex items-center gap-2">
+            <IconSettings size={13} className="text-[#F0A93B]" />
+            <h3 className="label text-[8px] text-[#F0A93B]">{t("FULLSCREEN")}</h3>
+          </div>
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            disabled={!fullscreenSupported}
+            aria-pressed={fullscreen}
+            className="lift min-h-[48px] w-full border border-[#4A3828] bg-[#17110C] px-3 py-2 text-left font-mono text-[11px] text-[#EDE2CB] hover:border-[#F0A93B] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {fullscreen ? t("Exit fullscreen") : t("Enter fullscreen")}
+          </button>
+          <p className="mt-2 text-[10px] leading-snug text-[#9C8F7E]" role={fullscreenError ? "alert" : undefined}>
+            {!fullscreenSupported ? t("Fullscreen is not available in this browser or embedded view.") : fullscreenError ? t("Could not change fullscreen mode. Your browser or embedded view may block it.") : t("Fullscreen is controlled by your browser; press Escape to exit.")}
+          </p>
 
           <div className="mt-4 mb-2 flex items-center gap-2">
             <IconSettings size={13} className="text-[#F0A93B]" />

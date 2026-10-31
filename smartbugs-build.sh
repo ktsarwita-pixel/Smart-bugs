@@ -1,27 +1,17 @@
 #!/bin/bash
-# Smart Bugs — Vercel build script.
-#
-# Used by the "smart-bugs" Vercel project (build command: `bash smartbugs-build.sh`,
-# install command: `true`, output directory: `dist`). It fetches the branch source,
-# installs dependencies (dev deps included — Vercel skips them when NODE_ENV=production),
-# and runs the standard Vite build.
-#
-# NOTE: the repo copy is unpacked WITHOUT overwriting this file — bash reads the
-# script lazily, so replacing it mid-run corrupts execution (syntax error at `)`).
+# Build the published game from its last production commit and the current
+# session branch separately. Vercel routes /?advenced to the latter.
 set -euxo pipefail
-curl -sSL "https://codeload.github.com/ktsarwita-pixel/Smart-bugs/tar.gz/refs/heads/arena/9fb9b0ed-smart-bugs" -o repo.tgz
-rm -rf repo-src
-mkdir repo-src
-tar xzf repo.tgz -C repo-src
-(cd repo-src/Smart-bugs-* && tar cf - --exclude=smartbugs-build.sh .) | tar xf -
-rm -rf repo-src repo.tgz
-npm install --include=dev --no-audit --no-fund --loglevel=error
-npm run build
-# Private test range needs real paths: this build is single-file, and Vercel
-# 404s unknown paths before the SPA router can see them (and vercel.json is
-# parsed before this script runs, so rewrites added here would be ignored).
-# Physical copies let /advanced and /advenced serve the app directly.
-mkdir -p dist/advanced dist/advenced
-cp dist/index.html dist/advanced/index.html
-cp dist/index.html dist/advenced/index.html
-
+ROOT="$PWD"
+mkdir -p repo-preview repo-public
+curl -fsSL "https://codeload.github.com/ktsarwita-pixel/Smart-bugs/tar.gz/refs/heads/arena/9fb9b0ed-smart-bugs" | tar xz --strip-components=1 -C repo-preview
+curl -fsSL "https://codeload.github.com/ktsarwita-pixel/Smart-bugs/tar.gz/723715b" | tar xz --strip-components=1 -C repo-public
+for dir in repo-preview repo-public; do
+  (cd "$ROOT/$dir" && npm install --include=dev --no-audit --no-fund --loglevel=error && npm run build)
+done
+rm -rf dist
+mkdir -p dist/preview dist/advanced dist/advenced
+cp repo-public/dist/index.html dist/index.html
+cp repo-public/dist/index.html dist/advanced/index.html
+cp repo-public/dist/index.html dist/advenced/index.html
+cp repo-preview/dist/index.html dist/preview/index.html

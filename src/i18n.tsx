@@ -24,6 +24,12 @@ interface Ctx extends Settings {
  * it falls back to English, which is the safest failure mode for UI copy.
  */
 const ID: Record<string, string> = {
+  "FULLSCREEN": "LAYAR PENUH",
+  "Enter fullscreen": "Masuk layar penuh",
+  "Exit fullscreen": "Keluar layar penuh",
+  "Fullscreen is not available in this browser or embedded view.": "Layar penuh tidak tersedia di browser atau tampilan sematan ini.",
+  "Could not change fullscreen mode. Your browser or embedded view may block it.": "Tidak dapat mengubah mode layar penuh. Browser atau tampilan sematan mungkin memblokirnya.",
+  "Fullscreen is controlled by your browser; press Escape to exit.": "Layar penuh dikendalikan oleh browser; tekan Escape untuk keluar.",
   "POTATO MODE": "MODE KENTANG",
   "Potato mode": "Mode kentang",
   "On — weakest devices": "Nyala — perangkat paling lemah",

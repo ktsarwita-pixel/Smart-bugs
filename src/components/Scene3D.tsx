@@ -230,12 +230,14 @@ export function Scene3D({
       });
     };
     applyPotato();
-    window.addEventListener("sb-potato", () => {
+    const onPotato = () => {
       potatoOn = document.documentElement.dataset.potato === "1";
       pxScale = 1;
-      ftEma = 0;
+      ftEma = 16.7;
+      ftWarmup = 0;
       applyPotato();
-    });
+    };
+    window.addEventListener("sb-potato", onPotato);
 
     const disposables: { dispose: () => void }[] = [];
     const track = <T extends { dispose: () => void }>(o: T) => (disposables.push(o), o);
@@ -1286,6 +1288,9 @@ export function Scene3D({
 
       const tex = new THREE.CanvasTexture(c);
       tex.colorSpace = THREE.SRGBColorSpace;
+      // The web lies at a grazing angle: anisotropic filtering preserves the
+      // fine threads rather than turning the silk into a blurry sheet.
+      tex.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
       return tex;
     }
     const webTex = showcase ? null : makeWebTexture();
@@ -1340,8 +1345,26 @@ export function Scene3D({
     // sheet inside 0.94 of its half-extent, so containment is inherited.
     const GLINT_N = 48;
     const glintGeo = new THREE.PlaneGeometry(1, 1);
+    // Soft, four-point dew highlights instead of bright square particles.
+    const glintCanvas = document.createElement("canvas");
+    glintCanvas.width = glintCanvas.height = 64;
+    const gg = glintCanvas.getContext("2d")!;
+    const glow = gg.createRadialGradient(32, 32, 0, 32, 32, 30);
+    glow.addColorStop(0, "rgba(255,255,255,1)");
+    glow.addColorStop(0.18, "rgba(218,231,255,.7)");
+    glow.addColorStop(1, "rgba(180,205,255,0)");
+    gg.fillStyle = glow;
+    gg.fillRect(0, 0, 64, 64);
+    gg.fillStyle = "rgba(255,255,255,.8)";
+    gg.beginPath();
+    gg.moveTo(32, 3); gg.quadraticCurveTo(34, 29, 61, 32);
+    gg.quadraticCurveTo(35, 35, 32, 61); gg.quadraticCurveTo(29, 35, 3, 32);
+    gg.quadraticCurveTo(29, 29, 32, 3); gg.fill();
+    const glintTex = new THREE.CanvasTexture(glintCanvas);
+    glintTex.colorSpace = THREE.SRGBColorSpace;
     const glintMat = new THREE.MeshBasicMaterial({
-      color: 0xbfe9ff,
+      map: glintTex,
+      color: 0xdce8ff,
       transparent: true,
       opacity: 0.0,
       blending: THREE.AdditiveBlending,
@@ -1627,13 +1650,15 @@ export function Scene3D({
         // DEW GLINTS: 12 sparks per web scattered inside the sheet's
         // half-extent × 0.94 (containment inherited), each twinkling on its
         // golden-ratio phase — light catching the droplets as the silk sways.
-        const GN = grand ? 14 : 8;
+        const GN = potatoOn ? 0 : grand ? 14 : 8;
         for (let gi = 0; gi < GN && glintN < GLINT_N; gi++) {
           const ph = glintPhase[glintN % GLINT_N];
           const tw = Math.max(0, Math.sin(time * 2.4 + ph * Math.PI * 2 + w.id * 1.3));
-          const gx = cx + (Math.sin(ph * 12.9898 + w.id * 7.7) * 0.5) * sw * 0.94;
-          const gz = cz + (Math.sin(ph * 78.233 + w.id * 3.1) * 0.5) * sh2 * 0.94;
-          const gs = 0.016 + tw * 0.02;
+          const lx = Math.sin(ph * 12.9898 + w.id * 7.7) * sw * 0.46;
+          const lz = Math.sin(ph * 78.233 + w.id * 3.1) * sh2 * 0.46;
+          const gx = cx + lx * Math.cos(rot) - lz * Math.sin(rot);
+          const gz = cz + lx * Math.sin(rot) + lz * Math.cos(rot);
+          const gs = 0.035 + tw * 0.045;
           glintQ.setFromEuler(webE.set(-Math.PI / 2, 0, 0));
           glintS.set(gs, gs, 1);
           projTmp.set(gx, 0.105 + dropY, gz);
@@ -1960,7 +1985,7 @@ export function Scene3D({
     // Sustained slow frames (EMA of frame time) step the render scale down;
     // sustained headroom steps it back up. Keeps the scene smooth on weak
     // GPUs instead of dropping to a slideshow.
-    const baseDpr = renderer.getPixelRatio();
+    const baseDpr = dpr;
     let pxScale = 1;
     let ftEma = 16.7;
     let ftWarmup = 0;
@@ -3034,14 +3059,16 @@ export function Scene3D({
 
       // Fireflies
       const arr = fgeo.attributes.position.array as Float32Array;
-      for (let i = 0; i < FN; i++) {
+      if (!potatoOn) for (let i = 0; i < FN; i++) {
         const b = fbase[i];
         arr[i * 3] = b[0] + Math.sin(t * 0.55 + i) * 0.3;
         arr[i * 3 + 1] = b[1] + Math.sin(t * 0.85 + i * 1.7) * 0.18;
         arr[i * 3 + 2] = b[2] + Math.cos(t * 0.45 + i * 0.9) * 0.3;
       }
-      fgeo.attributes.position.needsUpdate = true;
-      fmat.opacity = 0.55 + Math.sin(t * 2.2) * 0.2;
+      if (!potatoOn) {
+        fgeo.attributes.position.needsUpdate = true;
+        fmat.opacity = 0.55 + Math.sin(t * 2.2) * 0.2;
+      }
 
       // Camera
       parallax.lerp(parallaxTarget, 1 - Math.exp(-dt * 4));
@@ -3374,28 +3401,39 @@ export function Scene3D({
       renderer.render(scene, camera);
     }
 
-    const onVis = () => {
-      paused = document.hidden;
-      if (!paused) {
+    // Stop GPU work when the board is scrolled off screen as well as when
+    // the tab is hidden. Simulation remains owned by the game, not the view.
+    let inView = true;
+    const syncVisibility = () => {
+      const shouldPause = document.hidden || !inView;
+      if (shouldPause === paused) return;
+      paused = shouldPause;
+      if (paused) cancelAnimationFrame(raf);
+      else {
         last = performance.now();
         raf = requestAnimationFrame(tick);
-      } else {
-        cancelAnimationFrame(raf);
       }
     };
-    document.addEventListener("visibilitychange", onVis);
+    const visibilityObserver = typeof IntersectionObserver === "undefined" ? null : new IntersectionObserver(([entry]) => {
+      inView = entry.isIntersecting;
+      syncVisibility();
+    });
+    visibilityObserver?.observe(hostEl);
+    document.addEventListener("visibilitychange", syncVisibility);
     sceneReady = true;
     try {
       renderer.compile(scene, camera);
     } catch {
       /* some drivers reject pre-compilation — the first frame will compile instead */
     }
-    raf = requestAnimationFrame(tick);
+    if (!paused) raf = requestAnimationFrame(tick);
 
     return () => {
       alive = false;
       cancelAnimationFrame(raf);
-      document.removeEventListener("visibilitychange", onVis);
+      document.removeEventListener("visibilitychange", syncVisibility);
+      window.removeEventListener("sb-potato", onPotato);
+      visibilityObserver?.disconnect();
       ro.disconnect();
       el.removeEventListener("pointerdown", onDown);
       el.removeEventListener("pointermove", onMove);
@@ -3414,6 +3452,12 @@ export function Scene3D({
       showcaseItems.forEach((it) => it.model.dispose());
       projMesh.dispose();
       haloMesh.dispose();
+      webMesh.dispose();
+      eggMesh.dispose();
+      glintMesh.dispose();
+      webGeo.dispose(); webMat.dispose();
+      eggGeo.dispose(); eggMat.dispose();
+      glintGeo.dispose(); glintMat.dispose(); glintTex.dispose();
       holePool.forEach((hp) => scene.remove(hp.root));
       zonePool.forEach((zp) => scene.remove(zp.root));
       totemState.allyModel?.dispose();

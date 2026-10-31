@@ -85,6 +85,18 @@ try {
       assert.ok(await page.getByText('TAP A BENCH BUG TO DEPLOY IT', { exact: false }).count(), 'board tap did not reach placement handler');
     }
     await page.locator('.shop-grid button:not([disabled])').first().tap();
+    if (width < 1024) {
+      await page.locator('.selected-actions').waitFor();
+      await page.getByRole('button', { name: 'Deselect' }).tap();
+      const boardBeforeSelect = await page.locator('.battle-stage').evaluate(el => ({ height: el.getBoundingClientRect().height, y: el.getBoundingClientRect().top + window.scrollY }));
+      await page.locator('.bench-inspect').first().tap();
+      const boardSelected = await page.locator('.battle-stage').evaluate(el => ({ height: el.getBoundingClientRect().height, y: el.getBoundingClientRect().top + window.scrollY }));
+      assert.equal(boardSelected.height, boardBeforeSelect.height, `${width}: selecting a unit resized the board`);
+      assert.equal(boardSelected.y, boardBeforeSelect.y, `${width}: selecting a unit moved the board`);
+      await page.getByRole('button', { name: 'Deselect' }).tap();
+      const boardDeselected = await page.locator('.battle-stage').evaluate(el => ({ height: el.getBoundingClientRect().height, y: el.getBoundingClientRect().top + window.scrollY }));
+      assert.equal(boardDeselected.height, boardBeforeSelect.height, `${width}: deselecting a unit resized the board`);
+    }
     const bench = page.locator('.bench-slot[title*="tap to deploy"]');
     await bench.waitFor();
     // At 320px the old inspect overlay covered the centre of this button.

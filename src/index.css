@@ -1958,3 +1958,12 @@ html[data-motion="reduced"] .result-health__track > span { transition: none; }
   .deck { position: relative; }
   .scout-panel { position: absolute; z-index: 19; left: 0; right: 0; bottom: 0; max-height: 110px; overflow-y: auto; box-shadow: 0 5px 16px #000b; }
 }
+
+/* Unit controls share the deck's space, preserving board dimensions. */
+@media (max-width: 1023.98px) {
+  .deck { position: relative; }
+  .deck .selected-actions {
+    position: absolute; z-index: 21; left: 0; right: 0; bottom: 0;
+    margin: 4px 8px; box-shadow: 0 5px 16px #000b;
+  }
+}

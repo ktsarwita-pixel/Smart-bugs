@@ -1830,9 +1830,8 @@ export default function App() {
                 </div>
               )}
             </div>
-          </div>
 
-            {/* Mobile Floating Selected-Bug Action Bar (0 permanent vertical height!) */}
+            {/* Unit actions overlay the deck instead of resizing the board. */}
             {phase === "prep" && sel && (
               <div className="selected-actions rise flex items-center gap-2 border-2 border-[#F0A93B] bg-[#16110D]/96 p-2 shadow-[0_8px_20px_rgba(0,0,0,.8)] lg:hidden">
                 <SpecimenIcon id={sel.bugId} size={40} star={sel.star} selected />
@@ -1889,7 +1888,7 @@ export default function App() {
                 </div>
               </div>
             )}
-
+          </div>
 
           {/* 3D Specimen Drawer Viewport (Fills Flexible Height!) */}
           <div className="battle-stage relative min-h-[235px] flex-1 bg-[#0D0907] min-[720px]:min-h-[175px]">

@@ -1382,6 +1382,22 @@ export function Scene3D({
     const glintM = new THREE.Matrix4();
     const glintS = new THREE.Vector3();
 
+    // Grand web's suspended silk canopy. One dynamic line draw call for all
+    // active ultimates, rather than hundreds of individual meshes/materials.
+    const CANOPY_RAYS = 20, CANOPY_STEPS = 10, CANOPY_RINGS = 4, MAX_CANOPIES = 2;
+    const canopyCapacity = MAX_CANOPIES * (CANOPY_RAYS * CANOPY_STEPS + CANOPY_RINGS * CANOPY_RAYS) * 2;
+    const canopyPositions = new Float32Array(canopyCapacity * 3);
+    const canopyColors = new Float32Array(canopyCapacity * 3);
+    const canopyGeo = new THREE.BufferGeometry();
+    canopyGeo.setAttribute("position", new THREE.BufferAttribute(canopyPositions, 3).setUsage(THREE.DynamicDrawUsage));
+    canopyGeo.setAttribute("color", new THREE.BufferAttribute(canopyColors, 3).setUsage(THREE.DynamicDrawUsage));
+    canopyGeo.setDrawRange(0, 0);
+    const canopyMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.64, blending: THREE.AdditiveBlending, depthWrite: false });
+    const canopy = new THREE.LineSegments(canopyGeo, canopyMat);
+    canopy.frustumCulled = false;
+    canopy.renderOrder = 3;
+    if (!showcase) scene.add(canopy);
+
     // ——— CONTAINMENT LAW (exact rotated-rect fitting) ———
     // A sheet of size (rw, rh) spun by θ has axis-aligned footprint
     //   W = rw·|cosθ| + rh·|sinθ|,  H = rw·|sinθ| + rh·|cosθ|.
@@ -1410,6 +1426,7 @@ export function Scene3D({
         if (eggMesh.count !== 0) eggMesh.count = 0;
         if (glintMesh.count !== 0) glintMesh.count = 0;
         glintMat.opacity = 0;
+        canopyGeo.setDrawRange(0, 0);
         webAge.clear();
         return;
       }
@@ -1418,6 +1435,8 @@ export function Scene3D({
       let n = 0;
       let en = 0;
       let glintN = 0;
+      let canopyVertices = 0;
+      let canopyCount = 0;
       for (const w of b.webs) {
         const grand = w.kind === "grand";
         const age = (webAge.get(w.id) ?? 0) + dt;
@@ -1619,6 +1638,41 @@ export function Scene3D({
             n++;
           }
         }
+        // Curved radial silk and cross-threads form a luminous suspended
+        // dome above the grand web. Every point remains within the board.
+        if (grand && !potatoOn && canopyCount < MAX_CANOPIES) {
+          canopyCount++;
+          const rise = Math.min(1, Math.max(0, (age - 0.12) / 0.8));
+          const fade = Math.min(1, age / 0.3) * dissolve;
+          const motion = document.documentElement.dataset.motion !== "reduced";
+          const phase = motion ? time : 0;
+          const vertex = (angle: number, radius: number) => {
+            const dome = (1 - radius * radius) * (1.15 + 0.06 * Math.sin(phase * 1.6 + w.id));
+            canopyPositions[canopyVertices * 3] = cx + Math.cos(angle) * sw * 0.46 * radius;
+            canopyPositions[canopyVertices * 3 + 1] = 0.09 + dome * rise;
+            canopyPositions[canopyVertices * 3 + 2] = cz + Math.sin(angle) * sh2 * 0.46 * radius;
+            const pulse = (0.55 + 0.45 * Math.max(0, Math.sin(phase * 2.2 - radius * 8 + angle * 2))) * fade;
+            canopyColors[canopyVertices * 3] = 0.55 * pulse;
+            canopyColors[canopyVertices * 3 + 1] = 0.36 * pulse;
+            canopyColors[canopyVertices * 3 + 2] = 0.9 * pulse;
+            canopyVertices++;
+          };
+          for (let ray = 0; ray < CANOPY_RAYS; ray++) {
+            const a = ray * Math.PI * 2 / CANOPY_RAYS;
+            for (let step = 0; step < CANOPY_STEPS; step++) {
+              vertex(a, step / CANOPY_STEPS);
+              vertex(a, (step + 1) / CANOPY_STEPS);
+            }
+          }
+          for (let ring = 1; ring <= CANOPY_RINGS; ring++) {
+            const r = ring / (CANOPY_RINGS + 1);
+            for (let ray = 0; ray < CANOPY_RAYS; ray++) {
+              vertex(ray * Math.PI * 2 / CANOPY_RAYS, r);
+              vertex((ray + 1) * Math.PI * 2 / CANOPY_RAYS, r);
+            }
+          }
+        }
+
         // EGG SACS: small flattened ivory sacs CLUSTERED around the center
         // web (the nest's heart) — tucked low, half-sunk into the cloth,
         // popping in only after the floor has spread.
@@ -1666,6 +1720,11 @@ export function Scene3D({
           glintMesh.setMatrixAt(glintN, glintM);
           glintN++;
         }
+      }
+      canopyGeo.setDrawRange(0, canopyVertices);
+      if (canopyVertices) {
+        canopyGeo.attributes.position.needsUpdate = true;
+        canopyGeo.attributes.color.needsUpdate = true;
       }
       webMesh.count = n;
       webMesh.instanceMatrix.needsUpdate = true;
@@ -3458,6 +3517,7 @@ export function Scene3D({
       webGeo.dispose(); webMat.dispose();
       eggGeo.dispose(); eggMat.dispose();
       glintGeo.dispose(); glintMat.dispose(); glintTex.dispose();
+      canopyGeo.dispose(); canopyMat.dispose();
       holePool.forEach((hp) => scene.remove(hp.root));
       zonePool.forEach((zp) => scene.remove(zp.root));
       totemState.allyModel?.dispose();

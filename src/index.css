@@ -1815,3 +1815,61 @@ button:not(:disabled).pressable:active,
   .title-layout > div:last-child > div.safe-b { width: 100%; }
   .commander-layout .paper-card .font-pixel { font-size: 10px; }
 }
+
+/* Pocket command layout: keep the five shop choices and primary actions in
+   view together; let the page grow naturally on exceptionally short screens. */
+@media (max-width: 719.98px) {
+  .deck-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px;
+    gap: 4px 6px;
+    padding: 5px 8px;
+  }
+  .deck-row .deck-cluster:first-child { grid-column: 1; grid-row: 1; }
+  .deck-row .deck-resources { grid-column: 2; grid-row: 1; justify-content: flex-end; }
+  .deck-row .help-btn { grid-column: 3; grid-row: 1 / 3; }
+  .deck-row .vs-plaque { grid-column: 1 / 3; grid-row: 2; min-height: 34px; }
+  .deck-row .deck-cluster { gap: 7px; }
+  .deck-stat { gap: 4px; min-height: 25px; }
+  .deck-stat .deck-cap, .deck-pips { display: none; }
+  .deck-stat .deck-num { font-size: 11px; }
+  .deck-ladder { padding: 2px 8px 5px; }
+  .ladder-strip { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 2px; overflow: visible; }
+  .ladder-cell { min-width: 0; padding: 2px; }
+  .ladder-cell .label { font-size: 6px; }
+  .battle-stage { height: clamp(180px, 28svh, 280px); }
+  .bench-section, .shop-section { padding: 6px 8px; }
+  .section-heading { gap: 4px; margin-bottom: 4px; }
+  .section-heading > .label, .shop-heading > div:first-child > .label { font-size: 8px; }
+  .bench-section .section-heading button { min-height: 28px; }
+  .bench-grid { gap: 4px; }
+  .bench-slot { height: 44px; }
+  .bench-slot .hit-24::after { display: none; }
+  .shop-heading { flex-wrap: nowrap; }
+  .shop-heading > div:first-child { flex: 1 1 auto; }
+  .shop-heading > div:last-child { width: auto; flex: none; gap: 3px; }
+  .shop-heading > div:last-child > button { flex: none; min-height: 36px; padding-inline: 6px; }
+  .shop-heading > div:last-child > button:last-child { flex: none; min-width: 36px; width: 36px; height: 36px; }
+  .shop-heading > div:last-child > button:last-child span { display: none; }
+  .shop-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; padding: 0; overflow: visible; }
+  .shop-grid > button { min-height: 82px; padding: 8px 2px 4px; }
+  .shop-grid > button .label { font-size: 6.5px; letter-spacing: 0; }
+  .shop-grid > button > .spec-icon { width: min(44px, 100%) !important; height: auto !important; aspect-ratio: 1; }
+  .action-bar { grid-template-columns: 1fr 1fr 1.25fr; gap: 5px; padding: 6px 8px 8px; }
+  .action-bar > button { min-width: 0; min-height: 44px; padding-inline: 2px; }
+  .action-bar > button:last-child { grid-column: auto; font-size: 9px; }
+  .action-bar .label { font-size: 7px; }
+  .selected-actions { margin: 4px 8px; padding: 6px; gap: 4px; }
+  .selected-actions > div:nth-child(2) { flex-basis: 0; }
+  .selected-actions > div:last-child { width: auto; }
+  .selected-actions button { min-height: 36px; }
+}
+@media (max-width: 380px) {
+  .shop-heading > div:last-child > button span { font-size: 6px; }
+  .selected-actions > div:nth-child(2) { flex-basis: calc(100% - 50px); }
+  .selected-actions > div:last-child { width: 100%; justify-content: flex-end; }
+}
+@media (min-width: 580px) and (max-width: 1023.98px) and (max-height: 540px) {
+  .game-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 40%); align-items: start; }
+  .battle-stage { height: clamp(180px, 60svh, 340px); }
+  .game-dock { max-height: none; }
+}

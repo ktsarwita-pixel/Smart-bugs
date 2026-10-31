@@ -49,8 +49,15 @@ const model=()=>{
   return rig;
 };
 const enhanced=model(), legacy=model();
-for (const [rig,on] of [[enhanced,true],[legacy,false]]) animateInsectRig(rig,'spider',0,1,false,0,0,0,0,0,false,0,1,0,undefined,.9,on);
-assert.ok(enhanced.torso.rotation.x<-.35,'enhanced spider should hold a distinct rear');
-assert.ok(enhanced.torso.rotation.x<legacy.torso.rotation.x-.2,'legacy pose must remain unchanged');
-assert.ok(Math.abs(enhanced.leftArm.rotation.z)>.6,'enhanced fangs should flare');
-console.log('PASS unchanged roar damage/timing, interruption, simultaneous casts, and stronger sampled rig/waves');
+enhanced.torso.rotation.set(.12,-.08,.06);
+const fixed=[enhanced.torso.rotation.x,enhanced.torso.rotation.y,enhanced.torso.rotation.z];
+for (let i=0;i<=60;i++) {
+  animateInsectRig(enhanced,'spider',i/60,1,i%2===0,i,0,0,i%3===0?.8:0,0,false,0,1/60,0,undefined,i/60,true);
+  assert.deepEqual([enhanced.torso.rotation.x,enhanced.torso.rotation.y,enhanced.torso.rotation.z],fixed,'no Spider torso rotation during the entire roar, even when hit');
+}
+animateInsectRig(legacy,'spider',0,1,false,0,0,0,0,0,false,0,1,0,undefined,.5,false);
+assert.ok(legacy.torso.rotation.x<-.3,'legacy pose must remain unchanged');
+assert.ok(Math.abs(enhanced.leftArm.rotation.z)>.6,'enhanced fangs should flare without rotating the body');
+animateInsectRig(enhanced,'spider',2,1,false,0,0,0,0,0,false,0,1,0,undefined,undefined,true);
+assert.notDeepEqual([enhanced.torso.rotation.x,enhanced.torso.rotation.y,enhanced.torso.rotation.z],fixed,'body animation resumes after the cast');
+console.log('PASS unchanged roar mechanics, interruption, simultaneous casts, fixed torso and expressive fangs');

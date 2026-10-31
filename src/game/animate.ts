@@ -333,9 +333,8 @@ export function animateInsectRig(
       if (roarProgress !== undefined) {
         if (enhancedRoar) {
           const { rear, release, tremble } = sampleSpiderRoar(roarProgress);
-          // Raise and hold the front of the original articulated model; the
-          // legs brace and the fangs flare instead of a whole-body scale pop.
-          p.torsoX = -0.48 * rear + tremble * 0.025;
+          // Keep the torso rotation fixed during the cast. The head, fangs,
+          // legs and pressure waves still carry the roar's expressive pose.
           p.torsoPosY = 0.07 * rear;
           p.headX = -0.43 * rear + tremble * 0.045 + release * 0.09;
           p.headPosY = 0.04 * rear;
@@ -525,9 +524,13 @@ export function animateInsectRig(
   const kFast = 1 - Math.exp(-dt * 26);  // strikes
   const kBody = 1 - Math.exp(-dt * 15);  // weight & breath
 
-  m.torso.rotation.x = ease(m.torso.rotation.x, p.torsoX, kBody);
-  m.torso.rotation.y = ease(m.torso.rotation.y, p.torsoY, kBody);
-  m.torso.rotation.z = ease(m.torso.rotation.z, p.torsoZ, kBody);
+  // Do not pitch, yaw or roll the Spider's body while Battle Roar is active,
+  // even when hit, moving, or retargeting. Resume normal easing afterward.
+  if (!(enhancedRoar && id === "spider" && roarProgress !== undefined && !dead)) {
+    m.torso.rotation.x = ease(m.torso.rotation.x, p.torsoX, kBody);
+    m.torso.rotation.y = ease(m.torso.rotation.y, p.torsoY, kBody);
+    m.torso.rotation.z = ease(m.torso.rotation.z, p.torsoZ, kBody);
+  }
   const s = ease(m.torso.scale.z, p.torsoS, kBody);
   m.torso.scale.set(1 + (s - 1) * 0.55, 1 + (s - 1) * 0.55, s);
   m.torso.position.y = R.torso.y + ease(m.torso.position.y - R.torso.y, p.torsoPosY, kBody);

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 /** A closed voxel volume: only faces against empty cells are emitted. Adjacent
  * materials share one surface, so the chest has no coplanar competing faces. */
-export function createChestGeometry(part: 'body' | 'lid'): THREE.BufferGeometry {
+export function createChestGeometry(part: 'body' | 'lid', detailed = false): THREE.BufferGeometry {
   const unit = 0.04;
   const cells = new Map<string, number>();
   const key = (x: number, y: number, z: number) => `${x},${y},${z}`;
@@ -30,6 +30,52 @@ export function createChestGeometry(part: 'body' | 'lid'): THREE.BufferGeometry 
     put(1,20,5,5,3,11,plank); put(2,19,6,6,5,9,wood);
     for (const x of [2,18]) { put(x,x+1,2,4,1,13,gold); put(x,x+1,5,5,3,11,shine); put(x,x+1,6,6,5,9,gold); }
     put(9,12,1,2,14,15,shine);
+  }
+  // The opt-in chest keeps the same solid voxel construction, but adds
+  // readable planks, edge bands and rivets on *all* visible sides.  These
+  // replace cells rather than laying coplanar decals over the wood.
+  if (detailed && part === 'body') {
+    const walnut=0x81451f, light=0xb66c2e, grain=0x633117, brass=0xc48a32, glint=0xffd578;
+    for (const z of [0, 14]) {
+      put(2,19,3,9,z,z,walnut);
+      for (const y of [4,7]) put(2,19,y,y,z,z,grain);
+      for (const y of [3,6,9]) put(3,18,y,y,z,z,light);
+      for (const x of [2,18]) {
+        put(x,x+1,2,10,z,z,brass);
+        for (const y of [3,9]) put(x,x,y,y,z,z,glint);
+      }
+    }
+    for (const x of [0,21]) {
+      for (const y of [3,6,9]) put(x,x,y,y,2,12,light);
+      for (const z of [2,11]) put(x,x,2,10,z,z,brass);
+      put(x,x,2,2,2,12,brass);
+    }
+    // Top and bottom rim reinforce depth when the chest is viewed obliquely.
+    put(0,21,10,10,0,1,brass); put(0,21,10,10,13,14,brass);
+    put(0,1,10,10,2,12,brass); put(20,21,10,10,2,12,brass);
+    put(0,21,1,1,0,0,glint); put(0,21,1,1,14,14,glint);
+    put(0,0,1,1,1,13,glint); put(21,21,1,1,1,13,glint);
+    // A protruding lock with a recessed dark keyhole, not a flat sticker.
+    put(9,12,6,10,15,15,0x402311); put(9,12,7,10,16,16,0xd59a37);
+    put(10,11,8,9,17,17,glint); put(10,11,7,8,18,18,0x4a2915);
+  } else if (detailed) {
+    const woodTop=0xa85c27, woodLight=0xc97e35, shadow=0x653719, brass=0xd49a3a, glint=0xffd578;
+    // Stepped dome: the slope continues over both ends and down the sides.
+    put(1,20,2,4,1,13,woodTop); put(1,20,5,5,3,11,woodLight);
+    put(2,19,6,6,5,9,woodTop);
+    for (const z of [1,13]) put(1,20,2,2,z,z,shadow);
+    for (const x of [2,18]) {
+      put(x,x+1,0,4,0,14,brass);
+      put(x,x+1,5,5,3,11,glint); put(x,x+1,6,6,5,9,brass);
+    }
+    put(0,21,0,0,0,14,0x9a6126);
+    put(9,12,1,2,14,15,brass); put(10,11,2,2,16,16,glint);
+    // The inside of the lid is visible when raised: framed boards rather
+    // than the underside of a featureless solid block.
+    put(1,20,0,0,1,13,brass);
+    put(2,19,0,0,2,12,shadow);
+    put(3,18,0,0,3,11,woodTop);
+    for (const z of [5,8,11]) put(3,18,0,0,z,z,woodLight);
   }
   const positions:number[]=[]; const colors:number[]=[]; const color=new THREE.Color();
   // Corner orders face outwards (two triangles per visible face).

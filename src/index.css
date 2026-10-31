@@ -2101,6 +2101,13 @@ html[data-background="light"] .shop-heading .shop-toggle[aria-pressed="true"] { 
 .fight-banner .fight-flare__round { position:static; margin:4px 0 3px; font-size:8px; letter-spacing:.11em; animation:none; }
 .fight-banner .fight-flare__word { padding:0; border:0; background:none; box-shadow:none; font-size:clamp(19px,6vw,32px); color:#fff1c9; animation:none; }
 .fight-banner__sub { color:#dbb66f; font-size:8px; letter-spacing:.12em; margin-top:5px; }
+/* Advanced reward: a real, transparent 3D rendering, with the pixel sprite
+   preserved underneath as a WebGL fallback. No extra layout on small phones. */
+.treasure-chest-3d { position:relative; flex:none; width:84px; height:76px; }
+.treasure-chest-3d canvas { position:absolute; inset:0; width:84px; height:76px; display:block; pointer-events:none; visibility:hidden; }
+.treasure-chest-3d--ready canvas { visibility:visible; }
+.treasure-chest-3d .pixel-treasure { position:absolute; left:4px; top:0; }
+.treasure-chest-3d--ready .pixel-treasure { visibility:hidden; }
 .pixel-treasure { display:block; flex:none; width:76px; height:76px; overflow:visible; image-rendering:pixelated; }
 .pixel-treasure__loot { opacity:0; }
 .pixel-treasure--open .pixel-treasure__loot { animation:pixel-treasure-loot 420ms steps(3,end) 400ms forwards; }

@@ -2,6 +2,7 @@ import { ADVANCED_CHEST_PATHS, ADVANCED_STAG_PATHS, CHEST_PATH, CHEST_VIEWBOX, S
 import { isAdvancedGameLocation } from "./game/build-mode";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Scene3D } from "./components/Scene3D";
+import { TreasureChest3D } from "./components/TreasureChest3D";
 import { PatchNotesModal } from "./components/PatchNotesModal";
 import { warmRoster } from "./game/voxel";
 import { SpecimenIcon, RankBadge } from "./components/SpecimenIcon";
@@ -165,7 +166,23 @@ interface Report {
   treasureGold?: number;
 }
 
-function ChestIcon({ size = 24 }: { size?: number }) {
+function ChestIcon({ size = 24, advanced = false }: { size?: number; advanced?: boolean }) {
+  if (advanced) return <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" shapeRendering="crispEdges" className="chest-icon chest-icon--advanced">
+    {/* A three-quarter view with a separate side, domed lid, metal straps and lock. */}
+    <path fill="#24160f" d="M3 12V8h2V6h2V4h3V3h11l6 3v2l3 2v14l-7 5H4l-2-2V12z" />
+    <path fill="#613313" d="m23 13 5-3v13l-5 4z" />
+    <path fill="#a25a21" d="M4 13h19v12l-2 2H5l-1-2z" />
+    <path fill="#c7792e" d="M5 14h17v3H5zM5 19h17v3H5z" />
+    <path fill="#713818" d="M5 17h17v2H5zM5 23h17v2H5z" />
+    <path fill="#7c3e1b" d="M4 11V8h2V6h2V5h12v1h2v2h1v4H4z" />
+    <path fill="#c7792e" d="M7 7h14v2H6V8h1zM5 10h17v2H5z" />
+    <path fill="#9e5a23" d="m22 6 5 2v2l-4 2V8h-1z" />
+    <path fill="#db9b36" d="M7 5h3v7H7zM18 5h3v7h-3zM5 12h18v2H5zM7 14h3v12H7zM18 14h3v12h-3zM5 25h17v2H5z" />
+    <path fill="#ffdf81" d="M7 5h3v2H7zM18 5h3v2h-3zM7 14h2v2H7zM18 14h2v2h-2zM6 25h16v1H6z" />
+    <path fill="#b87825" d="m23 12 5-3v2l-5 3zM25 13l2-1v12l-2 2z" />
+    <path fill="#46270e" d="M12 12h5v7h-5z" /><path fill="#ffd36d" d="M13 13h3v5h-3z" /><path fill="#633a16" d="M14 15h1v2h-1z" />
+    <path fill="#ffe9a7" d="M8 21h1v1H8zM19 21h1v1h-1z" />
+  </svg>;
   return <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" shapeRendering="crispEdges"><path fill="#3b2112" d="M2 4h12v2h1v8H1V6h1z"/><path fill="#a9692e" d="M3 5h10v3H3zM2 9h12v4H2z"/><path fill="#f1bb4c" d="M3 4h10v1H3zM2 8h12v1H2zM7 9h2v3H7z"/></svg>;
 }
 
@@ -1793,7 +1810,7 @@ export default function App() {
                   <span className="label hidden text-[7px] text-[#56DCA8] min-[420px]:inline">{t("YOU")}</span>
                   <span className="vs-word">VS</span>
                   <span className="label max-w-[16ch] truncate text-[7px] text-[#F05A36]">{treasure ? t("TREASURE GUARDS") : foe.short}</span>
-                  {treasure ? <ChestIcon /> : <SpecimenIcon id={foe.cmd} size={24} badge="none" />}
+                  {treasure ? <ChestIcon advanced={advancedGame} /> : <SpecimenIcon id={foe.cmd} size={24} badge="none" />}
                 </div>
               ) : (
                 <button
@@ -1808,7 +1825,7 @@ export default function App() {
                   <span className="label hidden text-[7px] text-[#56DCA8] min-[420px]:inline">{t("YOU")}</span>
                   <span className="vs-word">VS</span>
                   <span className="label max-w-[16ch] truncate text-[7px] text-[#F05A36]">{treasure ? t("TREASURE GUARDS") : foe.short}</span>
-                  {treasure ? <ChestIcon /> : <SpecimenIcon id={foe.cmd} size={24} badge="none" />}
+                  {treasure ? <ChestIcon advanced={advancedGame} /> : <SpecimenIcon id={foe.cmd} size={24} badge="none" />}
                   <IconScout size={11} className={`vs-scout-ico shrink-0 ${scouting ? "text-[#F05A36]" : "text-[#8C7E6E]"}`} />
                 </button>
               )}
@@ -2034,7 +2051,7 @@ export default function App() {
                 the stage stays clean mid-fight */}
             {!sel && !treasure && (
               <div className={`pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-2 border border-[#3B322A]/90 bg-[#120D09]/90 px-2 py-1 ${inCombat ? "hidden min-[720px]:flex" : ""}`}>
-                {treasure ? <ChestIcon size={30} /> : <><SpecimenIcon id={foe.cmd} size={30} badge="none" /><RankBadge id={foe.cmd} size={14} /></>}
+                {treasure ? <ChestIcon size={30} advanced={advancedGame} /> : <><SpecimenIcon id={foe.cmd} size={30} badge="none" /><RankBadge id={foe.cmd} size={14} /></>}
                 <div className="leading-tight">
                   <div className="label text-[7px] text-[#F0A93B]">
                     {inCombat ? t("FIGHTING") : "VS"} {treasure ? t("TREASURE GUARDS") : foe.name}{(phase === "result" ? report?.echo : roundFixture?.echo) ? " / ECHO" : ""}
@@ -2625,7 +2642,7 @@ export default function App() {
       {(simLive || fightHasRoar.current) && fightFlash > 0 && phase === "battle" && (
         <div key={fightFlash} className="fight-flare pointer-events-none fixed inset-0 z-30 grid place-items-center" aria-hidden="true">
           <div className="fight-banner" data-treasure={treasure ? "1" : "0"}>
-            <div className="fight-banner__crest">{treasure ? <ChestIcon size={27} /> : <IconClash size={23} />}</div>
+            <div className="fight-banner__crest">{treasure ? <ChestIcon size={27} advanced={advancedGame} /> : <IconClash size={23} />}</div>
             <span className="fight-flare__round label">{tf("PERIOD {p} · ROUND {n}/{total}", { p: period.period, n: period.round, total: period.length })}</span>
             <span className="fight-flare__word font-pixel">{treasure ? t("TREASURE") : t("FIGHT")}</span>
             <span className="fight-banner__sub label">{treasure ? t("DEFEAT THE GUARDS") : t("COLONY CLASH")}</span>
@@ -2684,7 +2701,7 @@ export default function App() {
 
             {report.treasure && (
               <div className="treasure-result" role="status">
-                <PixelTreasure open={report.win} />
+                {advancedGame ? <TreasureChest3D open={report.win} fallback={<PixelTreasure open={report.win} />} /> : <PixelTreasure open={report.win} />}
                 <div><strong>{report.win ? t("TREASURE UNLOCKED!") : t("CHEST STILL GUARDED")}</strong>
                   <div>{report.win ? `${report.rewards?.map(id => t(BUGS[id].name)).join(" · ")}${report.treasureGold ? ` · +${report.treasureGold}G` : ""}` : t("Defeat the guards to earn the treasure.")}</div>
                   {report.win && <div className="treasure-loot" aria-hidden="true">{report.rewards?.map((id, i) => <span key={i}><SpecimenIcon id={id} size={26} badge="none" /></span>)}</div>}

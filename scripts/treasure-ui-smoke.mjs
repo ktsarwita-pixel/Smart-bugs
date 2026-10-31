@@ -28,8 +28,12 @@ try {
 
     assert.equal(await track.locator('.round-track__cell[data-state="current"]').count(),1);
     assert.equal(await track.locator('.round-track__cell[data-treasure="1"]').count(),2);
-    if (round===1 || round===4) assert.ok(await page.getByText('TREASURE GUARDS').count()>0);
+    if (round===1 || round===4) {
+      assert.ok(await page.getByText('TREASURE GUARDS').count()>0);
+      assert.equal(await page.locator('.vs-plaque .chest-icon--advanced').count(),1,'enhanced VS chest icon');
+    }
     await page.getByRole('button',{name:/Engage battle/}).tap();
+    if (round===1 || round===4) assert.equal(await page.locator('.vs-plaque .chest-icon--advanced').count(),1,'enhanced combat VS chest icon');
     await page.getByText('COMBAT TELEMETRY').waitFor();
     await page.getByRole('button',{name:'Open admin panel'}).first().tap();
     await page.getByRole('tab',{name:'MATCH'}).tap();
@@ -77,6 +81,20 @@ try {
     if (round===1 || round===4) {
       assert.equal(await page.locator('.treasure-result').count(),1);
       assert.equal(await page.locator('.pixel-treasure--open').count(),1);
+      const chest3d = page.locator('.treasure-chest-3d');
+      await chest3d.waitFor();
+      await page.waitForFunction(() => {
+        const el = document.querySelector('.treasure-chest-3d');
+        return el?.dataset.renderer === 'webgl' && Number(el.querySelector('canvas')?.dataset.openProgress) >= 90;
+      }, null, {timeout:15000});
+      const visual = await chest3d.evaluate(el => {
+        const canvas=el.querySelector('canvas');
+        const gl=canvas.getContext('webgl2') || canvas.getContext('webgl');
+        return {lost:gl?.isContextLost(), angle:Number(canvas.dataset.lidAngle), fallback:getComputedStyle(el.querySelector('.pixel-treasure')).visibility};
+      });
+      assert.equal(visual.lost,false,'3D canvas must survive StrictMode and stay rendered');
+      assert.ok(visual.angle < -1.3,'the actual 3D lid must open');
+      assert.equal(visual.fallback,'hidden','show the 3D chest, not its fallback sprite');
       await page.waitForTimeout(800);
       const sprite = await page.locator('.pixel-treasure').evaluate(el => {
         const back=el.querySelector('.pixel-treasure__lid-open'), closed=el.querySelector('.pixel-treasure__lid-closed'), rect=back.getBoundingClientRect(), outer=el.getBoundingClientRect();

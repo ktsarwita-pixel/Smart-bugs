@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { createChestGeometry } from "../game/treasure-voxel";
+import { createDetailedChest } from "../game/chest-model";
 import { BUGS, COMMANDERS, SPECIMEN_IDS, type BugId, type CmdId } from "../game/data";
 import { COLS, ROWS, SPIDER_ROAR_SECONDS, boardXY, type BattleState, type BUnit, type Zone, type PrepUnit } from "../game/engine";
 import { GRAND_WEB_GROW_SECONDS, grandWebGrowth, visualGrandImpactReady, setGrandWebScale } from "../game/web-growth";
@@ -2825,10 +2826,17 @@ export function Scene3D({
       const phaseChanged = (flight?.phase ?? "grounded") !== u.prevPhase;
       if (flight && dive) wantRot = Math.atan2(-(dive.toX - dive.fromX), -(dive.toY - dive.fromY));
 
-      let dRot = wantRot - u.rotY;
-      while (dRot > Math.PI) dRot -= Math.PI * 2;
-      while (dRot < -Math.PI) dRot += Math.PI * 2;
-      u.rotY += dRot * (1 - Math.exp(-dt * 10));
+      // Lock the *rendered* body direction for the entire roar. Acquire the
+      // initial target once, then ignore retargeting until the cast ends.
+      const holdSpiderBody = advancedEffects && id === "spider" && roarProgress !== undefined && !dead;
+      if (holdSpiderBody) {
+        if (u.prevRoarProgress < 0) u.rotY = wantRot;
+      } else {
+        let dRot = wantRot - u.rotY;
+        while (dRot > Math.PI) dRot -= Math.PI * 2;
+        while (dRot < -Math.PI) dRot += Math.PI * 2;
+        u.rotY += dRot * (1 - Math.exp(-dt * 10));
+      }
 
       const px = u.holder.position.x;
       const pz = u.holder.position.z;
@@ -3043,8 +3051,10 @@ export function Scene3D({
       // ground, never pops out of existence
       const corpseSink = dead ? -(1 - Math.min(1, Math.max(0, fade))) * 0.34 : 0;
       u.inner.position.y = flight ? 0 : bobY + hop + corpseSink;
-      u.inner.rotation.x = flight ? flight.pitch : u.inner.rotation.x * Math.exp(-dt * 16);
-      u.inner.rotation.z = flight ? flight.bank : u.inner.rotation.z * Math.exp(-dt * 16);
+      if (!holdSpiderBody) {
+        u.inner.rotation.x = flight ? flight.pitch : u.inner.rotation.x * Math.exp(-dt * 16);
+        u.inner.rotation.z = flight ? flight.bank : u.inner.rotation.z * Math.exp(-dt * 16);
+      }
 
       if (dead) {
         u.deadT += dt;
@@ -3123,6 +3133,17 @@ export function Scene3D({
         roarProgress,
         advancedEffects,
       );
+      if (holdSpiderBody) {
+        // Inspectable rendered transforms also make target-switch regressions
+        // testable without affecting the combat simulation.
+        const facing = u.holder.rotation.y.toFixed(5);
+        const body = [u.model.torso.rotation.x, u.model.torso.rotation.y, u.model.torso.rotation.z].map(v => v.toFixed(5)).join(",");
+        if (u.el.dataset.roarFacing !== facing) u.el.dataset.roarFacing = facing;
+        if (u.el.dataset.roarBody !== body) u.el.dataset.roarBody = body;
+      } else if (u.el.dataset.roarFacing !== undefined) {
+        delete u.el.dataset.roarFacing;
+        delete u.el.dataset.roarBody;
+      }
 
       if (flight && dive) {
         u.activeDiveId = dive.id;
@@ -3248,28 +3269,44 @@ export function Scene3D({
       }
     }
 
-    // A small voxel-style chest stands behind the neutral guards. The lid is
-    // a separate hinge; opening is visual only and never changes combat.
-    const chest = new THREE.Group();
-    // Contiguous voxel meshes expose only outer faces. No two materials
-    // occupy the same face, avoiding z-fighting during camera movement.
-    const chestMaterial = track(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.68, metalness: 0.12 }));
-    const chestBody = new THREE.Mesh(track(createChestGeometry("body")), chestMaterial);
-    chest.add(chestBody);
-    const chestLid = new THREE.Group();
-    chestLid.position.set(0, 0.46, -0.30);
-    chestLid.add(new THREE.Mesh(track(createChestGeometry("lid")), chestMaterial));
-    chest.add(chestLid);
-    const chestGlowMat = track(new THREE.MeshBasicMaterial({ color: 0xffca65, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
-    const chestGlow = new THREE.Mesh(track(new THREE.PlaneGeometry(0.56, 0.45)), chestGlowMat);
-    chestGlow.rotation.x = -Math.PI / 2; chestGlow.position.y = 0.13; chest.add(chestGlow);
-    const chestSparkMat = track(new THREE.MeshBasicMaterial({ color: 0xffd981, transparent: true, opacity: 0, depthWrite: false }));
-    const chestSparkGeo = track(new THREE.BoxGeometry(0.055, 0.055, 0.055));
-    const chestSparks = Array.from({ length: 6 }, (_, i) => {
-      const m = new THREE.Mesh(chestSparkGeo, chestSparkMat);
-      m.position.set(Math.sin(i * 2.4) * 0.22, 0.4, Math.cos(i * 2.4) * 0.16); chest.add(m); return m;
-    });
-    chest.position.set(COLS / 2, UNIT_GROUND, 0.86); chest.scale.setScalar(1.22); scene.add(chest);
+    // The advanced chest is a physically hinged model; the legacy build
+    // retains its original mesh and animation untouched.
+    const detailedChest = advancedEffects ? track(createDetailedChest()) : null;
+    const chest = detailedChest?.root ?? new THREE.Group();
+    let updateChest: (progress: number, time: number, reduced: boolean, potato: boolean) => void;
+    if (detailedChest) {
+      updateChest = detailedChest.update;
+    } else {
+      const chestMaterial = track(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.68, metalness: 0.12 }));
+      chest.add(new THREE.Mesh(track(createChestGeometry("body")), chestMaterial));
+      const lid = new THREE.Group();
+      lid.position.set(0, 0.46, -0.30);
+      lid.add(new THREE.Mesh(track(createChestGeometry("lid")), chestMaterial));
+      chest.add(lid);
+      const glowMat = track(new THREE.MeshBasicMaterial({ color: 0xffca65, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+      const glow = new THREE.Mesh(track(new THREE.PlaneGeometry(0.56, 0.45)), glowMat);
+      glow.rotation.x = -Math.PI / 2; glow.position.y = 0.13; chest.add(glow);
+      const sparkMat = track(new THREE.MeshBasicMaterial({ color: 0xffd981, transparent: true, opacity: 0, depthWrite: false }));
+      const sparkGeo = track(new THREE.BoxGeometry(0.055, 0.055, 0.055));
+      const sparks = Array.from({ length: 6 }, (_, i) => {
+        const m = new THREE.Mesh(sparkGeo, sparkMat);
+        m.position.set(Math.sin(i * 2.4) * 0.22, 0.4, Math.cos(i * 2.4) * 0.16); chest.add(m); return m;
+      });
+      updateChest = (progress, time, reduced, potato) => {
+        lid.rotation.x = -1.35 * (1 - Math.pow(1 - progress, 3));
+        glowMat.opacity = progress * 0.65;
+        sparkMat.opacity = progress * (potato ? 0 : 0.9);
+        sparks.forEach((spark, i) => {
+          const rise = reduced ? 0.4 : (time * 0.75 + i / sparks.length) % 1;
+          spark.position.y = 0.45 + rise * 0.8;
+          spark.scale.setScalar(reduced ? 1 : Math.max(0.05, Math.sin(rise * Math.PI)));
+        });
+      };
+    }
+    chest.position.set(COLS / 2, UNIT_GROUND, 0.86);
+    chest.scale.setScalar(advancedEffects ? 1.38 : 1.22);
+    if (advancedEffects) chest.rotation.y = -0.22; // reveal the side and depth on the board
+    scene.add(chest);
     let chestOpen = 0;
 
     function tick(now: number) {
@@ -3380,16 +3417,8 @@ export function Scene3D({
       chest.visible = !showcase && p.treasure;
       const shouldOpen = !!activeBattle && activeBattle.over === "ally";
       const reduceChestMotion = document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches;
-      chestOpen = shouldOpen ? (reduceChestMotion ? 1 : Math.min(1, chestOpen + dt * 2.3)) : 0;
-      chestLid.rotation.x = -1.35 * (1 - Math.pow(1 - chestOpen, 3));
-      chestGlowMat.opacity = chestOpen * 0.65;
-      chestSparkMat.opacity = chestOpen * (potatoOn ? 0 : 0.9);
-      for (let i = 0; i < chestSparks.length; i++) {
-        const spark = chestSparks[i];
-        const rise = reduceChestMotion ? 0.4 : (t * 0.75 + i / chestSparks.length) % 1;
-        spark.position.y = 0.45 + rise * 0.8;
-        spark.scale.setScalar(reduceChestMotion ? 1 : Math.max(0.05, Math.sin(rise * Math.PI)));
-      }
+      chestOpen = shouldOpen ? (reduceChestMotion ? 1 : Math.min(1, chestOpen + dt * (advancedEffects ? 1 / 1.15 : 2.3))) : 0;
+      updateChest(chestOpen, t, reduceChestMotion, potatoOn);
       if (activeBattle !== clockBattle) {
         clockBattle = activeBattle;
         visualBattleTime = activeBattle?.t ?? 0;

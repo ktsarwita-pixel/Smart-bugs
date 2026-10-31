@@ -1967,3 +1967,10 @@ html[data-motion="reduced"] .result-health__track > span { transition: none; }
     margin: 4px 8px; box-shadow: 0 5px 16px #000b;
   }
 }
+
+/* Actual unit health stays readable above the board, alongside the bar. */
+.ov-hp-value { color: #d8f8e9; font: 600 8px/1.1 var(--font-mono); letter-spacing: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ov-foe .ov-hp-value { color: #ffd3c6; }
+.ov-bars { min-width: 46px; }
+
+.colony-health small { font-size: .65em; color: #a99b88; }

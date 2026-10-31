@@ -63,6 +63,7 @@ interface UnitObj {
   el: HTMLElement;
   hpEl: HTMLElement;
   hpSegEl: HTMLElement;
+  hpTextEl: HTMLElement;
   energyEl: HTMLElement;
   pipsEl: HTMLElement;
   nameEl: HTMLElement;
@@ -71,6 +72,7 @@ interface UnitObj {
   ly: number;
   lhp: number;
   lmaxHp: number;
+  lhpText: string;
   lenergy: number;
   lvis: number;
   lsel: boolean;
@@ -1114,7 +1116,7 @@ export function Scene3D({
       const hub: Pt = [R + (rnd() - 0.5) * 22, R + (rnd() - 0.5) * 22];
       strand([[hub[0] - 5, hub[1]], [hub[0] + 5, hub[1]]], 2.2, 0.9);
       strand([[hub[0], hub[1] - 5], [hub[0], hub[1] + 5]], 2.2, 0.9);
-      const SPOKES = 26;
+      const SPOKES = 32;
       const spokeA: number[] = [];
       for (let i = 0; i < SPOKES; i++) {
         const a0 = (i / SPOKES) * Math.PI * 2 + (rnd() - 0.5) * 0.12;
@@ -1131,8 +1133,8 @@ export function Scene3D({
       let r = 20;
       let ring = 0;
       while (r < R * 1.04) {
-        const nextR = r * 1.16 + 5.5;
-        const breakP = 0.05 + Math.pow(r / R, 3) * 0.55; // rim wears out first
+        const nextR = r * 1.12 + 4.5;
+        const breakP = 0.02 + Math.pow(r / R, 3) * 0.18; // rim wears out first
         for (let i = 0; i < SPOKES; i++) {
           if (rnd() < breakP) continue; // missing segment — a broken strand
           const a0 = spokeA[i];
@@ -1154,7 +1156,7 @@ export function Scene3D({
       const corners: Pt[] = [[0, 0], [size, 0], [0, size], [size, size]];
       for (const [cx, cy] of corners) {
         const dir = Math.atan2(R - cy, R - cx);
-        for (let a = 0; a < 5; a++) {
+        for (let a = 0; a < 8; a++) {
           const rad = 24 + a * 24 + rnd() * 8;
           const a0 = dir - 0.78 + rnd() * 0.14;
           const a1 = dir + 0.78 - rnd() * 0.14;
@@ -1301,9 +1303,8 @@ export function Scene3D({
 
     // Ground web layer: each web is a TATTERED old-cloth drape pinned into
     // all four corners. The grand web is one huge sheet spanning the whole
-    // board (plus a counter-rotating under-layer that shimmers through the
-    // holes); each After-Web snare is the same cloth at 3×3 scale.
-    const WEB_POOL_N = 24; // 2 full grand kits (drape+wash+walls+rigging = 10) + 2 snare kits (2) — exact fit
+    // board; each After-Web snare uses one sheet at 3×3 scale.
+    const WEB_POOL_N = 24; // pooled sheets; each grand uses one floor and four walls
     const webGeo = new THREE.PlaneGeometry(1, 1);
     const webMat = new THREE.MeshBasicMaterial({
       map: webTex ?? undefined,
@@ -1387,8 +1388,10 @@ export function Scene3D({
 
     // Grand web's suspended silk canopy. One dynamic line draw call for all
     // active ultimates, rather than hundreds of individual meshes/materials.
-    const CANOPY_RAYS = 20, CANOPY_STEPS = 10, CANOPY_RINGS = 4, MAX_CANOPIES = 2;
+    const CANOPY_RAYS = 24, CANOPY_STEPS = 6, CANOPY_RINGS = 9, MAX_CANOPIES = 2;
     const canopyCapacity = MAX_CANOPIES * (CANOPY_RAYS * CANOPY_STEPS + CANOPY_RINGS * CANOPY_RAYS) * 2;
+    const canopyCos = Array.from({ length: CANOPY_RAYS + 1 }, (_, i) => Math.cos(i * Math.PI * 2 / CANOPY_RAYS));
+    const canopySin = Array.from({ length: CANOPY_RAYS + 1 }, (_, i) => Math.sin(i * Math.PI * 2 / CANOPY_RAYS));
     const canopyPositions = new Float32Array(canopyCapacity * 3);
     const canopyColors = new Float32Array(canopyCapacity * 3);
     const canopyGeo = new THREE.BufferGeometry();
@@ -1444,24 +1447,10 @@ export function Scene3D({
         const grand = w.kind === "grand";
         const age = (webAge.get(w.id) ?? 0) + dt;
         webAge.set(w.id, age);
-        // — spawn → SPREAD timeline —
-        // grow: the silk seed drops in with an elastic overshoot, blooming
-        // from the strike point to its full rect (the spread itself)
-        // wk:   once the floor cloth has landed, the nest walls race up the
-        //       drawer sides and the sacs pop — the nest assembles itself.
-        // — AFTER WEB delivery: the snare is FLUNG — a thrown net dropping
-        // from above (ease-in fall), landing with a little extra spin that
-        // settles as it touches the floor, and only then blooming outward.
-        const dropT = grand ? 1 : Math.min(1, age / 0.26);
-        const dropY = (1 - dropT) * (1 - dropT) * 2.7;
-        const settle = 1 - dropT; // 1 in flight → 0 landed
-        const k = Math.min(1, Math.max(0, age - (grand ? 0 : 0.26)) / 0.55);
-        const back = 1 + 2.70158 * Math.pow(k - 1, 3) + 1.70158 * Math.pow(k - 1, 2);
-        const grow = 0.07 + 0.93 * back; // seed → overshoot ≈ 1.05 → 1
-        // landing TWANG: fresh silk oscillates and damps (fed through the
-        // containment fit below, so the wobble can never push silk out)
-        const twA = age - (grand ? 0 : 0.26);
-        const twang = twA > 0 ? 1 + Math.sin(twA * 13) * 0.05 * Math.exp(-2.6 * twA) : 1;
+        // The projectile has already landed. Reveal one anchored sheet once,
+        // with a monotonic ease-out instead of a second drop or elastic pop.
+        const k = Math.min(1, age / 0.48);
+        const grow = 0.12 + 0.88 * (1 - Math.pow(1 - k, 3));
         // end-of-life DISSOLVE: the snare shrinks and darkens in its last
         // 0.7s instead of popping out of existence
         const dissolve = w.life === undefined ? 1 : Math.max(0, Math.min(1, (w.life ?? 5) / 0.7));
@@ -1472,15 +1461,14 @@ export function Scene3D({
         const billowX = (1 + Math.sin(time * 0.9 + w.id * 2.1) * 0.03) * gust;
         const billowZ = (1 + Math.cos(time * 0.7 + w.id * 1.3) * 0.03) * gust;
         // desired sheet rect (before containment)
-        const dw = (grand ? COLS + 0.9 : w.half * 2 + 0.6) * billowX * grow * twang;
-        const dh = (grand ? ROWS + 0.9 : w.half * 2 + 0.6) * billowZ * grow * twang;
+        const dw = (grand ? COLS + 0.9 : w.half * 2 + 0.6) * billowX * grow;
+        const dh = (grand ? ROWS + 0.9 : w.half * 2 + 0.6) * billowZ * grow;
         // CONTAINMENT LAW — exact for any spin, billow or pop (see fitSpin).
         // The grand drape keeps spin 0 and is clamped per-axis so it still
         // touches all four corners; snares use the tamed variety spin and
         // the aspect-locked rotated fit, then the center is pinned so even
         // the spun corners stay inside the drawer.
-        let rot = grand ? 0 : Math.sin(time * 0.5 + w.id * 2.4) * 0.05 + ((w.id % 5) - 2) * 0.21;
-        if (!grand) rot *= 1 + 2.2 * settle;
+        const rot = grand ? 0 : Math.sin(time * 0.5 + w.id * 2.4) * 0.05 + ((w.id % 5) - 2) * 0.21;
         const sw = (grand ? Math.min(dw, COLS) : dw * fitSpin(dw, dh, rot, COLS, ROWS)) * dScale;
         const sh2 = (grand ? Math.min(dh, ROWS) : dh * fitSpin(dw, dh, rot, COLS, ROWS)) * dScale;
         const rc = Math.abs(Math.cos(rot));
@@ -1513,49 +1501,11 @@ export function Scene3D({
         webS.set(sw, sh2, 1);
         webE.set(-Math.PI / 2, 0, rot);
         webQ.setFromEuler(webE);
-        projTmp.set(cx, 0.052 + dropY, cz);
+        projTmp.set(cx, 0.052, cz);
         m4.compose(projTmp, webQ, webS);
         webMesh.setMatrixAt(n, m4);
         webMesh.setColorAt(n, projCol.setHex(tint));
         n++;
-        // layer 2 (snares only): counter-drifting under-sheet — the grand
-        // skips it: a full-board translucent quad saved every single frame
-        if (!grand && n < WEB_POOL_N) {
-          const rot2 = -rot * 1.7 - 0.035;
-          const uw = sw * 0.92;
-          const uh = sh2 * 0.92;
-          // it shares the main center, so its own spun footprint must fit
-          // the box that center leaves to the drawer walls
-          const aw = 2 * Math.min(cx, COLS - cx);
-          const ah = 2 * Math.min(cz, ROWS - cz);
-          const fit2 = fitSpin(uw, uh, rot2, aw, ah);
-          webS.set(uw * fit2, uh * fit2, 1);
-          webE.set(-Math.PI / 2, 0, rot2);
-          webQ.setFromEuler(webE);
-          projTmp.set(cx, 0.085 + dropY, cz);
-          m4.compose(projTmp, webQ, webS);
-          webMesh.setMatrixAt(n, m4);
-          webMesh.setColorAt(n, projCol.setHex(grand ? 0x8f6cc8 : 0xbfa0f0));
-          n++;
-        }
-        // layer 3 (grand): the SPREAD WAVE — a bright sheet flooding outward
-        // from the strike point across the whole floor, then fading into
-        // the drape. Drawn only while it moves: after ~1s it has merged
-        // with the drape and the instance slot is freed for good.
-        if (grand && age < 1.05 && n < WEB_POOL_N) {
-          const wp = Math.min(1, age / 0.9);
-          const washK = 0.22 + 0.78 * (1 - Math.pow(1 - wp, 3));
-          webS.set(sw * washK, sh2 * washK, 1);
-          webE.set(-Math.PI / 2, 0, 0);
-          webQ.setFromEuler(webE);
-          projTmp.set(cx, 0.066, cz);
-          m4.compose(projTmp, webQ, webS);
-          webMesh.setMatrixAt(n, m4);
-          colA.setHex(0xf4e6ff);
-          colB.setHex(0x241634);
-          webMesh.setColorAt(n, colA.lerp(colB, wp * 0.92));
-          n++;
-        }
         // NEST WALLS: silk sheets lining the drawer's INNER faces — tops tip
         // toward the board center, so nothing ever crosses the frame plane.
         // They rise only after the floor cloth has spread (nest-style).
@@ -1590,56 +1540,7 @@ export function Scene3D({
             webMesh.setColorAt(n, projCol.setHex(wallTint));
             n++;
           }
-          // SILK RIGGING: four taut guy-lines from the wall tops to the
-          // drawer corners — the nest's ropes. Thin sloped ribbons with a
-          // tiny yaw sway; every endpoint stays inside the board.
-          const rig: [number, number, number, number, number][] = [
-            [COLS / 2, ROWS - 0.1, COLS - 0.15, ROWS - 0.15, 0], // N top -> NE
-            [COLS - 0.1, ROWS / 2, COLS - 0.15, 0.15, 1], //        E top -> SE
-            [COLS / 2, 0.1, 0.15, 0.15, 2], //                      S top -> SW
-            [0.1, ROWS / 2, 0.15, ROWS - 0.15, 3], //               W top -> NW
-          ];
-          // mid-edge guys: drape rim rises to the wall tops at N/S/E/W
-          const mids: [number, number, number, number][] = [
-            [COLS / 2, ROWS - 0.75, COLS / 2, ROWS - 0.1],
-            [COLS / 2, 0.75, COLS / 2, 0.1],
-            [0.75, ROWS / 2, 0.1, ROWS / 2],
-            [COLS - 0.75, ROWS / 2, COLS - 0.1, ROWS / 2],
-          ];
-          for (const [ax, az, bx, bz] of mids) {
-            if (n >= WEB_POOL_N) break;
-            const dx = bx - ax;
-            const dz = bz - az;
-            const dy = 0.05 - wallH;
-            const len = Math.hypot(dx, dy, dz);
-            const yaw = Math.atan2(dx, dz);
-            const pitch = Math.acos(Math.max(-1, Math.min(1, dy / len)));
-            webE.set(pitch, yaw, 0, "YXZ");
-            webQ.setFromEuler(webE);
-            webS.set(0.045, len, 1);
-            projTmp.set((ax + bx) / 2, (wallH + 0.05) / 2, (az + bz) / 2);
-            m4.compose(projTmp, webQ, webS);
-            webMesh.setMatrixAt(n, m4);
-            webMesh.setColorAt(n, projCol.setHex(0xcdb6f2));
-            n++;
-          }
-          for (const [ax, az, bx, bz, gi] of rig) {
-            if (n >= WEB_POOL_N) break;
-            const dx = bx - ax;
-            const dz = bz - az;
-            const dy = 0.06 - wallH;
-            const len = Math.hypot(dx, dy, dz);
-            const yaw = Math.atan2(dx, dz) + Math.sin(time * 1.3 + gi * 1.9 + w.id) * 0.02;
-            const pitch = Math.acos(Math.max(-1, Math.min(1, dy / len)));
-            webE.set(pitch, yaw, 0, "YXZ");
-            webQ.setFromEuler(webE);
-            webS.set(0.06, len, 1);
-            projTmp.set((ax + bx) / 2, (wallH + 0.06) / 2, (az + bz) / 2);
-            m4.compose(projTmp, webQ, webS);
-            webMesh.setMatrixAt(n, m4);
-            webMesh.setColorAt(n, projCol.setHex(0xc9aaf5));
-            n++;
-          }
+
         }
         // Curved radial silk and cross-threads form a luminous suspended
         // dome above the grand web. Every point remains within the board.
@@ -1649,11 +1550,12 @@ export function Scene3D({
           const fade = Math.min(1, age / 0.3) * dissolve;
           const motion = document.documentElement.dataset.motion !== "reduced";
           const phase = motion ? time : 0;
-          const vertex = (angle: number, radius: number) => {
+          const vertex = (ray: number, radius: number) => {
+            const angle = ray * Math.PI * 2 / CANOPY_RAYS;
             const dome = (1 - radius * radius) * (1.15 + 0.06 * Math.sin(phase * 1.6 + w.id));
-            canopyPositions[canopyVertices * 3] = cx + Math.cos(angle) * sw * 0.46 * radius;
+            canopyPositions[canopyVertices * 3] = cx + canopyCos[ray] * sw * 0.46 * radius;
             canopyPositions[canopyVertices * 3 + 1] = 0.09 + dome * rise;
-            canopyPositions[canopyVertices * 3 + 2] = cz + Math.sin(angle) * sh2 * 0.46 * radius;
+            canopyPositions[canopyVertices * 3 + 2] = cz + canopySin[ray] * sh2 * 0.46 * radius;
             const pulse = (0.55 + 0.45 * Math.max(0, Math.sin(phase * 2.2 - radius * 8 + angle * 2))) * fade;
             canopyColors[canopyVertices * 3] = 0.55 * pulse;
             canopyColors[canopyVertices * 3 + 1] = 0.36 * pulse;
@@ -1661,17 +1563,16 @@ export function Scene3D({
             canopyVertices++;
           };
           for (let ray = 0; ray < CANOPY_RAYS; ray++) {
-            const a = ray * Math.PI * 2 / CANOPY_RAYS;
             for (let step = 0; step < CANOPY_STEPS; step++) {
-              vertex(a, step / CANOPY_STEPS);
-              vertex(a, (step + 1) / CANOPY_STEPS);
+              vertex(ray, step / CANOPY_STEPS);
+              vertex(ray, (step + 1) / CANOPY_STEPS);
             }
           }
           for (let ring = 1; ring <= CANOPY_RINGS; ring++) {
             const r = ring / (CANOPY_RINGS + 1);
             for (let ray = 0; ray < CANOPY_RAYS; ray++) {
-              vertex(ray * Math.PI * 2 / CANOPY_RAYS, r);
-              vertex((ray + 1) * Math.PI * 2 / CANOPY_RAYS, r);
+              vertex(ray, r);
+              vertex(ray + 1, r);
             }
           }
         }
@@ -1707,7 +1608,7 @@ export function Scene3D({
         // DEW GLINTS: 12 sparks per web scattered inside the sheet's
         // half-extent × 0.94 (containment inherited), each twinkling on its
         // golden-ratio phase — light catching the droplets as the silk sways.
-        const GN = potatoOn ? 0 : grand ? 14 : 8;
+        const GN = potatoOn ? 0 : grand ? 10 : 5;
         for (let gi = 0; gi < GN && glintN < GLINT_N; gi++) {
           const ph = glintPhase[glintN % GLINT_N];
           const tw = Math.max(0, Math.sin(time * 2.4 + ph * Math.PI * 2 + w.id * 1.3));
@@ -1718,7 +1619,7 @@ export function Scene3D({
           const gs = 0.035 + tw * 0.045;
           glintQ.setFromEuler(webE.set(-Math.PI / 2, 0, 0));
           glintS.set(gs, gs, 1);
-          projTmp.set(gx, 0.105 + dropY, gz);
+          projTmp.set(gx, 0.105, gz);
           glintM.compose(projTmp, glintQ, glintS);
           glintMesh.setMatrixAt(glintN, glintM);
           glintN++;
@@ -2369,13 +2270,14 @@ export function Scene3D({
       const el = document.createElement("div");
       el.className = "ov-unit";
       el.innerHTML =
-        '<div class="ov-bars"><div class="ov-hp"><i></i><b class="ov-hp-seg"></b></div><div class="ov-energy"><i></i></div></div>' +
+        '<div class="ov-bars"><span class="ov-hp-value"></span><div class="ov-hp"><i></i><b class="ov-hp-seg"></b></div><div class="ov-energy"><i></i></div></div>' +
         '<div class="ov-pips"></div><div class="ov-name"></div>';
       ovEl.appendChild(el);
       return {
         el,
         hpEl: el.querySelector(".ov-hp i") as HTMLElement,
         hpSegEl: el.querySelector(".ov-hp-seg") as HTMLElement,
+        hpTextEl: el.querySelector(".ov-hp-value") as HTMLElement,
         energyEl: el.querySelector(".ov-energy i") as HTMLElement,
         pipsEl: el.querySelector(".ov-pips") as HTMLElement,
         nameEl: el.querySelector(".ov-name") as HTMLElement,
@@ -2486,6 +2388,7 @@ export function Scene3D({
         ly: -999,
         lhp: -1,
         lmaxHp: -1,
+        lhpText: "",
         lenergy: -1,
         lvis: -1,
         lsel: false,
@@ -3032,13 +2935,18 @@ export function Scene3D({
         // Rebuilt only when the max actually changes (star-up / new unit).
         if (u.lmaxHp !== maxHp) {
           u.lmaxHp = maxHp;
-          const segs = Math.round(maxHp / 100);
+          const segs = Math.min(12, Math.max(1, Math.round(maxHp / 100)));
           u.hpSegEl.innerHTML = "";
           for (let k = 1; k < segs; k++) {
             const tick = document.createElement("b");
             tick.style.left = `${(k / segs) * 100}%`;
             u.hpSegEl.appendChild(tick);
           }
+        }
+        const hpText = `${Math.max(0, Math.ceil(hp))}/${Math.ceil(maxHp)}`;
+        if (hpText !== u.lhpText) {
+          u.lhpText = hpText;
+          u.hpTextEl.textContent = hpText;
         }
         const hpPct = Math.round(Math.max(0, Math.min(100, (hp / Math.max(1, maxHp)) * 100)));
         if (hpPct !== u.lhp) {

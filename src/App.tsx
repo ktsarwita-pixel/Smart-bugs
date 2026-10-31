@@ -1650,7 +1650,7 @@ export default function App() {
               <div className="deck-cluster">
                 <div className="deck-stat" title={t("Your colony HP — reach zero and you're out")}>
                   <IconHeart size={14} />
-                  <span className="deck-num" style={{ color: hp > 30 ? "#56DCA8" : "#F05A36" }}>{hp}</span>
+                  <span className="deck-num colony-health" style={{ color: hp > 30 ? "#56DCA8" : "#F05A36" }}>{hp}<small>/{STARTING_COLONY_HP}</small></span>
                   <span className="deck-cap">{t("Colony HP")}</span>
                 </div>
                 <div className="deck-stat" title={tf("Round {r} — {n} colonies still alive", { r: round + 1, n: activeCount })}>

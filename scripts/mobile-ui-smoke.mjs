@@ -42,9 +42,9 @@ try {
     await page.locator('.ladder-detail button').tap();
     assert.equal(await ladderButton.getAttribute('aria-expanded'), 'false');
     const lock = page.locator('.shop-toggle').last();
-    const lockBefore = await lock.boundingBox();
+    const lockBefore = await lock.evaluate(el => ({ width: el.offsetWidth, height: el.offsetHeight }));
     await lock.tap();
-    const lockAfter = await lock.boundingBox();
+    const lockAfter = await lock.evaluate(el => ({ width: el.offsetWidth, height: el.offsetHeight }));
     assert.equal(lockAfter.width, lockBefore.width, `${width}: lock button resized`);
     assert.equal(lockAfter.height, lockBefore.height, `${width}: lock button changed height`);
     assert.equal(await lock.getAttribute('aria-pressed'), 'true', `${width}: lock did not activate`);
@@ -105,6 +105,8 @@ try {
     assert.equal(await bench.count(), 0, `${width}: tapping bench centre did not deploy`);
     await page.getByRole('button', { name: /Engage battle/ }).tap();
     await page.getByText('COMBAT TELEMETRY').waitFor();
+    await page.locator('.ov-unit.ov-battle .ov-hp-value').first().waitFor({ state: 'attached' });
+    assert.match(await page.locator('.ov-unit.ov-battle .ov-hp-value').first().textContent(), /^\d+\/\d+$/, `${width}: missing current/max unit health`);
     await page.getByRole('button', { name: '2×' }).tap();
     assert.equal(await page.getByRole('button', { name: '2×' }).getAttribute('aria-pressed'), 'true', `${width}: battle control did not respond`);
     console.log(`PASS ${width}x${height}`);

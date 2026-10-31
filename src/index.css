@@ -2102,3 +2102,26 @@ html[data-background="light"] .shop-heading .shop-toggle[aria-pressed="true"] { 
 .fight-banner .fight-flare__word { padding:0; border:0; background:none; box-shadow:none; font-size:clamp(19px,6vw,32px); color:#fff1c9; animation:none; }
 .fight-banner__sub { color:#dbb66f; font-size:8px; letter-spacing:.12em; margin-top:5px; }
 @media (max-width:380px) { .round-track--compact { gap:2px; padding:2px; } .round-track--compact .round-track__title { font-size:8px; } .round-track--compact .round-track__cell { width:8px; height:8px; } .round-track--compact svg { width:7px; height:7px; } .round-track:not(.round-track--compact) { gap:4px; } .round-track:not(.round-track--compact) .round-track__cell { width:16px; height:16px; } }
+/* Encounter progress is icon-only and monochrome. Shape conveys type; the
+   outlined active cell and opacity convey position without relying on colour. */
+.round-track { justify-content:center; gap:0; padding:5px; border-color:#5b5b5b; background:#202020; box-shadow:inset 0 0 0 1px #090909; }
+.round-track__cells { gap:3px; }
+.round-track__cell,.round-track__cell[data-state="past"],.round-track__cell[data-state="future"],.round-track__cell[data-state="current"] { width:22px; height:22px; background:#171717; border:1px solid transparent; box-shadow:none; color:#c5c5c5; opacity:.55; }
+.round-track__cell[data-state="past"] { opacity:.38; }
+.round-track__cell[data-state="current"] { border:2px solid #f0f0f0; color:#fff; opacity:1; }
+.round-track__icon { display:block; width:16px; height:16px; }
+.round-track--compact { padding:2px; min-height:30px; }
+.round-track--compact .round-track__cells { gap:1px; }
+.round-track--compact .round-track__cell { width:14px; height:19px; }
+.round-track--compact .round-track__icon { width:12px; height:12px; }
+@media (max-width:380px) { .round-track--compact .round-track__cell { width:12px; height:18px; } .round-track--compact .round-track__icon { width:10px; height:10px; } .round-track:not(.round-track--compact) .round-track__cell { width:20px; height:20px; } }
+.pixel-treasure { display:block; flex:none; width:76px; height:76px; overflow:visible; image-rendering:pixelated; }
+.pixel-treasure__lid { transform-origin:9px 28px; }
+.pixel-treasure__loot { opacity:0; }
+.pixel-treasure--open .pixel-treasure__lid { animation:pixel-treasure-open 600ms steps(6,end) forwards; }
+.pixel-treasure--open .pixel-treasure__loot { animation:pixel-treasure-loot 420ms steps(3,end) 400ms forwards; }
+@keyframes pixel-treasure-open { to { transform:rotate(-62deg); } }
+@keyframes pixel-treasure-loot { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .pixel-treasure--open .pixel-treasure__lid { animation:none; transform:rotate(-62deg); } .pixel-treasure--open .pixel-treasure__loot { animation:none; opacity:1; } }
+html[data-motion="reduced"] .pixel-treasure--open .pixel-treasure__lid { animation:none; transform:rotate(-62deg); }
+html[data-motion="reduced"] .pixel-treasure--open .pixel-treasure__loot { animation:none; opacity:1; }

@@ -152,6 +152,8 @@ export interface Web {
   id: number;
   owner: "ally" | "foe";
   kind: "grand" | "snare";
+  /** Simulation time at landing, for presentation timing only. */
+  spawnedAt?: number;
   x: number;
   y: number;
   /** coverage: enemies within this radius of (x, y) are ON the web */
@@ -382,6 +384,7 @@ function landWeb(b: BattleState, src: BUnit, kind: "grand" | "snare", x: number,
       id: b.nid++,
       owner: src.side,
       kind: "grand",
+      spawnedAt: b.t,
       x: COLS / 2,
       y: ROWS / 2,
       half: 999, // the entire board

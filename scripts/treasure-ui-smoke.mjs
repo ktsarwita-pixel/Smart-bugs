@@ -14,6 +14,12 @@ try {
     const track = page.locator('.round-track--compact');
     assert.match(await track.getAttribute('aria-label'), new RegExp(`PERIOD 1.*ROUND ${round}/4`));
     assert.equal(await track.locator('.round-track__cell').count(),4);
+    assert.equal(await track.locator('.round-track__icon').count(),4);
+    assert.equal(await track.locator('.round-track__cell[data-treasure="1"] svg').count(),2);
+    assert.equal(await track.locator('.round-track__cell[data-treasure="0"] svg').count(),2);
+    const colors = await track.locator('.round-track__cell').evaluateAll(els => els.map(el => getComputedStyle(el).color));
+    for (const color of colors) { const rgb = color.match(/\d+/g).map(Number); assert.equal(rgb[0],rgb[1]); assert.equal(rgb[1],rgb[2]); }
+
     assert.equal(await track.locator('.round-track__cell[data-state="current"]').count(),1);
     assert.equal(await track.locator('.round-track__cell[data-treasure="1"]').count(),2);
     if (round===1 || round===4) assert.ok(await page.getByText('TREASURE GUARDS').count()>0);
@@ -27,6 +33,7 @@ try {
     assert.equal(await page.locator('.result-period .round-track__cell').count(),4);
     if (round===1 || round===4) {
       assert.equal(await page.locator('.treasure-result').count(),1);
+      assert.equal(await page.locator('.pixel-treasure--open').count(),1);
       assert.equal(await page.locator('.treasure-loot > span').count(),2);
       if(round===4) assert.match(await page.locator('.treasure-result').innerText(),/\+25G/);
       assert.equal(await page.locator('.result-health__change').getAttribute('data-loss'),'0');

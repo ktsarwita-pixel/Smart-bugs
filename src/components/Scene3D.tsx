@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { BUGS, COMMANDERS, SPECIMEN_IDS, type BugId, type CmdId } from "../game/data";
 import { COLS, ROWS, boardXY, type BattleState, type BUnit, type Zone, type PrepUnit } from "../game/engine";
+import { GRAND_WEB_GROW_SECONDS, grandWebGrowth } from "../game/web-growth";
 import { buildVoxelModel, dotTexture, warmVoxelCache, V, type VoxModel } from "../game/voxel";
 import { animateInsectRig } from "../game/animate";
 import { useSettings } from "../i18n";
@@ -1450,9 +1452,18 @@ export function Scene3D({
     const colB = new THREE.Color();
     const reducedMotionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
 
-    function updateWebs(b: BattleState | null, time: number, dt: number) {
+    function updateWebs(b: BattleState | null, time: number) {
       if (showcase) return;
-      if (!b || !b.webs.length) {
+      // If combat finishes while an already-fired ultimate is in flight,
+      // complete its visual reveal without creating a gameplay web or damage.
+      const pendingGrand = b?.over ? b.pending.filter(hit => hit.kind === "webgrand") : [];
+      const visualWebs = b ? (pendingGrand.length ? [...b.webs, ...pendingGrand.map(hit => ({
+        id: hit.id, kind: "grand" as const,
+        owner: b.units.find(unit => unit.uid === hit.fromUid)?.side ?? "ally" as const,
+        x: COLS / 2, y: ROWS / 2, half: 999, slowPct: 0, dotDps: 0,
+        snareDmg: 0, tickIn: 1, inside: new Set<number>(), rot: 0, life: undefined,
+      }))] : b.webs) : [];
+      if (!visualWebs.length) {
         if (webMesh.count !== 0) webMesh.count = 0;
         if (snareRim.count !== 0) snareRim.count = 0;
         if (growthMesh.count !== 0) growthMesh.count = 0;
@@ -1463,7 +1474,7 @@ export function Scene3D({
         webAge.clear();
         return;
       }
-      const liveIds = new Set(b.webs.map((w) => w.id));
+      const liveIds = new Set(visualWebs.map((w) => w.id));
       for (const id of Array.from(webAge.keys())) if (!liveIds.has(id)) webAge.delete(id);
       let n = 0;
       let rimN = 0;
@@ -1474,15 +1485,19 @@ export function Scene3D({
       const motionEnabled = document.documentElement.dataset.motion !== "reduced" && !reducedMotionMedia.matches;
       const silkTime = motionEnabled ? time : 0;
       let canopyCount = 0;
-      for (const w of b.webs) {
+      for (const w of visualWebs) {
         const grand = w.kind === "grand";
-        const age = (webAge.get(w.id) ?? 0) + dt;
-        webAge.set(w.id, age);
+        // Use elapsed wall time rather than frame-counted dt: on slow mobile
+        // GPUs dt is capped, which previously made the reveal crawl or be
+        // hidden by the result dialog before it could reach the drawer edges.
+        const now = performance.now() / 1000;
+        const started = webAge.get(w.id) ?? now;
+        if (!webAge.has(w.id)) webAge.set(w.id, started);
+        const age = Math.max(0, now - started);
         // The projectile has already landed. Reveal one anchored sheet once,
         // with a monotonic ease-out instead of a second drop or elastic pop.
-        const k = motionEnabled ? Math.min(1, age / (grand ? 1.35 : 0.48)) : 1;
-        const eased = grand ? k * k * (3 - 2 * k) : 1 - Math.pow(1 - k, 3);
-        const grow = 0.06 + 0.94 * eased;
+        const k = motionEnabled ? Math.min(1, age / (grand ? GRAND_WEB_GROW_SECONDS : 0.48)) : 1;
+        const grow = grand ? grandWebGrowth(age, motionEnabled) : 0.06 + 0.94 * (1 - Math.pow(1 - k, 3));
         // end-of-life DISSOLVE: the snare shrinks and darkens in its last
         // 0.7s instead of popping out of existence
         const dissolve = w.life === undefined ? 1 : Math.max(0, Math.min(1, (w.life ?? 5) / 0.7));
@@ -1493,8 +1508,8 @@ export function Scene3D({
         const billowX = (1 + Math.sin(silkTime * 0.9 + w.id * 2.1) * 0.03) * gust;
         const billowZ = (1 + Math.cos(silkTime * 0.7 + w.id * 1.3) * 0.03) * gust;
         // desired sheet rect (before containment)
-        const dw = (grand ? COLS + 0.9 : w.half * 2 + 0.6) * billowX * grow;
-        const dh = (grand ? ROWS + 0.9 : w.half * 2 + 0.6) * billowZ * grow;
+        const dw = grand ? COLS * grow : (w.half * 2 + 0.6) * billowX * grow;
+        const dh = grand ? ROWS * grow : (w.half * 2 + 0.6) * billowZ * grow;
         // CONTAINMENT LAW — exact for any spin, billow or pop (see fitSpin).
         // The grand drape keeps spin 0 and is clamped per-axis so it still
         // touches all four corners; snares use the tamed variety spin and
@@ -1560,7 +1575,7 @@ export function Scene3D({
         // toward the board center, so nothing ever crosses the frame plane.
         // They rise only after the floor cloth has spread (nest-style).
         if (grand) {
-          const wk = Math.min(1, Math.max(0, (age - 0.65) / 0.65));
+          const wk = Math.min(1, Math.max(0, (age - 1.45) / 0.65));
           const wBack = 1 + 2.70158 * Math.pow(wk - 1, 3) + 1.70158 * Math.pow(wk - 1, 2);
           const wallH = Math.max(0.02, 0.95 * (motionEnabled ? wBack : 1));
           const lean = 0.16; // tops tip INWARD, against the drawer
@@ -1596,7 +1611,7 @@ export function Scene3D({
         // dome above the grand web. Every point remains within the board.
         if (grand && !potatoOn && canopyCount < MAX_CANOPIES) {
           canopyCount++;
-          const rise = motionEnabled ? Math.min(1, Math.max(0, (age - 0.25) / 1.05)) : 1;
+          const rise = motionEnabled ? Math.min(1, Math.max(0, (age - 0.20) / 1.8)) : 1;
           const fade = (motionEnabled ? Math.min(1, age / 0.3) : 1) * dissolve;
           const phase = silkTime;
           const vertex = (ray: number, radius: number) => {
@@ -1613,7 +1628,7 @@ export function Scene3D({
           };
           // Silk spins outward from the nest before the cross-threads appear.
           // The same fixed buffer is reused; reduced motion shows it immediately.
-          const reveal = motionEnabled ? Math.min(1, age / 1.35) : 1;
+          const reveal = 1; // the sheet itself expands, so silk stays at its edge
           for (let ray = 0; ray < CANOPY_RAYS; ray++) {
             for (let step = 0; step < CANOPY_STEPS; step++) {
               const start = step / CANOPY_STEPS;
@@ -1636,7 +1651,7 @@ export function Scene3D({
         // EGG SACS: small flattened ivory sacs CLUSTERED around the center
         // web (the nest's heart) — tucked low, half-sunk into the cloth,
         // popping in only after the floor has spread.
-        const sacPop = motionEnabled ? Math.min(1, Math.max(0, (age - (grand ? 0.25 : 0.2)) / 0.45)) : 1;
+        const sacPop = motionEnabled ? Math.min(1, Math.max(0, (age - (grand ? 1.05 : 0.2)) / 0.45)) : 1;
         const sacBack = Math.max(0, 1 + 2.70158 * Math.pow(sacPop - 1, 3) + 1.70158 * Math.pow(sacPop - 1, 2));
         const sacCount = grand ? 5 : 2;
         const sacBase = grand ? 0.115 : 0.09;
@@ -3055,20 +3070,44 @@ export function Scene3D({
     const chestGold = track(new THREE.MeshStandardMaterial({ color: 0xe1a43a, metalness: 0.55, roughness: 0.35 }));
     const chestBox = (w: number, h: number, d: number, mat: THREE.Material, x: number, y: number, z: number, parent: THREE.Group) => {
       const mesh = new THREE.Mesh(track(new THREE.BoxGeometry(w, h, d)), mat);
-      mesh.position.set(x, y, z); parent.add(mesh);
+      mesh.position.set(x, y, z); mesh.userData.chestStatic = true; parent.add(mesh);
     };
-    chestBox(0.82, 0.42, 0.56, chestWood, 0, 0.21, 0, chest);
-    chestBox(0.86, 0.08, 0.6, chestGold, 0, 0.06, 0, chest);
-    chestBox(0.12, 0.43, 0.57, chestGold, 0, 0.23, 0, chest);
-    // Pixel-cut edging, corner rivets and a front-facing latch.
-    chestBox(0.15, 0.17, 0.06, chestGold, 0, 0.34, 0.30, chest);
-    for (const x of [-0.34, 0.34]) {
-      chestBox(0.07, 0.42, 0.59, chestGold, x, 0.21, 0, chest);
-      chestBox(0.09, 0.08, 0.03, chestGold, x, 0.32, 0.30, chest);
+    const chestDark = track(new THREE.MeshStandardMaterial({ color: 0x26170f, roughness: 0.88 }));
+    const chestLightWood = track(new THREE.MeshStandardMaterial({ color: 0x90502a, roughness: 0.78 }));
+    const chestGoldLight = track(new THREE.MeshStandardMaterial({ color: 0xffcd66, metalness: 0.45, roughness: 0.4 }));
+    // Hollow wooden coffer, assembled from squared planks and substantial
+    // metal corner caps. The interior is genuinely visible when the lid lifts.
+    chestBox(0.88, 0.07, 0.60, chestDark, 0, 0.055, 0, chest);
+    chestBox(0.76, 0.05, 0.48, chestLightWood, 0, 0.10, 0, chest);
+    for (const z of [-0.26, 0.26]) {
+      chestBox(0.84, 0.36, 0.08, chestWood, 0, 0.25, z, chest);
+      for (const y of [0.16, 0.26, 0.36]) {
+        chestBox(0.77, 0.012, 0.014, chestDark, 0, y, z + Math.sign(z) * 0.047, chest);
+      }
     }
+    for (const x of [-0.39, 0.39]) {
+      chestBox(0.08, 0.36, 0.46, chestWood, x, 0.25, 0, chest);
+      chestBox(0.09, 0.40, 0.10, chestGold, x, 0.25, -0.25, chest);
+      chestBox(0.09, 0.40, 0.10, chestGold, x, 0.25, 0.25, chest);
+      for (const y of [0.15, 0.34]) for (const z of [-0.31, 0.31])
+        chestBox(0.035, 0.035, 0.02, chestGoldLight, x, y, z, chest);
+    }
+    chestBox(0.88, 0.06, 0.62, chestGold, 0, 0.075, 0, chest);
+    chestBox(0.86, 0.045, 0.60, chestGold, 0, 0.43, 0, chest);
+    // Raised clasp, keyhole and bright pixel rivets on the near face.
+    chestBox(0.19, 0.18, 0.035, chestDark, 0, 0.32, 0.32, chest);
+    chestBox(0.15, 0.14, 0.04, chestGoldLight, 0, 0.32, 0.345, chest);
+    chestBox(0.035, 0.065, 0.012, chestDark, 0, 0.32, 0.37, chest);
+    // Low-poly treasure inside, visible only when the lid opens.
+    const gemRed = track(new THREE.MeshStandardMaterial({ color: 0xa43829, emissive: 0x39110b, roughness: 0.4 }));
+    const gemBlue = track(new THREE.MeshStandardMaterial({ color: 0x4a99a1, emissive: 0x102b2c, roughness: 0.4 }));
+    chestBox(0.20, 0.08, 0.16, chestGold, -0.18, 0.14, 0, chest);
+    chestBox(0.15, 0.09, 0.14, chestGoldLight, 0.16, 0.14, -0.06, chest);
+    chestBox(0.09, 0.09, 0.09, gemRed, 0.04, 0.17, 0.12, chest);
+    chestBox(0.08, 0.08, 0.08, gemBlue, -0.10, 0.17, -0.11, chest);
     const chestGlowMat = track(new THREE.MeshBasicMaterial({ color: 0xffca65, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
     const chestGlow = new THREE.Mesh(track(new THREE.PlaneGeometry(0.62, 0.62)), chestGlowMat);
-    chestGlow.rotation.x = -Math.PI / 2; chestGlow.position.y = 0.425; chest.add(chestGlow);
+    chestGlow.rotation.x = -Math.PI / 2; chestGlow.position.y = 0.155; chest.add(chestGlow);
     const chestSparkMat = track(new THREE.MeshBasicMaterial({ color: 0xffd981, transparent: true, opacity: 0, depthWrite: false }));
     const chestSparkGeo = track(new THREE.BoxGeometry(0.055, 0.055, 0.055));
     const chestSparks = Array.from({ length: 6 }, (_, i) => {
@@ -3076,9 +3115,36 @@ export function Scene3D({
       m.position.set(Math.sin(i * 2.4) * 0.22, 0.4, Math.cos(i * 2.4) * 0.16); chest.add(m); return m;
     });
     const chestLid = new THREE.Group(); chestLid.position.set(0, 0.42, -0.28); chest.add(chestLid);
-    chestBox(0.84, 0.19, 0.58, chestWood, 0, 0.095, 0.28, chestLid);
-    chestBox(0.12, 0.2, 0.59, chestGold, 0, 0.1, 0.28, chestLid);
-    chest.position.set(COLS / 2, UNIT_GROUND, 0.48); scene.add(chest);
+    // Stepped, barrel-like voxel lid and underside, all hinged as one piece.
+    chestBox(0.88, 0.09, 0.60, chestDark, 0, 0.045, 0.28, chestLid);
+    chestBox(0.84, 0.12, 0.56, chestWood, 0, 0.12, 0.28, chestLid);
+    chestBox(0.80, 0.08, 0.40, chestLightWood, 0, 0.22, 0.28, chestLid);
+    chestBox(0.76, 0.045, 0.23, chestWood, 0, 0.282, 0.28, chestLid);
+    for (const x of [-0.31, 0.31]) {
+      chestBox(0.075, 0.13, 0.58, chestGold, x, 0.12, 0.28, chestLid);
+      chestBox(0.075, 0.08, 0.42, chestGold, x, 0.22, 0.28, chestLid);
+      chestBox(0.075, 0.045, 0.25, chestGoldLight, x, 0.282, 0.28, chestLid);
+    }
+    chestBox(0.12, 0.08, 0.035, chestGoldLight, 0, 0.10, 0.585, chestLid);
+    // Batch the many pixel blocks by material while keeping the hinged lid
+    // separate. This preserves voxel detail without one draw call per block.
+    const batchChest = (parent: THREE.Group) => {
+      const batches = new Map<THREE.Material, THREE.Mesh[]>();
+      for (const child of parent.children) if (child instanceof THREE.Mesh && child.userData.chestStatic) {
+        const mat = child.material as THREE.Material;
+        const list = batches.get(mat) ?? []; list.push(child); batches.set(mat, list);
+      }
+      for (const [material, parts] of batches) {
+        const geometries = parts.map(part => { part.updateMatrix(); return part.geometry.clone().applyMatrix4(part.matrix); });
+        const merged = mergeGeometries(geometries);
+        geometries.forEach(geometry => geometry.dispose());
+        if (!merged) continue;
+        parts.forEach(part => parent.remove(part));
+        parent.add(new THREE.Mesh(track(merged), material));
+      }
+    };
+    batchChest(chest); batchChest(chestLid);
+    chest.position.set(COLS / 2, UNIT_GROUND, 0.86); chest.scale.setScalar(1.22); scene.add(chest);
     let chestOpen = 0;
 
     function tick(now: number) {
@@ -3209,7 +3275,7 @@ export function Scene3D({
         ));
       }
       updateProjectiles(activeBattle, t);
-      updateWebs(activeBattle, t, dt);
+      updateWebs(activeBattle, t);
       updateHoles(activeBattle);
       updateZones(activeBattle, t, visualBattleTime);
 

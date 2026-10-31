@@ -5,6 +5,7 @@ import { warmRoster } from "./game/voxel";
 import { SpecimenIcon, RankBadge } from "./components/SpecimenIcon";
 import { CodexModal } from "./components/CodexModal";
 import { RoundResults } from "./components/RoundResults";
+import { GRAND_WEB_GROW_SECONDS } from "./game/web-growth";
 import { createTreasureBattle, treasureGuardTeam, treasureRound } from "./game/treasure";
 import { periodForRound } from "./game/period";
 import { AdminPanel } from "./components/AdminPanel";
@@ -167,18 +168,52 @@ function ChestIcon({ size = 24 }: { size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" shapeRendering="crispEdges"><path fill="#3b2112" d="M2 4h12v2h1v8H1V6h1z"/><path fill="#a9692e" d="M3 5h10v3H3zM2 9h12v4H2z"/><path fill="#f1bb4c" d="M3 4h10v1H3zM2 8h12v1H2zM7 9h2v3H7z"/></svg>;
 }
 
+/** Hand-drawn low-resolution pixel sprites; lid and loot snap between
+ * pixel-aligned positions rather than stretching a flat CSS rectangle. */
+function PixelTreasure({ open }: { open: boolean }) {
+  return <svg className={`pixel-treasure ${open ? "pixel-treasure--open" : ""}`} viewBox="0 0 64 64" aria-hidden="true" shapeRendering="crispEdges">
+    <path fill="#493018" d="M5 57h54v3H5z" />
+    <g className="pixel-treasure__loot">
+      <path fill="#fff2ae" d="M30 3h4v5h5v4h-5v5h-4v-5h-5V8h5zM9 15h3v3h3v3h-3v3H9v-3H6v-3h3zM51 14h3v3h3v3h-3v3h-3v-3h-3v-3h3z" />
+      <path fill="#f6bb42" d="M21 22h5v5h-5zM40 19h4v4h-4zM34 26h5v5h-5z" />
+    </g>
+    <g className="pixel-treasure__lid">
+      <path fill="#2e1b13" d="M8 28v-9h3v-4h4v-3h34v3h4v4h3v9h-3v3H11v-3z" />
+      <path fill="#7e4222" d="M12 20h3v-4h34v4h3v7H12z" />
+      <path fill="#c67a30" d="M15 17h34v3H15zM12 21h40v3H12z" />
+      <path fill="#f4c45a" d="M16 16h5v11h-5zM43 16h5v11h-5zM13 24h38v3H13z" />
+      <path fill="#fff0a4" d="M16 16h5v2h-5zM43 16h5v2h-5z" />
+    </g>
+    <path fill="#28180f" d="M7 27h50v25h-3v4H10v-4H7z" />
+    <path fill="#9e5728" d="M11 30h42v20h-3v3H14v-3h-3z" />
+    <path fill="#bb6d2e" d="M13 31h38v3H13zM15 37h34v2H15z" />
+    <path fill="#683517" d="M14 47h36v4H14zM14 34h3v13h-3zM47 34h3v13h-3z" />
+    <path fill="#e7ad3f" d="M15 29h5v24h-5zM44 29h5v24h-5zM10 46h44v4H10z" />
+    <path fill="#6f431e" d="M15 49h5v4h-5zM44 49h5v4h-5z" />
+    <path fill="#422611" d="M26 29h12v12H26z" /><path fill="#ffe184" d="M28 30h8v8h-8z" /><path fill="#5c3a17" d="M31 32h2v4h-2z" />
+    <path fill="#ffe394" d="M16 32h2v2h-2zM46 32h2v2h-2zM16 47h2v2h-2zM46 47h2v2h-2z" />
+  </svg>;
+}
+
+/** Monochrome, grid-aligned encounter glyphs: no rarity colours. */
+function RoundIcon({ chest }: { chest: boolean }) {
+  return <svg viewBox="0 0 16 16" aria-hidden="true" shapeRendering="crispEdges" className="round-track__icon">
+    {chest ? <path fill="currentColor" d="M3 2h10v1h1v2h1v9H1V5h1V3h1zm0 3v2h10V5h-1V4H4v1zM2 9v4h12V9H9v2H7V9z" /> :
+      <path fill="currentColor" d="M1 1h2v3h2v2H3V5H2V4H1zm12 0h2v3h-1v1h-1v1h-2V4h2zM5 5h6v1h1v2h2v2h-2v2h-1v2H5v-2H4v-2H2V8h2V6h1zm1 2v1h1V7zm3 0v1h1V7zM5 14h2v1H5zm4 0h2v1H9z" />}
+  </svg>;
+}
+
 /** A compact, fixed-size map of the current period (decorative cells are
  * mirrored by the accessible label). It never affects the match schedule. */
 function RoundTrack({ period, round, length, label, compact = false }: {
   period: number; round: number; length: number; label: string; compact?: boolean;
 }) {
   return <div className={`round-track ${compact ? "round-track--compact" : ""}`} role="img" aria-label={label}>
-    <div className="round-track__title"><span>{period}-{round}</span>{!compact && <small>{label}</small>}</div>
     <div className="round-track__cells" aria-hidden="true">
       {Array.from({ length }, (_, i) => {
         const special = period === 1 && (i === 0 || i === 3);
         return <span key={i} className="round-track__cell" data-state={i + 1 < round ? "past" : i + 1 === round ? "current" : "future"} data-treasure={special ? "1" : "0"}>
-          {special ? <ChestIcon size={compact ? 9 : 15} /> : <i />}
+          <RoundIcon chest={special} />
         </span>;
       })}
     </div>
@@ -656,7 +691,15 @@ export default function App() {
 
   useEffect(() => {
     if (phase !== "battle" || !over) return;
-    const t = window.setTimeout(() => finish(over), 850);
+    // Keep a newly landed ultimate visible through its reveal even if its
+    // damage ends combat immediately; simulation remains stopped as before.
+    const b = battleRef.current;
+    const reduced = document.documentElement.dataset.motion === "reduced" || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const newest = b?.webs.filter(w => w.kind === "grand" && w.spawnedAt !== undefined).reduce<number | null>((v, w) => Math.max(v ?? 0, w.spawnedAt!), null);
+    const inFlight = !!b?.pending.some(hit => hit.kind === "webgrand");
+    const elapsed = inFlight ? 0 : b && newest != null ? Math.max(0, (b.t - newest) / speedRef.current) : Infinity;
+    const hold = reduced ? 850 : Math.max(850, Math.ceil((GRAND_WEB_GROW_SECONDS - elapsed + 0.2) * 1000));
+    const t = window.setTimeout(() => finish(over), hold);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, over]);
@@ -1941,7 +1984,7 @@ export default function App() {
             {/* Compact Opponent Corner Tag — desktop staple; on phones combat
                 hides it (the deck VS plaque already carries the matchup) so
                 the stage stays clean mid-fight */}
-            {!sel && (
+            {!sel && !treasure && (
               <div className={`pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-2 border border-[#3B322A]/90 bg-[#120D09]/90 px-2 py-1 ${inCombat ? "hidden min-[720px]:flex" : ""}`}>
                 {treasure ? <ChestIcon size={30} /> : <><SpecimenIcon id={foe.cmd} size={30} badge="none" /><RankBadge id={foe.cmd} size={14} /></>}
                 <div className="leading-tight">
@@ -2593,7 +2636,7 @@ export default function App() {
 
             {report.treasure && (
               <div className="treasure-result" role="status">
-                <div className={`pixel-chest ${report.win ? "pixel-chest--open" : ""}`} aria-hidden="true"><span className="pixel-chest__lid" /><span className="pixel-chest__body" /><span className="pixel-chest__lock" /></div>
+                <PixelTreasure open={report.win} />
                 <div><strong>{report.win ? t("TREASURE UNLOCKED!") : t("CHEST STILL GUARDED")}</strong>
                   <div>{report.win ? `${report.rewards?.map(id => t(BUGS[id].name)).join(" · ")}${report.treasureGold ? ` · +${report.treasureGold}G` : ""}` : t("Defeat the guards to earn the treasure.")}</div>
                   {report.win && <div className="treasure-loot" aria-hidden="true">{report.rewards?.map((id, i) => <span key={i}><SpecimenIcon id={id} size={26} badge="none" /></span>)}</div>}

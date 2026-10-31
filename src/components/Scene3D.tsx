@@ -1333,6 +1333,17 @@ export function Scene3D({
     snareRim.renderOrder = 3;
     if (!showcase) scene.add(snareRim);
 
+    // One pooled leading edge makes the growth readable even in potato mode.
+    // Its ellipse never extends beyond the board and disappears after the spin.
+    const growthGeo = new THREE.RingGeometry(0.945, 0.985, 48);
+    const growthMat = new THREE.MeshBasicMaterial({ color: 0xd9b9ff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+    const growthMesh = new THREE.InstancedMesh(growthGeo, growthMat, 2);
+    growthMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    growthMesh.frustumCulled = false;
+    growthMesh.count = 0;
+    growthMesh.renderOrder = 4;
+    if (!showcase) scene.add(growthMesh);
+
     const webQ = new THREE.Quaternion();
     const webE = new THREE.Euler();
     const webS = new THREE.Vector3();
@@ -1444,6 +1455,7 @@ export function Scene3D({
       if (!b || !b.webs.length) {
         if (webMesh.count !== 0) webMesh.count = 0;
         if (snareRim.count !== 0) snareRim.count = 0;
+        if (growthMesh.count !== 0) growthMesh.count = 0;
         if (eggMesh.count !== 0) eggMesh.count = 0;
         if (glintMesh.count !== 0) glintMesh.count = 0;
         glintMat.opacity = 0;
@@ -1455,6 +1467,7 @@ export function Scene3D({
       for (const id of Array.from(webAge.keys())) if (!liveIds.has(id)) webAge.delete(id);
       let n = 0;
       let rimN = 0;
+      let growthN = 0;
       let en = 0;
       let glintN = 0;
       let canopyVertices = 0;
@@ -1467,8 +1480,9 @@ export function Scene3D({
         webAge.set(w.id, age);
         // The projectile has already landed. Reveal one anchored sheet once,
         // with a monotonic ease-out instead of a second drop or elastic pop.
-        const k = motionEnabled ? Math.min(1, age / (grand ? 0.9 : 0.48)) : 1;
-        const grow = 0.12 + 0.88 * (1 - Math.pow(1 - k, 3));
+        const k = motionEnabled ? Math.min(1, age / (grand ? 1.35 : 0.48)) : 1;
+        const eased = grand ? k * k * (3 - 2 * k) : 1 - Math.pow(1 - k, 3);
+        const grow = 0.06 + 0.94 * eased;
         // end-of-life DISSOLVE: the snare shrinks and darkens in its last
         // 0.7s instead of popping out of existence
         const dissolve = w.life === undefined ? 1 : Math.max(0, Math.min(1, (w.life ?? 5) / 0.7));
@@ -1524,6 +1538,16 @@ export function Scene3D({
         webMesh.setMatrixAt(n, m4);
         webMesh.setColorAt(n, projCol.setHex(tint));
         n++;
+        if (grand && motionEnabled && k < 1 && growthN < 2) {
+          // The glowing leading edge rides the growing sheet and fades out.
+          webS.set(sw * 0.49, sh2 * 0.49, 1);
+          projTmp.set(cx, 0.075, cz);
+          m4.compose(projTmp, webQ, webS);
+          growthMesh.setMatrixAt(growthN, m4);
+          const brightness = Math.sin(Math.PI * k) * 0.8;
+          growthMesh.setColorAt(growthN, projCol.setRGB(brightness, brightness, brightness));
+          growthN++;
+        }
         if (!grand && !potatoOn && rimN < WEB_POOL_N) {
           webS.set(sw * 0.5, sh2 * 0.5, 1);
           projTmp.set(cx, 0.065, cz);
@@ -1536,7 +1560,7 @@ export function Scene3D({
         // toward the board center, so nothing ever crosses the frame plane.
         // They rise only after the floor cloth has spread (nest-style).
         if (grand) {
-          const wk = Math.min(1, Math.max(0, (age - 0.3) / 0.55));
+          const wk = Math.min(1, Math.max(0, (age - 0.65) / 0.65));
           const wBack = 1 + 2.70158 * Math.pow(wk - 1, 3) + 1.70158 * Math.pow(wk - 1, 2);
           const wallH = Math.max(0.02, 0.95 * (motionEnabled ? wBack : 1));
           const lean = 0.16; // tops tip INWARD, against the drawer
@@ -1572,7 +1596,7 @@ export function Scene3D({
         // dome above the grand web. Every point remains within the board.
         if (grand && !potatoOn && canopyCount < MAX_CANOPIES) {
           canopyCount++;
-          const rise = motionEnabled ? Math.min(1, Math.max(0, (age - 0.12) / 0.8)) : 1;
+          const rise = motionEnabled ? Math.min(1, Math.max(0, (age - 0.25) / 1.05)) : 1;
           const fade = (motionEnabled ? Math.min(1, age / 0.3) : 1) * dissolve;
           const phase = silkTime;
           const vertex = (ray: number, radius: number) => {
@@ -1589,7 +1613,7 @@ export function Scene3D({
           };
           // Silk spins outward from the nest before the cross-threads appear.
           // The same fixed buffer is reused; reduced motion shows it immediately.
-          const reveal = motionEnabled ? Math.min(1, age / 0.95) : 1;
+          const reveal = motionEnabled ? Math.min(1, age / 1.35) : 1;
           for (let ray = 0; ray < CANOPY_RAYS; ray++) {
             for (let step = 0; step < CANOPY_STEPS; step++) {
               const start = step / CANOPY_STEPS;
@@ -1663,6 +1687,9 @@ export function Scene3D({
         canopyGeo.attributes.color.needsUpdate = true;
       }
       webMesh.count = n;
+      growthMesh.count = growthN;
+      growthMesh.instanceMatrix.needsUpdate = true;
+      if (growthMesh.instanceColor) growthMesh.instanceColor.needsUpdate = true;
       snareRim.count = rimN;
       snareRim.instanceMatrix.needsUpdate = true;
       if (snareRim.instanceColor) snareRim.instanceColor.needsUpdate = true;
@@ -3033,6 +3060,21 @@ export function Scene3D({
     chestBox(0.82, 0.42, 0.56, chestWood, 0, 0.21, 0, chest);
     chestBox(0.86, 0.08, 0.6, chestGold, 0, 0.06, 0, chest);
     chestBox(0.12, 0.43, 0.57, chestGold, 0, 0.23, 0, chest);
+    // Pixel-cut edging, corner rivets and a front-facing latch.
+    chestBox(0.15, 0.17, 0.06, chestGold, 0, 0.34, 0.30, chest);
+    for (const x of [-0.34, 0.34]) {
+      chestBox(0.07, 0.42, 0.59, chestGold, x, 0.21, 0, chest);
+      chestBox(0.09, 0.08, 0.03, chestGold, x, 0.32, 0.30, chest);
+    }
+    const chestGlowMat = track(new THREE.MeshBasicMaterial({ color: 0xffca65, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+    const chestGlow = new THREE.Mesh(track(new THREE.PlaneGeometry(0.62, 0.62)), chestGlowMat);
+    chestGlow.rotation.x = -Math.PI / 2; chestGlow.position.y = 0.425; chest.add(chestGlow);
+    const chestSparkMat = track(new THREE.MeshBasicMaterial({ color: 0xffd981, transparent: true, opacity: 0, depthWrite: false }));
+    const chestSparkGeo = track(new THREE.BoxGeometry(0.055, 0.055, 0.055));
+    const chestSparks = Array.from({ length: 6 }, (_, i) => {
+      const m = new THREE.Mesh(chestSparkGeo, chestSparkMat);
+      m.position.set(Math.sin(i * 2.4) * 0.22, 0.4, Math.cos(i * 2.4) * 0.16); chest.add(m); return m;
+    });
     const chestLid = new THREE.Group(); chestLid.position.set(0, 0.42, -0.28); chest.add(chestLid);
     chestBox(0.84, 0.19, 0.58, chestWood, 0, 0.095, 0.28, chestLid);
     chestBox(0.12, 0.2, 0.59, chestGold, 0, 0.1, 0.28, chestLid);
@@ -3147,6 +3189,14 @@ export function Scene3D({
       const reduceChestMotion = document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches;
       chestOpen = shouldOpen ? (reduceChestMotion ? 1 : Math.min(1, chestOpen + dt * 2.3)) : 0;
       chestLid.rotation.x = -1.35 * (1 - Math.pow(1 - chestOpen, 3));
+      chestGlowMat.opacity = chestOpen * 0.65;
+      chestSparkMat.opacity = chestOpen * (potatoOn ? 0 : 0.9);
+      for (let i = 0; i < chestSparks.length; i++) {
+        const spark = chestSparks[i];
+        const rise = reduceChestMotion ? 0.4 : (t * 0.75 + i / chestSparks.length) % 1;
+        spark.position.y = 0.45 + rise * 0.8;
+        spark.scale.setScalar(reduceChestMotion ? 1 : Math.max(0.05, Math.sin(rise * Math.PI)));
+      }
       if (activeBattle !== clockBattle) {
         clockBattle = activeBattle;
         visualBattleTime = activeBattle?.t ?? 0;
@@ -3485,6 +3535,7 @@ export function Scene3D({
       haloMesh.dispose();
       webMesh.dispose();
       snareRim.dispose(); snareRimGeo.dispose(); snareRimMat.dispose();
+      growthMesh.dispose(); growthGeo.dispose(); growthMat.dispose();
       eggMesh.dispose();
       glintMesh.dispose();
       webGeo.dispose(); webMat.dispose();

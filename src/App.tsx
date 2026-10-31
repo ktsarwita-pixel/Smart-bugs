@@ -167,6 +167,24 @@ function ChestIcon({ size = 24 }: { size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" shapeRendering="crispEdges"><path fill="#3b2112" d="M2 4h12v2h1v8H1V6h1z"/><path fill="#a9692e" d="M3 5h10v3H3zM2 9h12v4H2z"/><path fill="#f1bb4c" d="M3 4h10v1H3zM2 8h12v1H2zM7 9h2v3H7z"/></svg>;
 }
 
+/** A compact, fixed-size map of the current period (decorative cells are
+ * mirrored by the accessible label). It never affects the match schedule. */
+function RoundTrack({ period, round, length, label, compact = false }: {
+  period: number; round: number; length: number; label: string; compact?: boolean;
+}) {
+  return <div className={`round-track ${compact ? "round-track--compact" : ""}`} role="img" aria-label={label}>
+    <div className="round-track__title"><span>{period}-{round}</span>{!compact && <small>{label}</small>}</div>
+    <div className="round-track__cells" aria-hidden="true">
+      {Array.from({ length }, (_, i) => {
+        const special = period === 1 && (i === 0 || i === 3);
+        return <span key={i} className="round-track__cell" data-state={i + 1 < round ? "past" : i + 1 === round ? "current" : "future"} data-treasure={special ? "1" : "0"}>
+          {special ? <ChestIcon size={compact ? 9 : 15} /> : <i />}
+        </span>;
+      })}
+    </div>
+  </div>;
+}
+
 const RARITY_STYLE: Record<string, string> = {
   COMMON: "#9C8F7E",
   UNCOMMON: "#56DCA8",
@@ -1671,15 +1689,8 @@ export default function App() {
                   <span className="deck-num colony-health" style={{ color: hp > 30 ? "#56DCA8" : "#F05A36" }}>{hp}<small>/{STARTING_COLONY_HP}</small></span>
                   <span className="deck-cap">{t("Colony HP")}</span>
                 </div>
-                <div className="deck-stat" title={tf("Round {r} — {n} colonies still alive", { r: round + 1, n: activeCount })}>
-                  <span className="deck-num text-[#F0A93B]">{period.period}-{period.round}</span>
-                  <span className="deck-cap">{t("Period / Round")}</span>
-                  <span className="deck-pips" aria-label={`${activeCount} alive`}>
-                    {Array.from({ length: Math.max(activeCount, 2) }).map((_, i) => (
-                      <i key={i} data-on={i < activeCount ? 1 : 0} />
-                    ))}
-                  </span>
-                </div>
+                <RoundTrack compact period={period.period} round={period.round} length={period.length}
+                  label={tf("PERIOD {p} · ROUND {n}/{total}", { p: period.period, n: period.round, total: period.length })} />
               </div>
 
               {/* Matchup plaque — a REAL control now: tap it to scout the foe
@@ -2522,8 +2533,12 @@ export default function App() {
       {/* Round-start FIGHT flare (rendered once the sim actually starts) */}
       {simLive && fightFlash > 0 && phase === "battle" && (
         <div key={fightFlash} className="fight-flare pointer-events-none fixed inset-0 z-30 grid place-items-center" aria-hidden="true">
-          <span className="fight-flare__round label">{tf("PERIOD {p} · ROUND {n}/{total}", { p: period.period, n: period.round, total: period.length })}</span>
-          <span className="fight-flare__word font-pixel">{t("FIGHT")}</span>
+          <div className="fight-banner" data-treasure={treasure ? "1" : "0"}>
+            <div className="fight-banner__crest">{treasure ? <ChestIcon size={27} /> : <IconClash size={23} />}</div>
+            <span className="fight-flare__round label">{tf("PERIOD {p} · ROUND {n}/{total}", { p: period.period, n: period.round, total: period.length })}</span>
+            <span className="fight-flare__word font-pixel">{treasure ? t("TREASURE") : t("FIGHT")}</span>
+            <span className="fight-banner__sub label">{treasure ? t("DEFEAT THE GUARDS") : t("COLONY CLASH")}</span>
+          </div>
         </div>
       )}
 
@@ -2546,7 +2561,7 @@ export default function App() {
           <div className="result-card paper-card rise flex max-h-[92dvh] w-full max-w-[420px] flex-col overflow-hidden border-2 border-[#241B14] p-4 shadow-[0_12px_0_rgba(0,0,0,.55)]" data-win={report.win ? 1 : 0}>
             <div className="result-body min-h-0 overflow-y-auto">
             <div className="flex items-center justify-between gap-2">
-              <span className="label text-[8px] text-[#8E2A16]">{tf("ROUND {n} REPORT", { n: round + 1 })}</span>
+              <span className="label text-[8px] text-[#8E2A16]">{tf("PERIOD {p} · ROUND {n}/{total}", { p: period.period, n: period.round, total: period.length })}</span>
               <span
                 className="px-2 py-0.5 font-pixel text-[8px] text-[#FFF3DC]"
                 style={{ background: report.win ? "#1F7A5A" : "#8E2A16" }}
@@ -2555,6 +2570,8 @@ export default function App() {
               </span>
             </div>
 
+            <div className="result-period"><RoundTrack period={period.period} round={period.round} length={period.length}
+              label={tf("PERIOD {p} · ROUND {n}/{total}", { p: period.period, n: period.round, total: period.length })} /></div>
             <h2 id="round-result-title" className="mt-2 font-pixel text-[20px] text-[#241B14]">
               {match.winnerId === PLAYER_ID ? t("LAST COLONY!") : hp <= 0 ? t("ELIMINATED") : report.win ? t("VICTORY") : t("DEFEAT")}
             </h2>

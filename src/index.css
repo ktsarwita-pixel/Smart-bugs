@@ -2074,3 +2074,31 @@ html[data-background="light"] .shop-heading .shop-toggle[aria-pressed="true"] { 
 @keyframes loot-rise { from { opacity:0; transform:translateY(12px) scale(.6); } to { opacity:1; transform:none; } }
 @media (prefers-reduced-motion: reduce) { .treasure-loot span { animation:none; } }
 [data-motion="reduced"] .treasure-loot span { animation:none; }
+
+/* Period map: fixed footprint in the deck, expanded in the report. */
+.round-track { display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0; padding:7px 9px; background:linear-gradient(180deg,#362516,#1b1510); border:2px solid #78552b; box-shadow:inset 0 0 0 1px #100c09, 0 3px 0 #2b1a0d; color:#f8d98d; }
+.round-track__title { display:flex; align-items:center; gap:7px; min-width:0; font:10px var(--font-pixel); white-space:nowrap; }
+.round-track__title small { overflow:hidden; text-overflow:ellipsis; color:#d4b986; font:700 9px var(--font-mono); letter-spacing:.08em; }
+.round-track__cells { display:flex; align-items:center; gap:3px; flex:none; }
+.round-track__cell { display:grid; place-items:center; width:19px; height:19px; border:2px solid #785638; background:#24170f; box-shadow:inset 0 0 0 1px #110b08; color:#cda759; }
+.round-track__cell i { width:5px; height:5px; background:#b39159; transform:rotate(45deg); }
+.round-track__cell[data-state="past"] { border-color:#347b5b; background:#153d2b; }
+.round-track__cell[data-state="past"] i { background:#7fdbab; }
+.round-track__cell[data-state="current"] { border-color:#ffe18b; background:#a96927; box-shadow:0 0 7px #f0a93b88, inset 0 0 0 1px #f7c56a; }
+.round-track__cell[data-state="future"] { opacity:.65; }
+.round-track--compact { padding:2px 3px; gap:3px; min-height:30px; box-shadow:inset 0 0 0 1px #100c09; }
+.round-track--compact .round-track__title { font-size:10px; }
+.round-track--compact .round-track__cells { gap:1px; }
+.round-track--compact .round-track__cell { width:10px; height:10px; border-width:1px; }
+.round-track--compact .round-track__cell i { width:3px; height:3px; }
+.result-period { margin-top:9px; }
+.fight-banner { position:relative; display:flex; flex-direction:column; align-items:center; min-width:min(76vw,320px); padding:13px 28px 12px; background:linear-gradient(180deg,#49301c,#1d140d 55%,#341c0f); border:3px solid #e6b15b; outline:3px solid #3b2516; box-shadow:0 8px 0 #100b08,0 0 32px #e2a54580; animation:fightWord 780ms cubic-bezier(.22,1,.36,1) both; }
+.fight-banner::before,.fight-banner::after { content:""; position:absolute; top:50%; width:30px; height:8px; border-block:2px solid #d5a152; background:#7f4624; }
+.fight-banner::before { right:100%; } .fight-banner::after { left:100%; }
+.fight-banner[data-treasure="1"] { background:linear-gradient(180deg,#6c4b20,#24170c 60%,#59370e); }
+.fight-banner__crest { display:grid; place-items:center; color:#ffda87; margin-top:-27px; width:40px; height:40px; background:#342315; border:3px solid #d5a152; transform:rotate(45deg); }
+.fight-banner__crest > * { transform:rotate(-45deg); }
+.fight-banner .fight-flare__round { position:static; margin:4px 0 3px; font-size:8px; letter-spacing:.11em; animation:none; }
+.fight-banner .fight-flare__word { padding:0; border:0; background:none; box-shadow:none; font-size:clamp(19px,6vw,32px); color:#fff1c9; animation:none; }
+.fight-banner__sub { color:#dbb66f; font-size:8px; letter-spacing:.12em; margin-top:5px; }
+@media (max-width:380px) { .round-track--compact { gap:2px; padding:2px; } .round-track--compact .round-track__title { font-size:8px; } .round-track--compact .round-track__cell { width:8px; height:8px; } .round-track--compact svg { width:7px; height:7px; } .round-track:not(.round-track--compact) { gap:4px; } .round-track:not(.round-track--compact) .round-track__cell { width:16px; height:16px; } }

@@ -11,6 +11,11 @@ try {
   await page.getByRole('button',{name:'BEGIN ROUND 1'}).first().tap();
   await page.locator('.shop-grid button:not([disabled])').first().tap();
   for (let round=1;round<=4;round++) {
+    const track = page.locator('.round-track--compact');
+    assert.match(await track.getAttribute('aria-label'), new RegExp(`PERIOD 1.*ROUND ${round}/4`));
+    assert.equal(await track.locator('.round-track__cell').count(),4);
+    assert.equal(await track.locator('.round-track__cell[data-state="current"]').count(),1);
+    assert.equal(await track.locator('.round-track__cell[data-treasure="1"]').count(),2);
     if (round===1 || round===4) assert.ok(await page.getByText('TREASURE GUARDS').count()>0);
     await page.getByRole('button',{name:/Engage battle/}).tap();
     await page.getByText('COMBAT TELEMETRY').waitFor();
@@ -19,6 +24,7 @@ try {
     await page.getByRole('button',{name:'FORCE WIN'}).tap();
     await page.getByRole('button',{name:'Close admin panel'}).tap();
     await page.locator('.result-card').waitFor();
+    assert.equal(await page.locator('.result-period .round-track__cell').count(),4);
     if (round===1 || round===4) {
       assert.equal(await page.locator('.treasure-result').count(),1);
       assert.equal(await page.locator('.treasure-loot > span').count(),2);
@@ -38,6 +44,9 @@ try {
       assert.equal(bounds.height,after.height);
     }
   }
+  assert.match(await page.locator('.round-track--compact').getAttribute('aria-label'), /PERIOD 2.*ROUND 1\/5/);
+  assert.equal(await page.locator('.round-track--compact .round-track__cell').count(),5);
+  assert.equal(await page.locator('.round-track--compact .round-track__cell[data-treasure="1"]').count(),0);
   assert.match(await page.locator('.treasure-queue').innerText(),/· 2/);
   await page.setViewportSize({width:280,height:653});
   const claimBox = await page.locator('.treasure-queue button').boundingBox();

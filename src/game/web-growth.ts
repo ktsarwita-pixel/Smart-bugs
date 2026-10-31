@@ -1,3 +1,5 @@
+import { Matrix4 } from "three";
+
 /** Presentation-only reveal; combat coverage remains immediate on impact. */
 export const GRAND_WEB_GROW_SECONDS = 2.8;
 export function grandWebGrowth(age: number, motion: boolean): number {
@@ -17,4 +19,10 @@ export function visualGrandImpactReady(
 ): boolean {
   const shot = shots.find(s => s.kind === 'webgrand' && s.fromUid === hit.fromUid && Math.abs(s.t0 + s.dur - hit.at) < 0.001);
   return !shot || (progress.get(shot.id) ?? 0) >= 1;
+}
+
+/** Uniform world-space scale about the web's impact point, reused per frame. */
+export function setGrandWebScale(matrix: Matrix4, factor: number, x: number, z: number, ground = 0.052): Matrix4 {
+  const s = Math.max(0, Math.min(1, factor));
+  return matrix.makeScale(s, s, s).setPosition(x * (1 - s), ground * (1 - s), z * (1 - s));
 }

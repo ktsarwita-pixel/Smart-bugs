@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright-core';
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH, headless: true, args: ['--no-sandbox','--disable-dev-shm-usage','--single-process','--no-zygote','--use-angle=swiftshader','--enable-unsafe-swiftshader'] });
-const page = await browser.newPage({viewport:{width:384,height:725},isMobile:true,hasTouch:true});
+const page = await browser.newPage({viewport:{width:384,height:725},deviceScaleFactor:1.875,isMobile:true,hasTouch:true});
 const errors=[]; page.on('pageerror', e => errors.push(e.message));
 try {
   await page.goto((process.env.BASE_URL || 'http://127.0.0.1:5188')+'/?advenced');
@@ -36,6 +36,26 @@ try {
     await page.getByRole('button',{name:'FORCE WIN'}).tap();
     await page.getByRole('button',{name:'Close admin panel'}).tap();
     await page.locator('.result-card').waitFor();
+    const body = page.locator('.result-body');
+    const overflow = await body.evaluate(el => el.scrollHeight - el.clientHeight);
+    assert.ok(overflow <= 1, `round ${round} result requires ${overflow}px of scrolling at 384×725`);
+    assert.ok(await page.locator('.result-next').isVisible());
+    assert.equal(await page.locator('.result-details').getAttribute('open'),null);
+    if (round===1) {
+      await page.evaluate(() => window.dispatchEvent(new CustomEvent('sb-doctor',{detail:true})));
+      await page.getByRole('button',{name:'Open UI Doctor'}).tap();
+      await page.getByRole('button',{name:'SCAN SCREEN'}).tap();
+      const report=await page.locator('.ui-doctor__body').innerText();
+      assert.doesNotMatch(report,/SCROLL[^\n]*result-body/,'doctor should not find result-body scrolling');
+      await page.getByRole('button',{name:'Minimize UI Doctor'}).tap();
+      await page.evaluate(() => window.dispatchEvent(new CustomEvent('sb-doctor',{detail:false})));
+      await page.locator('.result-details summary').tap();
+      assert.equal(await page.locator('.result-details').getAttribute('open'),'');
+      assert.ok(await page.getByText('ROUND STIPEND').isVisible());
+      assert.ok(await page.locator('.result-details section').count());
+      await page.locator('.result-details summary').tap();
+      assert.equal(await page.locator('.result-details').getAttribute('open'),null);
+    }
     assert.equal(await page.locator('.result-period .round-track__cell').count(),4);
     const aligned = await page.locator('.result-period .round-track__cell').evaluateAll(cells => cells.every(cell => {
       const c=cell.getBoundingClientRect(), i=cell.querySelector('svg').getBoundingClientRect();

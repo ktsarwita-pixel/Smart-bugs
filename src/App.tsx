@@ -2687,41 +2687,35 @@ export default function App() {
               <div className="result-health__caption">{tf("Before round: {hp}/{max} HP", { hp: report.hpBefore, max: STARTING_COLONY_HP })}</div>
             </div>
 
-            <div className="result-breakdown mt-3 space-y-1 border-y border-[#241B14]/25 py-2.5">
-              {[
-                {
-                  l: report.win ? t("FOE COLONY DAMAGE") : t("COLONY DAMAGE TAKEN"),
-                  v: report.win ? `-${report.dealt} HP` : `-${report.taken} HP`,
-                  c: report.win ? "#165C43" : "#8E2A16",
-                },
-                {
-                  l: t("TOTAL GOLD EARNED"),
-                  v: `+${5 + report.interest + report.bonus + (report.treasureGold ?? 0)}G`,
-                  c: "#241B14",
-                },
-                ...(report.treasureGold ? [{ l: t("  · TREASURE"), v: `+${report.treasureGold}G`, c: "#7A5318" }] : []),
-                { l: t("  · ROUND STIPEND"), v: "+5G", c: "#5C4A38" },
-                { l: t("  · INTEREST (10G/PT)"), v: `+${report.interest}G`, c: "#5C4A38" },
-                { l: t("  · VICTORY BOUNTY"), v: `+${report.win ? 2 : 0}G`, c: "#5C4A38" },
-                {
-                  l: tf(report.streak > 0 ? "  · WIN STREAK ×{n}" : "  · LOSS STREAK ×{n}", { n: Math.abs(report.streak) }),
-                  v: `+${report.streakGold}G`,
-                  c: report.streakGold > 0 ? "#7A5318" : "#8C7E6E",
-                },
-              ].map((r) => (
-                <div key={r.l} className="flex items-baseline justify-between">
-                  <span className="label text-[8.5px]" style={{ color: r.c }}>
-                    {r.l}
-                  </span>
-                  <span className="font-mono text-[12px] font-bold tabular-nums" style={{ color: r.c }}>
-                    {r.v}
-                  </span>
-                </div>
-              ))}
+            <div className="result-breakdown result-breakdown--summary" aria-label={t("ROUND SUMMARY")}>
+              <div className="flex items-baseline justify-between">
+                <span className="label text-[8.5px]" style={{ color: report.win ? "#165C43" : "#8E2A16" }}>{report.win ? t("FOE COLONY DAMAGE") : t("COLONY DAMAGE TAKEN")}</span>
+                <span className="font-mono text-[12px] font-bold tabular-nums" style={{ color: report.win ? "#165C43" : "#8E2A16" }}>-{report.win ? report.dealt : report.taken} HP</span>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="label text-[8.5px] text-[#241B14]">{t("TOTAL GOLD EARNED")}</span>
+                <span className="font-mono text-[12px] font-bold tabular-nums text-[#241B14]">+{5 + report.interest + report.bonus + (report.treasureGold ?? 0)}G</span>
+              </div>
             </div>
-
-            <RoundResults summary={match.lastRound} paper />
-            {adminButton("mt-3 w-full")}
+            <details className="result-details">
+              <summary>{t("ROUND DETAILS")}</summary>
+              <div className="result-breakdown result-breakdown--details">
+                {[
+                  ...(report.treasureGold ? [{ l: t("  · TREASURE"), v: `+${report.treasureGold}G`, c: "#7A5318" }] : []),
+                  { l: t("  · ROUND STIPEND"), v: "+5G", c: "#5C4A38" },
+                  { l: t("  · INTEREST (10G/PT)"), v: `+${report.interest}G`, c: "#5C4A38" },
+                  { l: t("  · VICTORY BOUNTY"), v: `+${report.win ? 2 : 0}G`, c: "#5C4A38" },
+                  { l: tf(report.streak > 0 ? "  · WIN STREAK ×{n}" : "  · LOSS STREAK ×{n}", { n: Math.abs(report.streak) }), v: `+${report.streakGold}G`, c: report.streakGold > 0 ? "#7A5318" : "#8C7E6E" },
+                ].map((r) => (
+                  <div key={r.l} className="flex items-baseline justify-between">
+                    <span className="label text-[8.5px]" style={{ color: r.c }}>{r.l}</span>
+                    <span className="font-mono text-[12px] font-bold tabular-nums" style={{ color: r.c }}>{r.v}</span>
+                  </div>
+                ))}
+              </div>
+              <RoundResults summary={match.lastRound} paper />
+              {adminButton("mt-3 w-full")}
+            </details>
             </div>
 
             <button

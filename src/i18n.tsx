@@ -298,6 +298,8 @@ const ID: Record<string, string> = {
   "The next rounds are a direct final duel.": "Ronde berikutnya adalah duel final langsung.",
   "The match continues until one survives.": "Pertandingan berlanjut sampai satu koloni bertahan.",
   "colonies remain.": "koloni tersisa.",
+  "ROUND SUMMARY": "RINGKASAN RONDE",
+  "ROUND DETAILS": "RINCIAN RONDE",
   "FOE COLONY DAMAGE": "Damage KE KOLONI MUSUH",
   "COLONY DAMAGE TAKEN": "Damage DITERIMA KOLONI",
   "TOTAL GOLD EARNED": "TOTAL EMAS DIDAPAT",

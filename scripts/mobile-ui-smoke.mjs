@@ -121,6 +121,7 @@ try {
   // Exercise both outcomes through the real simulation settlement path.
   await page.setViewportSize({ width: 320, height: 568 });
   for (const outcome of ['WIN', 'LOSE']) {
+    await page.setViewportSize({width:320,height:568});
     await page.goto(`${base}/?advenced`);
     await page.evaluate(() => sessionStorage.setItem('smartbugs.admin.unlocked', '1'));
     await page.reload();
@@ -143,6 +144,9 @@ try {
     assert.ok(current === 100, `${outcome}: incorrect colony HP`);
     assert.equal(await page.locator('.result-body').evaluate(el => el.scrollTop), 0, `${outcome}: result opens scrolled past its heading`);
     assert.ok(await page.locator('.result-next').isVisible(), `${outcome}: continuation button is hidden`);
+    await page.setViewportSize({width:384,height:725});
+    const extra = await page.locator('.result-body').evaluate(el => el.scrollHeight-el.clientHeight);
+    assert.ok(extra <= 1, `${outcome}: 384×725 result still needs ${extra}px scrolling`);
     console.log(`PASS ${outcome} report`);
   }
   assert.deepEqual(errors, [], 'uncaught browser errors');

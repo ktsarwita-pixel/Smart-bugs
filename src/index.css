@@ -2122,3 +2122,19 @@ html[data-motion="reduced"] .pixel-treasure--open .pixel-treasure__lid-open, htm
 .ui-doctor__list span[data-kind="SCROLL"] { color:#81d7df; }
 .ui-doctor__summary { flex-wrap:wrap; }
 .ui-doctor__summary span { overflow-wrap:anywhere; }
+
+/* Keep the round's essentials visible; full gold and other duels remain
+   accessible on demand instead of forcing a scroll on a typical phone. */
+.result-breakdown--summary { margin-top:8px; padding:6px 0; border-block:1px solid #241b1440; display:grid; gap:3px; }
+.result-details { margin-top:6px; color:#5c4a38; }
+.result-details > summary { min-height:40px; display:flex; align-items:center; cursor:pointer; font:700 9px var(--font-mono); letter-spacing:.04em; }
+.result-details > summary::before { content:"▸"; margin-right:8px; }
+.result-details[open] > summary::before { content:"▾"; }
+.result-breakdown--details { display:grid; gap:4px; padding-bottom:8px; }
+@media (max-height:740px) {
+  .result-card { padding:12px; }
+  .result-health { margin-top:8px; padding:8px; }
+  .result-health__track { margin-top:5px; }
+  .result-next { margin-top:8px; }
+  .treasure-result { margin:6px 0; padding:7px; gap:8px; }
+}

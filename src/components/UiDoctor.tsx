@@ -28,7 +28,7 @@ function audit(): Scan {
   if (docWidth > width + 1) add("OVERFLOW", "high", "Page extends horizontally", `${docWidth}px content in a ${width}px viewport`, document.documentElement);
   const activeModal = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]'))
     .filter(el => !el.closest('[data-ui-doctor]') && el.getClientRects().length > 0 && getComputedStyle(el).visibility === "visible").at(-1);
-  const elements = document.querySelectorAll<HTMLElement>("button, [role='button'], a[href], input:not([type='hidden']), select, textarea");
+  const elements = document.querySelectorAll<HTMLElement>("button, [role='button'], a[href], input:not([type='hidden']), select, textarea, summary");
   const activeElements = Array.from(elements).filter(el => (!activeModal || activeModal.contains(el)) && !el.closest("[data-ui-doctor], [inert], [aria-hidden='true']") && !el.matches(":disabled, [aria-disabled='true']"));
   // Report real scroll ranges separately from faults. Many small screens
   // intentionally scroll; the report says how far, rather than calling every

@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { createChestGeometry } from "../game/treasure-voxel";
 import { BUGS, COMMANDERS, SPECIMEN_IDS, type BugId, type CmdId } from "../game/data";
 import { COLS, ROWS, boardXY, type BattleState, type BUnit, type Zone, type PrepUnit } from "../game/engine";
-import { GRAND_WEB_GROW_SECONDS, grandWebGrowth, visualGrandImpactReady } from "../game/web-growth";
+import { GRAND_WEB_GROW_SECONDS, grandWebGrowth, visualGrandImpactReady, setGrandWebScale } from "../game/web-growth";
 import { buildVoxelModel, dotTexture, warmVoxelCache, V, type VoxModel } from "../game/voxel";
 import { animateInsectRig } from "../game/animate";
 import { useSettings } from "../i18n";
@@ -1344,6 +1344,7 @@ export function Scene3D({
     const webQ = new THREE.Quaternion();
     const webE = new THREE.Euler();
     const webS = new THREE.Vector3();
+    const grandScaleMatrix = new THREE.Matrix4();
     const qTilt = new THREE.Quaternion();
     const webAge = new Map<number, number>();
 
@@ -1508,8 +1509,8 @@ export function Scene3D({
         const billowX = (1 + Math.sin(silkTime * 0.9 + w.id * 2.1) * 0.03) * gust;
         const billowZ = (1 + Math.cos(silkTime * 0.7 + w.id * 1.3) * 0.03) * gust;
         // desired sheet rect (before containment)
-        const dw = grand ? COLS * grow : (w.half * 2 + 0.6) * billowX * grow;
-        const dh = grand ? ROWS * grow : (w.half * 2 + 0.6) * billowZ * grow;
+        const dw = grand ? COLS : (w.half * 2 + 0.6) * billowX * grow;
+        const dh = grand ? ROWS : (w.half * 2 + 0.6) * billowZ * grow;
         // CONTAINMENT LAW — exact for any spin, billow or pop (see fitSpin).
         // The grand drape keeps spin 0 and is clamped per-axis so it still
         // touches all four corners; snares use the tamed variety spin and
@@ -1524,6 +1525,7 @@ export function Scene3D({
         const hz = (sw / 2) * rs + (sh2 / 2) * rc;
         const cx = grand ? COLS / 2 : Math.min(Math.max(w.x, hx), COLS - hx);
         const cz = grand ? ROWS / 2 : Math.min(Math.max(w.y, hz), ROWS - hz);
+        if (grand) setGrandWebScale(grandScaleMatrix, grow, cx, cz);
         // silk shimmer: two violet tones breathing through the holes
         const shim = 0.5 + 0.5 * Math.sin(silkTime * 1.7 + w.id * 1.9);
         colA.setHex(grand ? 0xe3c2ff : 0xffffff);
@@ -1550,6 +1552,7 @@ export function Scene3D({
         webQ.setFromEuler(webE);
         projTmp.set(cx, 0.052, cz);
         m4.compose(projTmp, webQ, webS);
+        if (grand) m4.premultiply(grandScaleMatrix);
         webMesh.setMatrixAt(n, m4);
         webMesh.setColorAt(n, projCol.setHex(tint));
         n++;
@@ -1561,13 +1564,10 @@ export function Scene3D({
           snareRim.setColorAt(rimN, projCol.setRGB(dissolve, dissolve, dissolve));
           rimN++;
         }
-        // NEST WALLS: silk sheets lining the drawer's INNER faces — tops tip
-        // toward the board center, so nothing ever crosses the frame plane.
-        // They rise only after the floor cloth has spread (nest-style).
+        // NEST WALLS retain their original shape and follow the same uniform
+        // impact-centered scale as the floor, so the whole web grows together.
         if (grand) {
-          const wk = Math.min(1, Math.max(0, (k - 0.76) / 0.24));
-          const wBack = 1 + 2.70158 * Math.pow(wk - 1, 3) + 1.70158 * Math.pow(wk - 1, 2);
-          const wallH = Math.max(0.02, 0.95 * (motionEnabled ? wBack : 1));
+          const wallH = 0.95;
           const lean = 0.16; // tops tip INWARD, against the drawer
           const sway = Math.sin(silkTime * 1.1 + w.id) * 0.012;
           const wallTint = 0xa88ad8;
@@ -1578,6 +1578,7 @@ export function Scene3D({
             webQ.setFromEuler(webE);
             projTmp.set(COLS / 2, wallH / 2 - 0.02, wz);
             m4.compose(projTmp, webQ, webS);
+            m4.premultiply(grandScaleMatrix);
             webMesh.setMatrixAt(n, m4);
             webMesh.setColorAt(n, projCol.setHex(wallTint));
             n++;
@@ -1591,6 +1592,7 @@ export function Scene3D({
             webQ.premultiply(qTilt);
             projTmp.set(wx, wallH / 2 - 0.02, ROWS / 2);
             m4.compose(projTmp, webQ, webS);
+            m4.premultiply(grandScaleMatrix);
             webMesh.setMatrixAt(n, m4);
             webMesh.setColorAt(n, projCol.setHex(wallTint));
             n++;
@@ -1601,15 +1603,15 @@ export function Scene3D({
         // dome above the grand web. Every point remains within the board.
         if (grand && !potatoOn && canopyCount < MAX_CANOPIES) {
           canopyCount++;
-          const rise = motionEnabled ? k : 1;
+          const rise = 1;
           const fade = (motionEnabled ? Math.min(1, age / 0.3) : 1) * dissolve;
           const phase = silkTime;
           const vertex = (ray: number, radius: number) => {
             const angle = ray * Math.PI * 2 / CANOPY_RAYS;
             const dome = (1 - radius * radius) * (1.15 + 0.06 * Math.sin(phase * 1.6 + w.id));
-            canopyPositions[canopyVertices * 3] = cx + canopyCos[ray] * sw * 0.46 * radius;
-            canopyPositions[canopyVertices * 3 + 1] = 0.09 + dome * rise;
-            canopyPositions[canopyVertices * 3 + 2] = cz + canopySin[ray] * sh2 * 0.46 * radius;
+            canopyPositions[canopyVertices * 3] = cx + canopyCos[ray] * sw * 0.46 * radius * grow;
+            canopyPositions[canopyVertices * 3 + 1] = 0.052 + (0.09 + dome * rise - 0.052) * grow;
+            canopyPositions[canopyVertices * 3 + 2] = cz + canopySin[ray] * sh2 * 0.46 * radius * grow;
             const pulse = (0.55 + 0.45 * Math.max(0, Math.sin(phase * 2.2 - radius * 8 + angle * 2))) * fade;
             canopyColors[canopyVertices * 3] = 0.7 * pulse;
             canopyColors[canopyVertices * 3 + 1] = 0.54 * pulse;
@@ -1639,9 +1641,9 @@ export function Scene3D({
         }
 
         // EGG SACS: small flattened ivory sacs CLUSTERED around the center
-        // web (the nest's heart) — tucked low, half-sunk into the cloth,
-        // popping in only after the floor has spread.
-        const sacPop = motionEnabled ? (grand ? Math.min(1, Math.max(0, (k - 0.68) / 0.22)) : Math.min(1, Math.max(0, (age - 0.2) / 0.45))) : 1;
+        // web (the nest's heart) — tucked low, half-sunk into the cloth.
+        // Grand-web sacs scale with the web; After-Web keeps its own pop.
+        const sacPop = !grand && motionEnabled ? Math.min(1, Math.max(0, (age - 0.2) / 0.45)) : 1;
         const sacBack = Math.max(0, 1 + 2.70158 * Math.pow(sacPop - 1, 3) + 1.70158 * Math.pow(sacPop - 1, 2));
         const sacCount = grand ? 5 : 2;
         const sacBase = grand ? 0.115 : 0.09;
@@ -1653,8 +1655,8 @@ export function Scene3D({
           // tight deterministic jitter — a clutch, not scattered balls
           const jx = Math.sin(w.id * 3.1 + si * 7.7) * 0.16;
           const jz = Math.cos(w.id * 1.7 + si * 5.3) * 0.16;
-          const ex = Math.min(COLS - 0.25, Math.max(0.25, cx + (ox + jx) * (grand ? grow : 1)));
-          const ez = Math.min(ROWS - 0.25, Math.max(0.25, cz + (oz + jz) * (grand ? grow : 1)));
+          const ex = Math.min(COLS - 0.25, Math.max(0.25, cx + ox + jx));
+          const ez = Math.min(ROWS - 0.25, Math.max(0.25, cz + oz + jz));
           const pulse = 1 + Math.sin(silkTime * 2.2 + w.id + si * 1.9) * 0.045;
           const sc = sacBase * (0.8 + ((si * 29 + w.id) % 10) / 30) * pulse * sacBack;
           eggS.set(sc, sc * 0.6, sc * 0.88); // squashed: silk-wrapped sac
@@ -1662,6 +1664,7 @@ export function Scene3D({
           webQ.setFromEuler(webE);
           projTmp.set(ex, sc * 0.3, ez); // half-sunk into the drape
           m4.compose(projTmp, webQ, eggS);
+          if (grand) m4.premultiply(grandScaleMatrix);
           eggMesh.setMatrixAt(en, m4);
           en++;
         }
@@ -1682,6 +1685,7 @@ export function Scene3D({
           glintS.set(gs, gs, 1);
           projTmp.set(gx, 0.105, gz);
           glintM.compose(projTmp, glintQ, glintS);
+          if (grand) glintM.premultiply(grandScaleMatrix);
           glintMesh.setMatrixAt(glintN, glintM);
           glintN++;
         }

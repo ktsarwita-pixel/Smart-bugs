@@ -1,3 +1,4 @@
+import { CHEST_PATH, STAG_PATH } from "./game/round-icons";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Scene3D } from "./components/Scene3D";
 import { PatchNotesModal } from "./components/PatchNotesModal";
@@ -197,32 +198,24 @@ function PixelTreasure({ open }: { open: boolean }) {
     <g className="pixel-treasure__inside">
       <path fill="#28180f" d="M7 26h50v10H7z" />
       <path fill="#56371b" d="M11 27h42v7H11z" />
-      <path fill="#ffc858" d="M17 29h8v4h-8zM30 27h7v6h-7zM42 29h7v4h-7z" />
-      <path fill="#ffef9a" d="M19 28h4v2h-4zM32 26h3v2h-3zM44 28h3v2h-3z" />
+      <path fill="#ffc858" d="M16 28h8v5h-8zM28 27h8v6h-8zM40 28h8v5h-8z" />
+      <path fill="#ffef9a" d="M18 27h4v2h-4zM30 26h4v2h-4zM42 27h4v2h-4z" />
     </g>
-    <path fill="#28180f" d="M7 31h50v21h-3v4H10v-4H7z" />
-    <path fill="#9e5728" d="M11 30h42v20h-3v3H14v-3h-3z" />
-    <path fill="#bb6d2e" d="M13 31h38v3H13zM15 37h34v2H15z" />
-    <path fill="#683517" d="M14 47h36v4H14zM14 34h3v13h-3zM47 34h3v13h-3z" />
-    <path fill="#e7ad3f" d="M15 29h5v24h-5zM44 29h5v24h-5zM10 46h44v4H10z" />
+    <path fill="#28180f" d="M7 34h50v18h-3v4H10v-4H7z" />
+    <path fill="#9e5728" d="M11 34h42v16h-3v3H14v-3h-3z" />
+    <path fill="#bb6d2e" d="M13 34h38v3H13zM15 39h34v2H15z" />
+    <path fill="#683517" d="M14 47h36v4H14zM14 36h3v11h-3zM47 36h3v11h-3z" />
+    <path fill="#e7ad3f" d="M15 34h5v19h-5zM44 34h5v19h-5zM10 46h44v4H10z" />
     <path fill="#6f431e" d="M15 49h5v4h-5zM44 49h5v4h-5z" />
-    <path fill="#422611" d="M26 29h12v12H26z" /><path fill="#ffe184" d="M28 30h8v8h-8z" /><path fill="#5c3a17" d="M31 32h2v4h-2z" />
-    <path fill="#ffe394" d="M16 32h2v2h-2zM46 32h2v2h-2zM16 47h2v2h-2zM46 47h2v2h-2z" />
+    <path fill="#422611" d="M26 34h12v10H26z" /><path fill="#ffe184" d="M28 35h8v7h-8z" /><path fill="#5c3a17" d="M31 37h2v4h-2z" />
+    <path fill="#ffe394" d="M16 35h2v2h-2zM46 35h2v2h-2zM16 47h2v2h-2zM46 47h2v2h-2z" />
   </svg>;
 }
 
 /** Monochrome, grid-aligned encounter glyphs: no rarity colours. */
 function RoundIcon({ chest }: { chest: boolean }) {
-  return <svg viewBox="0 0 20 20" aria-hidden="true" shapeRendering="crispEdges" className="round-track__icon">
-    {chest ? <>
-      <path fill="currentColor" d="M3 4h14v2h2v11H1V6h2zm2 2v2h10V6H5zM3 11v4h14v-4h-5v2H8v-2z" />
-      <path fill="currentColor" opacity=".65" d="M5 5h2v3H5zm8 0h2v3h-2zM5 11h2v4H5zm8 0h2v4h-2z" />
-    </> : <>
-      {/* Stag beetle with forked mandibles, legs and divided wing cases. */}
-      <path fill="currentColor" d="M2 1h2v3h2v2H4V5H2zm14 0h2v4h-2v1h-2V4h2zM6 5h8v2h2v2h2v2h-2v3h2v2h-3v2h-3v1H8v-1H5v-2H2v-2h2v-3H2V9h2V7h2z" />
-      <path fill="#171717" d="M7 8h2v2H7zm4 0h2v2h-2zM9 12h2v5H9z" />
-      <path fill="currentColor" opacity=".7" d="M0 8h2v2H0zm18 0h2v2h-2zM1 16h2v2H1zm16 0h2v2h-2z" />
-    </>}
+  return <svg viewBox="0 0 16 16" aria-hidden="true" shapeRendering="crispEdges" className="round-track__icon">
+    <path fill="currentColor" d={chest ? CHEST_PATH : STAG_PATH} />
   </svg>;
 }
 
@@ -231,7 +224,7 @@ function RoundIcon({ chest }: { chest: boolean }) {
 function RoundTrack({ period, round, length, label, compact = false }: {
   period: number; round: number; length: number; label: string; compact?: boolean;
 }) {
-  return <div className={`round-track ${compact ? "round-track--compact" : ""}`} role="img" aria-label={label}>
+  return <div className={`round-track ${compact ? "round-track--compact" : ""}`} role="img" aria-label={label} data-round-count={length}>
     <div className="round-track__cells" aria-hidden="true">
       {Array.from({ length }, (_, i) => {
         const special = period === 1 && (i === 0 || i === 3);

@@ -1,0 +1,19 @@
+/** Monochrome, horizontally symmetric 16×16 pixel encounter glyphs.
+ * Transparent rows/columns are included so each glyph's ink is centered. */
+export const CHEST_PIXELS = [
+  '0000000000000000', '0000000000000000', '0001111111111000', '0011111111111100',
+  '0110011111100110', '0110011111100110', '0111111111111110', '0111111111111110',
+  '0110011001100110', '0110011001100110', '0110011111100110', '0110011111100110',
+  '0111111111111110', '0011111111111100', '0000000000000000', '0000000000000000',
+] as const;
+export const STAG_PIXELS = [
+  '0000000000000000', '0100000000000010', '0110000000000110', '0011000000001100',
+  '0001111111111000', '0011111111111100', '0111101111011110', '1101101111011011',
+  '0001111111111000', '0111111001111110', '1101111001111011', '0001111001111000',
+  '0110111001110110', '1100011111100011', '0000001111000000', '0000000000000000',
+] as const;
+export function pixelPath(rows: readonly string[]): string {
+  return rows.flatMap((row,y) => [...row].flatMap((bit,x) => bit === '1' ? [`M${x} ${y}h1v1h-1z`] : [])).join('');
+}
+export const CHEST_PATH = pixelPath(CHEST_PIXELS);
+export const STAG_PATH = pixelPath(STAG_PIXELS);

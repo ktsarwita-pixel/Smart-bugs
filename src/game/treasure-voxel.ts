@@ -20,7 +20,7 @@ export function createChestGeometry(part: 'body' | 'lid'): THREE.BufferGeometry 
     put(0,0,1,2,1,13,gold); put(21,21,1,2,1,13,gold);
     for (const x of [1,19]) { put(x,x+1,2,10,0,1,gold); put(x,x+1,2,10,13,14,gold); }
     // Extruded clasp and rivets, never overlay coplanar faces.
-    put(9,12,7,10,15,15,dark); put(10,11,8,9,16,16,shine); put(10,10,8,8,17,17,dark);
+    put(9,12,7,10,15,15,dark); put(10,11,8,9,16,16,shine); put(10,11,8,8,17,17,dark);
     for (const x of [1,20]) for (const y of [3,9]) put(x,x,y,y,15,15,shine);
     put(5,7,3,3,6,8,shine); put(13,16,3,4,4,6,gold);
     put(9,10,3,4,9,10,0xa44536); put(11,12,3,4,5,6,0x589a9f);

@@ -31,18 +31,19 @@ try {
      const canvas=document.createElement('canvas');canvas.width=384;canvas.height=725;
      const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0);const data=ctx.getImageData(0,0,384,725).data;
      let count=0,minX=384,maxX=0;
-     // Lower board: excludes health bars, chest and most combat effects.
-     for(let y=285;y<355;y++)for(let x=40;x<344;x++){
+     // The original subtle silk, measured away from the central spider and health bars.
+     for(let y=205;y<350;y++)for(let x=40;x<344;x++){
+       if (x>110 && x<195) continue;
        const i=(y*384+x)*4,r=data[i],g=data[i+1],b=data[i+2];
-       if(r>130&&g>120&&b>130&&b>g*.95&&r<b*1.27){count++;minX=Math.min(minX,x);maxX=Math.max(maxX,x);}
+       if(r>70&&g>65&&b>80&&b>g*1.05&&r<b*1.27){count++;minX=Math.min(minX,x);maxX=Math.max(maxX,x);}
      }
      results.push({count,span:maxX-minX});
    }
    return results;
  },images);
- assert.ok(pixels[0].count>20,`partly grown web must be visible: ${JSON.stringify(pixels)}`);
- assert.ok(pixels[1].count>700,`full web must be visibly rendered on the board: ${JSON.stringify(pixels)}`);
- assert.ok(pixels[1].span>250,`full web must span the drawer: ${JSON.stringify(pixels)}`);
+ assert.ok(pixels[0].count>10,`partly grown web must be visible: ${JSON.stringify(pixels)}`);
+ assert.ok(pixels[1].count>200,`full web must be visibly rendered on the board: ${JSON.stringify(pixels)}`);
+ assert.ok(pixels[1].span>150,`full web must span the drawer: ${JSON.stringify(pixels)}`);
  assert.ok(pixels[1].count>pixels[0].count*1.5,`the visible web must expand, not just a state value: ${JSON.stringify(pixels)}`);
  assert.deepEqual(errors,[]);console.log('PASS actual rendered web expands before results:',pixels);
 

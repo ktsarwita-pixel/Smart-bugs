@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { createChestGeometry } from "../game/treasure-voxel";
 import { BUGS, COMMANDERS, SPECIMEN_IDS, type BugId, type CmdId } from "../game/data";
 import { COLS, ROWS, boardXY, type BattleState, type BUnit, type Zone, type PrepUnit } from "../game/engine";
-import { GRAND_WEB_GROW_SECONDS, grandWebGrowth } from "../game/web-growth";
+import { GRAND_WEB_GROW_SECONDS, grandWebGrowth, visualGrandImpactReady } from "../game/web-growth";
 import { buildVoxelModel, dotTexture, warmVoxelCache, V, type VoxModel } from "../game/voxel";
 import { animateInsectRig } from "../game/animate";
 import { useSettings } from "../i18n";
@@ -934,7 +934,7 @@ export function Scene3D({
     const Z_AXIS = new THREE.Vector3(0, 0, 1);
     const shotProg = new Map<number, number>(); // shot id -> last rendered progress
 
-    function updateProjectiles(b: BattleState | null, time: number) {
+    function updateProjectiles(b: BattleState | null, time: number, dt: number) {
       if (showcase) return;
       if (!b || !b.shots.length) {
         if (projMesh.count !== 0) projMesh.count = 0;
@@ -945,7 +945,12 @@ export function Scene3D({
       let n = 0;
       let hn = 0;
       for (const sh of b.shots) {
-        const p = Math.min(1, Math.max(0, (b.t - sh.t0) / sh.dur));
+        const simulated = Math.min(1, Math.max(0, (b.t - sh.t0) / sh.dur));
+        // A fight can end with an ultimate already in flight. Complete only
+        // its visual flight, so the web never appears before impact.
+        const p = b.over && sh.kind === "webgrand"
+          ? Math.min(1, Math.max(simulated, (shotProg.get(sh.id) ?? simulated) + dt / sh.dur))
+          : simulated;
         const burst = sh.kind === "burst";
         const isWeb = sh.kind === "webgrand" || sh.kind === "websnare";
         // detonation the instant a shell completes its flight
@@ -965,6 +970,7 @@ export function Scene3D({
           }
         }
         shotProg.set(sh.id, p);
+        if (b.over && sh.kind === "webgrand" && p >= 1) continue;
 
         const arcH = burst ? 0.92 : 0.72;
         const sizeMul = sh.size || 1;
@@ -1324,54 +1330,6 @@ export function Scene3D({
     webMesh.renderOrder = 2;
     if (!showcase) scene.add(webMesh);
 
-    // A real, high-contrast spider-web silhouette, not just a nearly invisible
-    // one-pixel lattice or a cloth texture. The whole sheet grows from a tiny
-    // center to the drawer edges. Its scalable threads remain legible on phones.
-    function makeGrandWebTexture() {
-      const canvas = document.createElement("canvas");
-      canvas.width = canvas.height = 512;
-      const ctx = canvas.getContext("2d")!;
-      const center = 256, extent = 245, rays = 20, rings = 8;
-      const at = (i: number, r: number) => {
-        const a = i * Math.PI * 2 / rays - Math.PI / 2;
-        const x = Math.cos(a), y = Math.sin(a), edge = Math.max(Math.abs(x), Math.abs(y));
-        return [center + x / edge * extent * r, center + y / edge * extent * r] as const;
-      };
-      ctx.lineCap = "round"; ctx.lineJoin = "round";
-      ctx.shadowColor = "rgba(196,153,255,.8)"; ctx.shadowBlur = 7;
-      ctx.strokeStyle = "rgba(242,231,255,.95)"; ctx.lineWidth = 2.7;
-      for (let i = 0; i < rays; i++) {
-        const [x, y] = at(i, 1);
-        ctx.beginPath(); ctx.moveTo(center, center); ctx.lineTo(x, y); ctx.stroke();
-      }
-      // Curved cross-threads sag toward the hub, the familiar spider-web
-      // shape. Build all paths in texture space and scale the same mesh.
-      for (let ring = 1; ring <= rings; ring++) {
-        const r = ring / rings;
-        ctx.beginPath();
-        const [x0, y0] = at(0, r); ctx.moveTo(x0, y0);
-        for (let i = 0; i < rays; i++) {
-          const [x1, y1] = at(i, r), [x2, y2] = at(i + 1, r);
-          ctx.quadraticCurveTo(center + ((x1 + x2) / 2 - center) * .88, center + ((y1 + y2) / 2 - center) * .88, x2, y2);
-        }
-        ctx.closePath(); ctx.stroke();
-      }
-      ctx.shadowBlur = 11; ctx.fillStyle = "rgba(255,250,255,.98)";
-      ctx.beginPath(); ctx.arc(center, center, 7, 0, Math.PI * 2); ctx.fill();
-      const texture = new THREE.CanvasTexture(canvas);
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
-      return texture;
-    }
-    const grandSilkTex = showcase ? null : makeGrandWebTexture();
-    if (grandSilkTex) disposables.push(grandSilkTex);
-    const grandSilkGeo = new THREE.PlaneGeometry(1, 1);
-    const grandSilkMat = new THREE.MeshBasicMaterial({ map: grandSilkTex ?? undefined, transparent: true, opacity: .9, depthWrite: false, side: THREE.DoubleSide });
-    const grandSilk = new THREE.InstancedMesh(grandSilkGeo, grandSilkMat, 2);
-    grandSilk.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    grandSilk.frustumCulled = false; grandSilk.count = 0; grandSilk.renderOrder = 4;
-    if (!showcase) scene.add(grandSilk);
-
     // One pooled, softly glowing rim makes the 3×3 After-Web readable without
     // spawning a second net or adding per-web draw calls.
     const snareRimGeo = new THREE.RingGeometry(0.91, 0.96, 48);
@@ -1382,17 +1340,6 @@ export function Scene3D({
     snareRim.count = 0;
     snareRim.renderOrder = 3;
     if (!showcase) scene.add(snareRim);
-
-    // One pooled leading edge makes the growth readable even in potato mode.
-    // Its ellipse never extends beyond the board and disappears after the spin.
-    const growthGeo = new THREE.RingGeometry(0.945, 0.985, 48);
-    const growthMat = new THREE.MeshBasicMaterial({ color: 0xd9b9ff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-    const growthMesh = new THREE.InstancedMesh(growthGeo, growthMat, 2);
-    growthMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    growthMesh.frustumCulled = false;
-    growthMesh.count = 0;
-    growthMesh.renderOrder = 4;
-    if (!showcase) scene.add(growthMesh);
 
     const webQ = new THREE.Quaternion();
     const webE = new THREE.Euler();
@@ -1472,7 +1419,7 @@ export function Scene3D({
     canopyGeo.setAttribute("position", new THREE.BufferAttribute(canopyPositions, 3).setUsage(THREE.DynamicDrawUsage));
     canopyGeo.setAttribute("color", new THREE.BufferAttribute(canopyColors, 3).setUsage(THREE.DynamicDrawUsage));
     canopyGeo.setDrawRange(0, 0);
-    const canopyMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.26, blending: THREE.AdditiveBlending, depthWrite: false });
+    const canopyMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.64, blending: THREE.AdditiveBlending, depthWrite: false });
     const canopy = new THREE.LineSegments(canopyGeo, canopyMat);
     canopy.frustumCulled = false;
     canopy.renderOrder = 3;
@@ -1505,7 +1452,10 @@ export function Scene3D({
       if (b) b.visualWebRemaining = undefined;
       // If combat finishes while an already-fired ultimate is in flight,
       // complete its visual reveal without creating a gameplay web or damage.
-      const pendingGrand = b?.over ? b.pending.filter(hit => hit.kind === "webgrand") : [];
+      const inFlightGrand = b?.over ? b.pending.filter(hit => hit.kind === "webgrand") : [];
+      const pendingGrand = inFlightGrand.filter(hit => visualGrandImpactReady(hit, b?.shots ?? [], shotProg));
+      // Keep results waiting while the already-fired projectile is in flight.
+      if (b && inFlightGrand.length > pendingGrand.length) b.visualWebRemaining = GRAND_WEB_GROW_SECONDS + 0.7;
       const visualWebs = b ? (pendingGrand.length ? [...b.webs, ...pendingGrand.map(hit => ({
         id: hit.id, kind: "grand" as const,
         owner: b.units.find(unit => unit.uid === hit.fromUid)?.side ?? "ally" as const,
@@ -1515,8 +1465,6 @@ export function Scene3D({
       if (!visualWebs.length) {
         if (webMesh.count !== 0) webMesh.count = 0;
         if (snareRim.count !== 0) snareRim.count = 0;
-        if (growthMesh.count !== 0) growthMesh.count = 0;
-        if (grandSilk.count !== 0) grandSilk.count = 0;
         if (eggMesh.count !== 0) eggMesh.count = 0;
         if (glintMesh.count !== 0) glintMesh.count = 0;
         glintMat.opacity = 0;
@@ -1529,8 +1477,6 @@ export function Scene3D({
       for (const id of Array.from(webAge.keys())) if (!liveIds.has(id)) webAge.delete(id);
       let n = 0;
       let rimN = 0;
-      let growthN = 0;
-      let grandSilkN = 0;
       let en = 0;
       let glintN = 0;
       let canopyVertices = 0;
@@ -1607,22 +1553,6 @@ export function Scene3D({
         webMesh.setMatrixAt(n, m4);
         webMesh.setColorAt(n, projCol.setHex(tint));
         n++;
-        if (grand && grandSilkN < 2) {
-          webS.set(sw, sh2, 1);
-          projTmp.set(cx, 0.14, cz);
-          m4.compose(projTmp, webQ, webS);
-          grandSilk.setMatrixAt(grandSilkN++, m4);
-        }
-        if (grand && motionEnabled && k < 1 && growthN < 2) {
-          // The glowing leading edge rides the growing sheet and fades out.
-          webS.set(sw * 0.49, sh2 * 0.49, 1);
-          projTmp.set(cx, 0.075, cz);
-          m4.compose(projTmp, webQ, webS);
-          growthMesh.setMatrixAt(growthN, m4);
-          const brightness = Math.sin(Math.PI * k) * 0.8;
-          growthMesh.setColorAt(growthN, projCol.setRGB(brightness, brightness, brightness));
-          growthN++;
-        }
         if (!grand && !potatoOn && rimN < WEB_POOL_N) {
           webS.set(sw * 0.5, sh2 * 0.5, 1);
           projTmp.set(cx, 0.065, cz);
@@ -1762,11 +1692,6 @@ export function Scene3D({
         canopyGeo.attributes.color.needsUpdate = true;
       }
       webMesh.count = n;
-      grandSilk.count = grandSilkN;
-      grandSilk.instanceMatrix.needsUpdate = true;
-      growthMesh.count = growthN;
-      growthMesh.instanceMatrix.needsUpdate = true;
-      if (growthMesh.instanceColor) growthMesh.instanceColor.needsUpdate = true;
       snareRim.count = rimN;
       snareRim.instanceMatrix.needsUpdate = true;
       if (snareRim.instanceColor) snareRim.instanceColor.needsUpdate = true;
@@ -3285,7 +3210,7 @@ export function Scene3D({
           visualBattleTime + dt * p.battleSpeed,
         ));
       }
-      updateProjectiles(activeBattle, t);
+      updateProjectiles(activeBattle, t, dt);
       updateWebs(activeBattle, t, dt);
       updateHoles(activeBattle);
       updateZones(activeBattle, t, visualBattleTime);
@@ -3623,8 +3548,6 @@ export function Scene3D({
       haloMesh.dispose();
       webMesh.dispose();
       snareRim.dispose(); snareRimGeo.dispose(); snareRimMat.dispose();
-      growthMesh.dispose(); growthGeo.dispose(); growthMat.dispose();
-      grandSilk.dispose(); grandSilkGeo.dispose(); grandSilkMat.dispose();
       eggMesh.dispose();
       glintMesh.dispose();
       webGeo.dispose(); webMat.dispose();

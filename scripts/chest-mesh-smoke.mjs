@@ -12,7 +12,7 @@ for (const part of ['body','lid']) {
     assert.ok(!faces.has(key), `${part} has duplicate coplanar triangles`); faces.add(key);
     const normal=Math.hypot(n.getX(i),n.getY(i),n.getZ(i)); assert.ok(normal>0.99,`${part} invalid normal`);
   }
-  assert.ok(faces.size>100); bounds[part]=geo.boundingBox.clone(); geo.dispose(); console.log(`PASS ${part}: ${faces.size} unique exposed triangles`);
+  assert.ok(faces.size>100); assert.ok(Math.abs(geo.boundingBox.min.x+geo.boundingBox.max.x)<1e-6, `${part} silhouette must be centered`); bounds[part]=geo.boundingBox.clone(); geo.dispose(); console.log(`PASS ${part}: ${faces.size} unique exposed triangles`);
 }
 
 assert.ok(bounds.lid.min.y+0.46 > bounds.body.max.y, 'closed lid must not overlap body');

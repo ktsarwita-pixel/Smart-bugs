@@ -37,15 +37,21 @@ try {
     await page.getByRole('button',{name:'Close admin panel'}).tap();
     await page.locator('.result-card').waitFor();
     assert.equal(await page.locator('.result-period .round-track__cell').count(),4);
+    const aligned = await page.locator('.result-period .round-track__cell').evaluateAll(cells => cells.every(cell => {
+      const c=cell.getBoundingClientRect(), i=cell.querySelector('svg').getBoundingClientRect();
+      return Math.abs(c.left+c.width/2-i.left-i.width/2)<.1 && Math.abs(c.top+c.height/2-i.top-i.height/2)<.1;
+    }));
+    assert.ok(aligned,'result icons must remain centered in every state');
     if (round===1 || round===4) {
       assert.equal(await page.locator('.treasure-result').count(),1);
       assert.equal(await page.locator('.pixel-treasure--open').count(),1);
       await page.waitForTimeout(800);
       const sprite = await page.locator('.pixel-treasure').evaluate(el => {
         const back=el.querySelector('.pixel-treasure__lid-open'), closed=el.querySelector('.pixel-treasure__lid-closed'), rect=back.getBoundingClientRect(), outer=el.getBoundingClientRect();
-        return { back: getComputedStyle(back).opacity, closed: getComputedStyle(closed).opacity, offset: Math.abs((rect.left+rect.right-outer.left-outer.right)/2) };
+        const ink=back.getBBox(), inside=el.querySelector('.pixel-treasure__inside').getBBox();
+        return { back: getComputedStyle(back).opacity, closed: getComputedStyle(closed).opacity, offset: Math.abs((rect.left+rect.right-outer.left-outer.right)/2), lidCenter: ink.x+ink.width/2, insideCenter: inside.x+inside.width/2 };
       });
-      assert.equal(sprite.back,'1'); assert.equal(sprite.closed,'0'); assert.ok(sprite.offset<4,'open lid should stay centered behind chest');
+      assert.equal(sprite.back,'1'); assert.equal(sprite.closed,'0'); assert.ok(sprite.offset<1,'open lid should stay centered behind chest'); assert.equal(sprite.lidCenter,32); assert.equal(sprite.insideCenter,32);
       assert.equal(await page.locator('.treasure-loot > span').count(),2);
       if(round===4) assert.match(await page.locator('.treasure-result').innerText(),/\+25G/);
       assert.equal(await page.locator('.result-health__change').getAttribute('data-loss'),'0');

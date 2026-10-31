@@ -28,6 +28,11 @@ const pitchDegrees = (el: Element) => {
   return m ? Math.atan2(m.m23, m.m22) * 180 / Math.PI : NaN;
 };
 const spriteVisible = (root: Element) => Array.from(root.querySelectorAll(".pixel-treasure")).some(visible);
+// Spider geometry faces local -Z, so PI faces the player on the +Z side.
+const spiderFacingError = (el: HTMLElement) => {
+  const facing = Number(el.dataset.roarFacing);
+  return Math.abs(Math.atan2(Math.sin(facing - Math.PI), Math.cos(facing - Math.PI))) * 180 / Math.PI;
+};
 
 /** Inspect chest components, front-facing transforms, hinge points, WebGL
  * health and broken images in the current screen or active dialog. */
@@ -80,6 +85,14 @@ export function auditVisuals(scope: ParentNode): VisualAudit {
       }
     } catch { add("VISUAL", "warning", "VS chest icon incomplete", "The icon is missing its centered lock or cannot be measured.", icon.parentElement as HTMLElement); }
   }
+  for (const spider of scope.querySelectorAll<HTMLElement>('.ov-unit[data-roaring="true"][data-roar-facing]')) {
+    if (!visible(spider)) continue;
+    checked++;
+    const facing = spiderFacingError(spider), head = Math.abs(Number(spider.dataset.roarHeadYaw ?? 0)) * 180 / Math.PI;
+    if (!Number.isFinite(facing) || !Number.isFinite(head) || facing > 2 || head > 2) {
+      add("VISUAL", "warning", "Spider not facing the player", `During Battle Roar the body is ${Number.isFinite(facing) ? facing.toFixed(1) : "an unknown number of"}° from the front and the head is ${Number.isFinite(head) ? head.toFixed(1) : "unknown"}° off-center.`, spider);
+    }
+  }
   for (const canvas of scope.querySelectorAll<HTMLCanvasElement>("canvas[data-chest-facing-error]")) {
     if (!visible(canvas)) continue;
     checked++;
@@ -102,7 +115,9 @@ export function auditVisuals(scope: ParentNode): VisualAudit {
  * Does not click controls, force frames, or alter the game. */
 export async function watchVisuals(scope: ParentNode, duration = 1300): Promise<VisualFinding[]> {
   const chests = Array.from(scope.querySelectorAll<HTMLElement>(".treasure-chest-3d")).filter(visible);
-  if (!chests.length) return [];
+  const spiders = Array.from(scope.querySelectorAll<HTMLElement>('.ov-unit[data-roaring="true"][data-roar-facing][data-roar-body]')).filter(visible);
+  if (!chests.length && !spiders.length) return [];
+  const spiderPoses = new Map(spiders.map(spider => [spider, { facing: spider.dataset.roarFacing, body: spider.dataset.roarBody, head: spider.dataset.roarHeadYaw, moved: false }]));
   const histories = new Map(chests.map(chest => [chest, new Set([chest.dataset.renderer || "missing"])]));
   const oldSpriteSeen = new Set(chests.filter(spriteVisible));
   const animations = chests.flatMap(chest => chest.getAnimations({ subtree: true }).map(animation => ({ chest, animation, at: Number(animation.currentTime ?? 0), state: animation.playState })));
@@ -111,12 +126,20 @@ export async function watchVisuals(scope: ParentNode, duration = 1300): Promise<
       history.add(chest.dataset.renderer || "missing");
       if (spriteVisible(chest)) oldSpriteSeen.add(chest);
     }
+    for (const [spider, pose] of spiderPoses) {
+      if (spider.dataset.roaring === "true" && spider.dataset.roarBody !== undefined &&
+          (spider.dataset.roarFacing !== pose.facing || spider.dataset.roarBody !== pose.body || spider.dataset.roarHeadYaw !== pose.head)) pose.moved = true;
+    }
   });
   chests.forEach(chest => observer.observe(chest, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-renderer", "class", "style"] }));
+  spiders.forEach(spider => observer.observe(spider, { attributes: true, attributeFilter: ["data-roar-facing", "data-roar-body", "data-roar-head-yaw"] }));
   await new Promise<void>(resolve => window.setTimeout(resolve, duration));
   observer.disconnect();
   const findings: VisualFinding[] = [];
   const reduced = document.documentElement.dataset.motion === "reduced" || matchMedia("(prefers-reduced-motion: reduce)").matches;
+  for (const [spider, pose] of spiderPoses) {
+    if (spider.isConnected && pose.moved) findings.push({ kind: "ANIMATION", severity: "warning", label: "Spider body rotated during roar", detail: "Its rendered body, facing or head yaw changed while Battle Roar was active.", el: spider });
+  }
   for (const [chest, history] of histories) {
     if (!chest.isConnected || !visible(chest)) continue;
     if (history.size > 1 || oldSpriteSeen.has(chest)) {
@@ -145,10 +168,25 @@ export function clearVisualHistory() { visualEvents.length = 0; }
 export function monitorVisuals(onChange: (events: VisualEvent[]) => void) {
   const previous = new WeakMap<HTMLElement, { renderer: string; old: boolean }>();
   const registered = new WeakSet<HTMLElement>();
+  const spiderPrevious = new WeakMap<HTMLElement, { facing: string; body: string; head: string; turned: boolean; offFront: boolean }>();
   const log = (message: string) => {
     visualEvents.push({ time: new Date().toLocaleTimeString(), message });
     if (visualEvents.length > 12) visualEvents.shift();
     onChange(visualHistory());
+  };
+  const checkSpider = (spider: HTMLElement) => {
+    if (!spider.isConnected || spider.dataset.roaring !== "true" || spider.dataset.roarFacing === undefined || spider.dataset.roarBody === undefined) {
+      spiderPrevious.delete(spider); return;
+    }
+    const facing = spider.dataset.roarFacing, body = spider.dataset.roarBody, head = spider.dataset.roarHeadYaw ?? "0";
+    const previous = spiderPrevious.get(spider) ?? { facing, body, head, turned: false, offFront: false };
+    const facingError = spiderFacingError(spider), headAngle = Math.abs(Number(head)) * 180 / Math.PI;
+    const offFront = !Number.isFinite(facingError) || !Number.isFinite(headAngle) || facingError > 2 || headAngle > 2;
+    if (offFront && !previous.offFront) { log("Spider faced away during Battle Roar."); previous.offFront = true; }
+    if ((facing !== previous.facing || body !== previous.body || head !== previous.head) && !previous.turned) {
+      log("Spider body rotated during Battle Roar."); previous.turned = true;
+    }
+    spiderPrevious.set(spider, previous);
   };
   const check = (chest: HTMLElement) => {
     if (!chest.isConnected || !visible(chest)) return;
@@ -163,9 +201,13 @@ export function monitorVisuals(onChange: (events: VisualEvent[]) => void) {
       const target = record.target instanceof Element ? record.target : record.target.parentElement;
       const chest = target?.closest<HTMLElement>(".treasure-chest-3d");
       if (chest) check(chest);
+      const spider = target?.closest<HTMLElement>('.ov-unit[data-unit-id]');
+      if (spider) checkSpider(spider);
       for (const node of record.addedNodes) if (node instanceof Element) {
         if (node.matches(".treasure-chest-3d")) register(node as HTMLElement);
         node.querySelectorAll<HTMLElement>(".treasure-chest-3d").forEach(register);
+        if (node.matches('.ov-unit[data-unit-id]')) checkSpider(node as HTMLElement);
+        node.querySelectorAll<HTMLElement>('.ov-unit[data-unit-id][data-roaring="true"]').forEach(checkSpider);
       }
     }
   });
@@ -176,8 +218,9 @@ export function monitorVisuals(onChange: (events: VisualEvent[]) => void) {
     }
     check(chest);
   };
-  observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-renderer"] });
+  observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-renderer", "data-roar-facing", "data-roar-body", "data-roar-head-yaw"] });
   document.querySelectorAll<HTMLElement>(".treasure-chest-3d").forEach(register);
+  document.querySelectorAll<HTMLElement>('.ov-unit[data-unit-id][data-roaring="true"]').forEach(checkSpider);
   onChange(visualHistory());
   return () => observer.disconnect();
 }

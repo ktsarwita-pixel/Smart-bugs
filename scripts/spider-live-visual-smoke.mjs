@@ -21,8 +21,11 @@ try {
   await page.getByLabel('Admin command').fill('give spider 3');
   await page.getByRole('button',{name:'RUN',exact:true}).tap();
   await page.getByRole('button',{name:'Close admin panel'}).tap();
+  await page.locator('.selected-actions').getByRole('button',{name:'DEPLOY'}).tap();
+  await page.waitForFunction(()=>document.querySelector('.ov-unit[data-species="spider"]')?.dataset.spiderFacing,null,{timeout:15000,polling:100});
+  assert.ok(Math.abs(Number(await page.locator('.ov-unit[data-species="spider"]').first().getAttribute('data-spider-facing'))-Math.PI)<.0001,'live prep Spider must face the player');
   await page.evaluate(()=>{
-    window.__roarMarks=[]; window.__roarWords=[]; window.__grandGrowth=[]; window.__cues=[]; window.__waveFrames=[]; window.__bannerOpacity=[];
+    window.__roarPoses=[]; window.__roarMarks=[]; window.__roarWords=[]; window.__grandGrowth=[]; window.__cues=[]; window.__waveFrames=[]; window.__bannerOpacity=[];
     new MutationObserver(changes=>{
       for(const change of changes){
         if(change.type==='attributes'){
@@ -31,6 +34,7 @@ try {
             const value=el.getAttribute('data-roar-progress');
             if(value!==null) {
               window.__roarMarks.push([performance.now(),Number(value)]);
+              window.__roarPoses.push({facing:el.dataset.roarFacing,body:el.dataset.roarBody,head:el.dataset.roarHeadYaw});
               const cue=document.querySelector('.roar-cue[data-roar-cue="charging"]');
               if(cue) window.__waveFrames.push([...cue.querySelectorAll('.roar-cue__wave')].map(w=>w.style.transform).join(','));
               if(Number(value)>=30) {
@@ -56,9 +60,11 @@ try {
   await page.getByRole('button',{name:/Engage battle/}).tap();
   await page.waitForFunction(()=>window.__cues.some(c=>c.state==='impact'),null,{timeout:20000,polling:100});
   await page.waitForFunction(()=>window.__roarWords.includes('650'),null,{timeout:10000,polling:100});
-  const proof=await page.evaluate(()=>({marks:window.__roarMarks,words:window.__roarWords,growth:window.__grandGrowth,cues:window.__cues,waveFrames:window.__waveFrames,banner:window.__bannerOpacity}));
+  const proof=await page.evaluate(()=>({marks:window.__roarMarks,poses:window.__roarPoses,words:window.__roarWords,growth:window.__grandGrowth,cues:window.__cues,waveFrames:window.__waveFrames,banner:window.__bannerOpacity}));
   const values=proof.marks.map(([,v])=>v), charging=proof.cues.filter(c=>c.state==='charging'), impact=proof.cues.find(c=>c.state==='impact');
   assert.ok(values.length>=2,`roar needs rendered frames: ${values}`);
+  assert.ok(proof.poses.every(p=>Math.abs(Number(p.facing)-Math.PI)<.0001 && p.head==='0.00000' && p.body),`live Spider must stay front-facing: ${JSON.stringify(proof.poses)}`);
+  assert.equal(new Set(proof.poses.map(p=>p.body)).size,1,'live Spider body must not rotate during roar');
   if (reduced) {
     assert.ok(values.every(v=>v===50),`reduced motion should hold one clear roar pose: ${values}`);
     assert.equal(new Set(proof.waveFrames).size,1,'reduced motion waves must not pulse');

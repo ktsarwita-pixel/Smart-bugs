@@ -2453,7 +2453,10 @@ export function Scene3D({
       inner.add(model.group);
       holder.add(inner);
       holder.position.set(x, UNIT_GROUND, y);
-      holder.rotation.y = side === "ally" ? 0 : Math.PI;
+      // The sculpt's face is along local -Z; rotate it toward the player (+Z)
+      // before its first rendered frame, rather than turning during the roar.
+      const initialRot = advancedEffects && id === "spider" ? Math.PI : side === "ally" ? 0 : Math.PI;
+      holder.rotation.y = initialRot;
       holder.name = `unit:${id}:${uid}`;
       inner.name = "unit-flight-transform";
       scene.add(holder);
@@ -2521,7 +2524,7 @@ export function Scene3D({
         holder,
         inner,
         ring,
-        rotY: side === "ally" ? 0 : Math.PI,
+        rotY: initialRot,
         bob: (uid * 1.7) % 6,
         lunge: 0,
         deadT: 0,
@@ -2826,11 +2829,15 @@ export function Scene3D({
       const phaseChanged = (flight?.phase ?? "grounded") !== u.prevPhase;
       if (flight && dive) wantRot = Math.atan2(-(dive.toX - dive.fromX), -(dive.toY - dive.fromY));
 
-      // Lock the *rendered* body direction for the entire roar. Acquire the
-      // initial target once, then ignore retargeting until the cast ends.
+      // Show the Spider's face during preparation, then keep that same
+      // player-facing direction fixed for its entire opening Battle Roar.
+      // Its target direction becomes relevant again only after the cast.
+      const frontSpiderPreview = advancedEffects && id === "spider" && !battleOn && !dead;
       const holdSpiderBody = advancedEffects && id === "spider" && roarProgress !== undefined && !dead;
-      if (holdSpiderBody) {
-        if (u.prevRoarProgress < 0) u.rotY = wantRot;
+      if (frontSpiderPreview) {
+        u.rotY = Math.PI;
+      } else if (holdSpiderBody) {
+        if (u.prevRoarProgress < 0) u.rotY = Math.PI;
       } else {
         let dRot = wantRot - u.rotY;
         while (dRot > Math.PI) dRot -= Math.PI * 2;
@@ -3133,16 +3140,25 @@ export function Scene3D({
         roarProgress,
         advancedEffects,
       );
+      if (advancedEffects && id === "spider") {
+        const facing = u.holder.rotation.y.toFixed(5);
+        if (u.el.dataset.spiderFacing !== facing) u.el.dataset.spiderFacing = facing;
+      }
       if (holdSpiderBody) {
         // Inspectable rendered transforms also make target-switch regressions
         // testable without affecting the combat simulation.
         const facing = u.holder.rotation.y.toFixed(5);
-        const body = [u.model.torso.rotation.x, u.model.torso.rotation.y, u.model.torso.rotation.z].map(v => v.toFixed(5)).join(",");
+        const body = [u.inner.rotation.x, u.inner.rotation.y, u.inner.rotation.z,
+          u.model.group.rotation.x, u.model.group.rotation.y, u.model.group.rotation.z,
+          u.model.torso.rotation.x, u.model.torso.rotation.y, u.model.torso.rotation.z].map(v => v.toFixed(5)).join(",");
         if (u.el.dataset.roarFacing !== facing) u.el.dataset.roarFacing = facing;
         if (u.el.dataset.roarBody !== body) u.el.dataset.roarBody = body;
+        const headYaw = u.model.head.rotation.y.toFixed(5);
+        if (u.el.dataset.roarHeadYaw !== headYaw) u.el.dataset.roarHeadYaw = headYaw;
       } else if (u.el.dataset.roarFacing !== undefined) {
         delete u.el.dataset.roarFacing;
         delete u.el.dataset.roarBody;
+        delete u.el.dataset.roarHeadYaw;
       }
 
       if (flight && dive) {

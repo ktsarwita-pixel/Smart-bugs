@@ -279,7 +279,7 @@ export function UiDoctor() {
   const report = scan ? [`UI Doctor · ${scan.width}×${scan.height} · DPR ${devicePixelRatio || 1} · ${scan.time}`,
     `${scan.checked} visible controls · ${scan.visualChecked} visual targets checked · ${scan.issues.length} findings${scan.deep ? " · deep observation" : ""}`,
     `FPS ${perf.fps} · worst frame (last second) ${perf.worst}ms · frames over 100ms ${perf.janks}`,
-    "Non-destructive checks: touch/layout, chest alignment and hinge, rendering and (in deep scan) animation/visual swaps. Actions and subjective artwork are not tested; scrolling can be intentional.",
+    "Non-destructive checks: touch/layout, chest alignment and hinge, Spider roar facing, rendering and (in deep scan) animation/visual swaps. Actions and subjective artwork are not tested; scrolling can be intentional.",
     ...scan.issues.map(i => `[${i.severity.toUpperCase()}] ${i.kind} ${i.label}: ${i.detail}`),
     ...(history.length ? ["Visual history (while Doctor was enabled):", ...history.map(e => `${e.time}: ${e.message}`)] : [])].join("\n") : "";
   const copy = async () => {

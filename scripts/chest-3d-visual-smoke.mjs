@@ -29,6 +29,10 @@ try {
   const frames=await page.evaluate(()=>window.frames);
   assert.ok(frames.filter(([angle])=>angle>5&&angle<85).length>=4,'opening must render several intermediate positions');
   assert.ok(frames.every(([,gap])=>gap<.5),'the hinge remains connected throughout opening');
+  assert.ok(frames.every(([angle])=>angle>=-.1 && angle<=94.1),'smooth lid never overshoots');
+  assert.ok(frames.every(([angle],i)=>!i || angle>=frames[i-1][0]-.1),'lid opens smoothly without reversing or snapping back');
+  assert.equal(await chest.locator('.treasure-chest-3d__cavity i').count(),5,'treasure stays anchored inside the cavity');
+  assert.equal(await chest.locator('.treasure-chest-3d__gem').count(),1);
   const end=await geometry();
   assert.ok(Math.abs(end.pitch-94)<1 && Math.abs(end.yaw)<.001 && end.gap<.5,'open chest stays front-facing and attached');
   if(process.env.CAPTURE) await chest.screenshot({path:process.env.CAPTURE});
@@ -43,6 +47,7 @@ try {
   assert.ok(Math.abs(reduced.pitch-94)<1 && reduced.gap<.5,'reduced motion immediately opens a connected lid');
   await page.waitForTimeout(300);
   assert.equal((await geometry()).pitch,reduced.pitch,'reduced-motion pose is static');
+  assert.equal(await chest.locator('.treasure-chest-3d__cavity').evaluate(el=>getComputedStyle(el,'::before').animationName),'none','loot reveal also respects reduced motion');
   assert.deepEqual(errors,[]);
-  console.log('PASS immediate front-facing 3D chest, connected animated hinge, no artwork swap and reduced motion');
+  console.log('PASS immediate front-facing 3D chest, smooth monotonic connected hinge, anchored treasure, no artwork swap and reduced motion');
 } finally {await browser.close();}

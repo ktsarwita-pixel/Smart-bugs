@@ -537,7 +537,9 @@ export function animateInsectRig(
   m.torso.position.z = R.torso.z + ease(m.torso.position.z - R.torso.z, p.torsoPosZ, kFast);
 
   m.head.rotation.x = ease(m.head.rotation.x, p.headX, kFast);
-  m.head.rotation.y = ease(m.head.rotation.y, p.headY, kBody);
+  // A roaring Spider looks straight at the player instead of its idle head sway.
+  m.head.rotation.y = enhancedRoar && id === "spider" && roarProgress !== undefined && !dead
+    ? 0 : ease(m.head.rotation.y, p.headY, kBody);
   m.head.rotation.z = ease(m.head.rotation.z, p.headZ, kFast);
   m.head.position.y = R.head.y + ease(m.head.position.y - R.head.y, p.headPosY, kBody);
   m.head.position.z = R.head.z + ease(m.head.position.z - R.head.z, p.headPosZ, kFast);

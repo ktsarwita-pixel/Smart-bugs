@@ -34,9 +34,14 @@ try {
       const icon=await page.locator('.vs-plaque .chest-icon--advanced').evaluate(svg=>{
         const silhouette=svg.querySelector('path').getBBox(), lock=svg.querySelector('[data-chest-lock]').getBBox(), view=svg.viewBox.baseVal;
         const mid=view.x+view.width/2;
-        return {silhouette:Math.abs(silhouette.x+silhouette.width/2-mid),lock:Math.abs(lock.x+lock.width/2-mid)};
+        const shine=svg.querySelector('.chest-icon__shine');
+        return {silhouette:Math.abs(silhouette.x+silhouette.width/2-mid),lock:Math.abs(lock.x+lock.width/2-mid),shineAnimation:getComputedStyle(shine).animationName};
       });
       assert.ok(icon.silhouette<.1 && icon.lock<.1,'VS icon must be symmetric and face the player');
+      assert.equal(icon.shineAnimation,'chest-icon-sheen','VS icon has a subtle smooth highlight, not a rotating body');
+      await page.evaluate(()=>document.documentElement.dataset.motion='reduced');
+      assert.equal(await page.locator('.vs-plaque .chest-icon__shine').evaluate(el=>getComputedStyle(el).animationName),'none','VS highlight respects reduced motion');
+      await page.evaluate(()=>document.documentElement.dataset.motion='full');
       await page.waitForFunction(()=>document.querySelector('.battle-stage canvas')?.dataset.chestFacingError!==undefined,null,{timeout:15000});
       const board=await page.locator('.battle-stage canvas').evaluate(c=>({facing:Number(c.dataset.chestFacingError),hinge:Number(c.dataset.chestHingeGap)}));
       assert.ok(Math.abs(board.facing)<.01&&board.hinge<.001,'board chest must face the camera and have an attached hinge');

@@ -168,17 +168,19 @@ interface Report {
 
 function ChestIcon({ size = 24, advanced = false }: { size?: number; advanced?: boolean }) {
   if (advanced) return <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" shapeRendering="crispEdges" className="chest-icon chest-icon--advanced">
-    {/* Symmetric, front-facing chest, matching the reward and board model. */}
-    <path fill="#27170e" d="M4 12V9h2V7h2V5h16v2h2v2h2v17h-2v2H6v-2H4z" />
-    <path fill="#82421e" d="M6 12V9h2V7h16v2h2v3z" />
-    <path fill="#be702e" d="M8 7h16v2H8zM6 10h20v3H6z" />
-    <path fill="#a85724" d="M6 14h20v11H6z" />
-    <path fill="#cc7b31" d="M7 15h18v3H7zM7 20h18v3H7z" />
-    <path fill="#713719" d="M7 18h18v2H7zM7 23h18v2H7z" />
-    <path fill="#d99d3d" d="M8 7h3v6H8zM21 7h3v6h-3zM6 12h20v2H6zM8 14h3v12H8zM21 14h3v12h-3zM6 25h20v2H6z" />
-    <path fill="#ffe39a" d="M8 7h3v2H8zM21 7h3v2h-3zM8 14h1v2H8zM23 14h1v2h-1zM7 25h18v1H7z" />
-    <path data-chest-lock fill="#43270f" d="M13 12h6v7h-6z" /><path fill="#ffd574" d="M14 13h4v5h-4z" /><path fill="#633a16" d="M15 15h2v2h-2z" />
-    <path fill="#ffe9a7" d="M9 21h1v1H9zM22 21h1v1h-1z" />
+    {/* Symmetric, front-facing curved lid, oak boards and engraved brass. */}
+    <path fill="#29180f" d="M2 15h2v-4h2V8h2V6h3V5h10v1h3v2h2v3h2v4h2v11h-2v2H4v-2H2z" />
+    <path fill="#673419" d="M4 15v-3h2V9h2V7h3V6h10v1h3v2h2v3h2v3z" />
+    <path fill="#b96b2b" d="M6 13v-2h2V9h2V8h12v1h2v2h2v2z" />
+    <path fill="#d99143" d="M10 8h12v1H10zM8 10h16v1H8zM6 13h20v1H6z" />
+    <path fill="#8a451f" d="M4 16h24v10H4z" />
+    <path fill="#c27231" d="M5 17h22v3H5zM5 22h22v3H5z" />
+    <path fill="#6b3418" d="M5 20h22v2H5zM5 25h22v1H5z" />
+    <path fill="#9f671f" d="M7 9h4v17H7zM21 9h4v17h-4zM4 14h24v3H4zM4 25h24v2H4z" />
+    <path fill="#e4a846" d="M8 9h2v5H8zM22 9h2v5h-2zM8 17h2v8H8zM22 17h2v8h-2zM5 15h22v1H5zM5 25h22v1H5z" />
+    <path className="chest-icon__shine" fill="#ffe39b" d="M9 9h1v4H9zM22 9h1v4h-1zM9 17h1v7H9zM22 17h1v7h-1zM6 15h20v1H6z" />
+    <path data-chest-lock fill="#40240f" d="M13 13h6v8h-6z" /><path fill="#f7cb69" d="M14 14h4v6h-4z" /><path fill="#693c18" d="M15 16h2v2h-2zM15 18h2v1h-2z" />
+    <path fill="#fff0b5" d="M8 19h1v1H8zM23 19h1v1h-1zM8 23h1v1H8zM23 23h1v1h-1z" />
   </svg>;
   return <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" shapeRendering="crispEdges"><path fill="#3b2112" d="M2 4h12v2h1v8H1V6h1z"/><path fill="#a9692e" d="M3 5h10v3H3zM2 9h12v4H2z"/><path fill="#f1bb4c" d="M3 4h10v1H3zM2 8h12v1H2zM7 9h2v3H7z"/></svg>;
 }

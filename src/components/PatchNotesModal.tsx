@@ -15,6 +15,15 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    v: "0.63",
+    title: "FRONT AND CENTER",
+    items: [
+      "Advanced build: Spider faces you before the round and throughout Battle Roar, with its body held still. Combat timing and damage are unchanged.",
+      "The VS chest and round reward chest face you with richer details, a connected hinge and a smoother opening. Reduced motion is respected.",
+      "UI Doctor checks Spider facing and rotation during Battle Roar alongside chest alignment and rendering, with brief visual problems saved in history.",
+    ],
+  },
+  {
     v: "0.62",
     title: "THE BATTLE ROAR",
     items: [

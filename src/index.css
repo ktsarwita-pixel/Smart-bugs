@@ -2101,13 +2101,21 @@ html[data-background="light"] .shop-heading .shop-toggle[aria-pressed="true"] { 
 .fight-banner .fight-flare__round { position:static; margin:4px 0 3px; font-size:8px; letter-spacing:.11em; animation:none; }
 .fight-banner .fight-flare__word { padding:0; border:0; background:none; box-shadow:none; font-size:clamp(19px,6vw,32px); color:#fff1c9; animation:none; }
 .fight-banner__sub { color:#dbb66f; font-size:8px; letter-spacing:.12em; margin-top:5px; }
+/* The small VS badge stays front-facing; only the fixed metal highlights
+   gently gleam, with no spinning or detached sparkles. */
+.chest-icon__shine { animation:chest-icon-sheen 3.4s ease-in-out infinite; }
+@keyframes chest-icon-sheen { 0%,100% { opacity:.65; } 50% { opacity:1; } }
+@media (prefers-reduced-motion:reduce) { .chest-icon__shine { animation:none; opacity:1; } }
+html[data-motion="reduced"] .chest-icon__shine { animation:none; opacity:1; }
+
 /* A single CSS-3D model is available on the very first paint. All faces share
    the same dimensions and hinge: no old sprite, extra WebGL context or swap. */
 .treasure-chest-3d { --chest-width:68px; --chest-depth:24px; position:relative; flex:none; width:84px; height:76px; perspective:340px; perspective-origin:50% 38%; }
+.treasure-chest-3d::before { content:""; position:absolute; left:10px; right:10px; bottom:3px; height:8px; border-radius:50%; background:radial-gradient(ellipse,#5b381e55,transparent 70%); }
 .treasure-chest-3d__world { position:absolute; top:34px; left:8px; width:68px; height:34px; transform-style:preserve-3d; transform:rotateX(-12deg); }
 .treasure-chest-3d__world > *, .treasure-chest-3d__lid > * { position:absolute; box-sizing:border-box; backface-visibility:visible; }
 .treasure-chest-3d__body-front, .treasure-chest-3d__body-back { left:0; top:0; width:68px; height:34px; border:2px solid #422412; }
-.treasure-chest-3d__body-front { transform:translateZ(12px); background:repeating-linear-gradient(to bottom,#b86c2c 0 7px,#723a1b 7px 9px); box-shadow:inset 0 3px #e9a949,inset 0 -4px #7e401b,0 2px #2e1a10; }
+.treasure-chest-3d__body-front { transform:translateZ(12px); background:linear-gradient(90deg,#48200b44,transparent 22%,transparent 78%,#48200b44),repeating-linear-gradient(to bottom,#c27630 0 1px,#aa5b25 1px 7px,#683117 7px 9px); box-shadow:inset 0 3px #f0b458,inset 0 -4px #7a3b1a,inset 0 -6px #bc7f33,0 2px #2e1a10; }
 .treasure-chest-3d__body-back { transform:translateZ(-12px); background:#6b3619; }
 .treasure-chest-3d__body-side { left:22px; top:0; width:24px; height:34px; border:2px solid #482611; background:repeating-linear-gradient(to bottom,#9a5123 0 7px,#623116 7px 9px); }
 .treasure-chest-3d__body-side--left { transform:rotateY(90deg) translateZ(-34px); }
@@ -2115,17 +2123,24 @@ html[data-background="light"] .shop-heading .shop-toggle[aria-pressed="true"] { 
 .treasure-chest-3d__floor, .treasure-chest-3d__cavity { left:0; width:68px; height:24px; transform:rotateX(90deg); }
 .treasure-chest-3d__floor { top:22px; background:#522d17; }
 .treasure-chest-3d__cavity { top:-12px; border:4px solid #c99439; background:#542a14; box-shadow:inset 0 0 0 2px #2e190e; overflow:hidden; }
-.treasure-chest-3d__cavity i { position:absolute; bottom:2px; width:13px; height:8px; border-radius:50%; background:#f6c653; border:1px solid #a97424; box-shadow:inset 0 1px #fff0a9; }
-.treasure-chest-3d__cavity i:nth-child(1) { left:8px; } .treasure-chest-3d__cavity i:nth-child(2) { left:24px; bottom:4px; } .treasure-chest-3d__cavity i:nth-child(3) { right:8px; }
+.treasure-chest-3d__cavity::before { content:""; position:absolute; inset:0; opacity:0; background:radial-gradient(ellipse at center,#ffe58a88,transparent 75%); }
+.treasure-chest-3d--open .treasure-chest-3d__cavity::before { animation:chest-loot-light .75s ease-out .4s both; }
+@keyframes chest-loot-light { from { opacity:0; } to { opacity:1; } }
+.treasure-chest-3d__cavity i { position:absolute; bottom:2px; width:13px; height:8px; border-radius:50%; background:linear-gradient(#ffe591,#e3a633); border:1px solid #9a6720; box-shadow:inset 0 1px #fff5bf; }
+.treasure-chest-3d__cavity i:nth-child(1) { left:5px; } .treasure-chest-3d__cavity i:nth-child(2) { left:17px; bottom:4px; } .treasure-chest-3d__cavity i:nth-child(3) { left:28px; } .treasure-chest-3d__cavity i:nth-child(4) { right:6px; bottom:4px; } .treasure-chest-3d__cavity i:nth-child(5) { right:16px; bottom:2px; }
+.treasure-chest-3d__gem { position:absolute; left:27px; top:2px; width:7px; height:7px; transform:rotate(45deg); border:1px solid #267d72; background:#7ce0c7; box-shadow:inset 1px 1px #dbfff3; }
 .treasure-chest-3d__strap { position:absolute; top:0; bottom:0; width:7px; background:linear-gradient(to right,#8f5c21,#f3c563 35%,#cf8b2d 75%,#80521c); box-shadow:0 0 0 1px #72431b; }
 .treasure-chest-3d__strap--left { left:8px; } .treasure-chest-3d__strap--right { right:8px; }
-.treasure-chest-3d__lock { position:absolute; z-index:2; left:50%; top:-2px; width:12px; height:14px; transform:translateX(-50%); border:2px solid #4c2b12; background:linear-gradient(#ffe18b,#d59632); box-shadow:0 1px #603b19; }
+.treasure-chest-3d__strap::before, .treasure-chest-3d__strap::after { content:""; position:absolute; left:2px; width:2px; height:2px; background:#fff0b2; box-shadow:1px 1px #8a591e; }
+.treasure-chest-3d__strap::before { top:3px; } .treasure-chest-3d__strap::after { bottom:3px; }
+.treasure-chest-3d__lock { position:absolute; z-index:2; left:50%; top:-2px; width:12px; height:14px; transform:translateX(-50%); border:2px solid #4c2b12; background:linear-gradient(135deg,#fff0b2,#eab64f 55%,#bd7a23); box-shadow:0 1px #603b19,inset 0 1px #fff4bb; }
 .treasure-chest-3d__lock i { position:absolute; left:3px; top:4px; width:2px; height:4px; background:#533215; }
 .treasure-chest-3d__lid { left:0; top:0; width:68px; height:0; transform-style:preserve-3d; transform-origin:50% 0 0; transform:translateZ(-12px) rotateX(0deg); }
-.treasure-chest-3d--open .treasure-chest-3d__lid { animation:treasure-3d-open 1.15s cubic-bezier(.34,0,.21,1) both; }
-@keyframes treasure-3d-open { 0%,8% { transform:translateZ(-12px) rotateX(0deg); } 72% { transform:translateZ(-12px) rotateX(98deg); } 87% { transform:translateZ(-12px) rotateX(91deg); } 100% { transform:translateZ(-12px) rotateX(94deg); } }
+.treasure-chest-3d--open .treasure-chest-3d__lid { animation:treasure-3d-open 1.25s cubic-bezier(.32,0,.2,1) both; }
+@keyframes treasure-3d-open { 0%,8% { transform:translateZ(-12px) rotateX(0deg); } 100% { transform:translateZ(-12px) rotateX(94deg); } }
 .treasure-chest-3d__lid-front, .treasure-chest-3d__lid-back { left:0; top:-16px; width:68px; height:16px; border:2px solid #4d2913; }
-.treasure-chest-3d__lid-front { transform:translateZ(24px); background:linear-gradient(#d28a3b 0 3px,#a85c27 3px 9px,#82421e 9px 12px,#d19a43 12px); }
+.treasure-chest-3d__lid-front { transform:translateZ(24px); background:linear-gradient(90deg,#4b210b44,transparent 22%,transparent 78%,#4b210b44),linear-gradient(#e4a256 0 3px,#ae6129 3px 9px,#7c3b1a 9px 12px,#d6a148 12px); }
+.treasure-chest-3d__lid-latch { position:absolute; left:50%; bottom:0; width:8px; height:4px; transform:translateX(-50%); border:1px solid #6c3e16; background:linear-gradient(#ffe4a0,#d19635); }
 .treasure-chest-3d__lid-back { transform:translateZ(0); background:#73401c; }
 .treasure-chest-3d__lid-side { left:22px; top:-16px; width:24px; height:16px; border:2px solid #4d2913; background:#9d5a27; }
 .treasure-chest-3d__lid-side--left { transform:rotateY(90deg) translateZ(-34px); }
@@ -2136,11 +2151,12 @@ html[data-background="light"] .shop-heading .shop-toggle[aria-pressed="true"] { 
 .treasure-chest-3d__lid-ridge-front { transform:translateZ(24px); }
 .treasure-chest-3d__lid-ridge-back { transform:translateZ(0); }
 .treasure-chest-3d__lid-ridge-top { left:6px; top:-32px; width:56px; height:24px; border:1px solid #9d662d; background:linear-gradient(90deg,#be8031 0 7px,#edbd5b 7px 12px,#bf7a32 12px 44px,#edbd5b 44px 49px,#be8031 49px); transform:translateZ(12px) rotateX(90deg); }
-.treasure-chest-3d__lid-bottom { top:-12px; background:repeating-linear-gradient(to bottom,#9d5927 0 5px,#74401c 5px 7px); box-shadow:inset 0 0 0 2px #e0ae56; }
+.treasure-chest-3d__lid-bottom { top:-12px; background:linear-gradient(90deg,transparent 0 15%,#c5934a 15% 20%,transparent 20% 80%,#c5934a 80% 85%,transparent 85%),repeating-linear-gradient(to bottom,#a76029 0 5px,#734019 5px 7px); box-shadow:inset 0 0 0 2px #e8bb70,inset 0 0 0 4px #75451f; }
 .treasure-chest-3d__body-anchor, .treasure-chest-3d__lid-anchor { left:50%; top:0; width:0; height:0; pointer-events:none; }
 .treasure-chest-3d__body-anchor { transform:translateZ(-12px); }
-@media (prefers-reduced-motion:reduce) { .treasure-chest-3d--open .treasure-chest-3d__lid { animation:none; transform:translateZ(-12px) rotateX(94deg); } }
+@media (prefers-reduced-motion:reduce) { .treasure-chest-3d--open .treasure-chest-3d__lid { animation:none; transform:translateZ(-12px) rotateX(94deg); } .treasure-chest-3d--open .treasure-chest-3d__cavity::before { animation:none; opacity:1; } }
 html[data-motion="reduced"] .treasure-chest-3d--open .treasure-chest-3d__lid { animation:none; transform:translateZ(-12px) rotateX(94deg); }
+html[data-motion="reduced"] .treasure-chest-3d--open .treasure-chest-3d__cavity::before { animation:none; opacity:1; }
 .pixel-treasure { display:block; flex:none; width:76px; height:76px; overflow:visible; image-rendering:pixelated; }
 .pixel-treasure__loot { opacity:0; }
 .pixel-treasure--open .pixel-treasure__loot { animation:pixel-treasure-loot 420ms steps(3,end) 400ms forwards; }

@@ -1,6 +1,8 @@
 /** Deterministic browser fixture for both sides, interruption and motion mode. */
+import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Scene3D } from "../src/components/Scene3D";
+import { UiDoctor } from "../src/components/UiDoctor";
 import { createBattle, stepBattle, type BattleState, type PrepUnit } from "../src/game/engine";
 import { SettingsProvider } from "../src/i18n";
 import "../src/index.css";
@@ -8,11 +10,9 @@ import "../src/index.css";
 const unit = (uid: number, bugId: PrepUnit["bugId"], star: number, slot: number): PrepUnit => ({ uid, bugId, star, slot, zone: "board" });
 const params = new URLSearchParams(location.search);
 const edge = params.has("edge");
-const battle = createBattle(
-  [unit(1, "spider", 3, edge ? 0 : 4), unit(2, "stag", 3, 1)],
-  [unit(3, "spider", 3, edge ? 6 : 4), unit(4, "stag", 3, 1)],
-  "matriarch", "matriarch",
-);
+const prep = [unit(1, "spider", 3, edge ? 0 : 4), unit(2, "stag", 3, 1)];
+const foes = [unit(3, "spider", 3, edge ? 6 : 4), unit(4, "stag", 3, 1)];
+const battle = createBattle(prep, foes, "matriarch", "matriarch");
 for (const u of battle.units) { u.hp = u.maxHp = 5000; u.cd = 100; u.spd = 0; }
 const battleRef = { current: battle } as React.RefObject<BattleState | null>;
 Object.assign(window, {
@@ -26,6 +26,9 @@ Object.assign(window, {
   },
 });
 
-createRoot(document.getElementById("root")!).render(
-  <SettingsProvider><Scene3D mode="battle" battle={battle} battleRef={battleRef} advancedEffects={!params.has("legacy")} className="h-full w-full" /></SettingsProvider>,
-);
+function Fixture() {
+  const [mode, setMode] = useState<"prep" | "battle">(params.has("prep") ? "prep" : "battle");
+  Object.assign((window as unknown as { roarHarness: object }).roarHarness, { start: () => setMode("battle") });
+  return <><Scene3D mode={mode} prep={prep} battle={battle} battleRef={battleRef} advancedEffects={!params.has("legacy")} className="h-full w-full" />{params.has("doctor") && <UiDoctor />}</>;
+}
+createRoot(document.getElementById("root")!).render(<SettingsProvider><Fixture /></SettingsProvider>);

@@ -244,7 +244,7 @@ export function SettingsModal({ open, onClose }: Props) {
             })}
           </div>
           <p className="mt-2 text-[10px] leading-snug text-[#7B6E5F]">
-            {t(advancedDoctor ? "Scans touch, layout, chest alignment and rendering. Deep Scan watches for flashes and stalled animation; visual history records swaps while enabled." : "Overlay that hunts unresponsive UI: tiny tap targets, covered buttons, clipped panels, and dropped frames. Shows an FPS meter and a copyable report.")}
+            {t(advancedDoctor ? "Scans touch, layout, chest alignment, Spider facing and rendering. Deep Scan watches for flashes, rotation and stalled animation; visual history records brief issues while enabled." : "Overlay that hunts unresponsive UI: tiny tap targets, covered buttons, clipped panels, and dropped frames. Shows an FPS meter and a copyable report.")}
           </p>
         </div>
 

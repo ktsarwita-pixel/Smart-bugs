@@ -18,11 +18,13 @@ try {
     const old=document.createElement('div');old.className='pixel-treasure';old.id='old-chest-fixture';chest.appendChild(old);
     const canvas=document.createElement('canvas');canvas.id='bad-board';canvas.width=70;canvas.height=50;canvas.style.cssText='position:fixed;left:5px;top:100px;width:70px;height:50px';canvas.dataset.chestFacingError='0.7';canvas.dataset.chestHingeGap='0.05';document.body.append(canvas);
     const img=document.createElement('img');img.src='/missing-doctor-image.png';img.alt='Broken visual fixture';img.style.cssText='position:fixed;left:5px;top:165px;width:30px;height:30px';document.body.append(img);
+    const spider=document.createElement('div');spider.className='ov-unit';spider.id='bad-spider';spider.textContent='Spider';spider.style.cssText='position:fixed;left:5px;top:205px;width:55px;height:25px';
+    spider.dataset.unitId='999';spider.dataset.roaring='true';spider.dataset.roarFacing='1';spider.dataset.roarHeadYaw='0';spider.dataset.roarBody='0,0,0';document.body.append(spider);
   });
   await page.waitForFunction(()=>document.querySelector('img[alt="Broken visual fixture"]').complete);
   await page.getByRole('button',{name:'SCAN SCREEN'}).tap();
   text=await page.locator('.ui-doctor__body').innerText();
-  for(const phrase of ['Chest not facing the player','Chest lid disconnected','Old chest artwork visible','Board chest not facing the player','Board chest hinge disconnected','Image failed to load']) assert.ok(text.includes(phrase),`missing Doctor finding: ${phrase}\n${text}`);
+  for(const phrase of ['Chest not facing the player','Chest lid disconnected','Old chest artwork visible','Board chest not facing the player','Board chest hinge disconnected','Image failed to load','Spider not facing the player']) assert.ok(text.includes(phrase),`missing Doctor finding: ${phrase}\n${text}`);
   await page.locator('.ui-doctor__history summary').tap();
   assert.match(await page.locator('.ui-doctor__history').innerText(), /Old pixel chest appeared/, 'passive history should catch the flash before a deep scan');
   await page.evaluate(()=>{
@@ -30,6 +32,7 @@ try {
     chest.querySelector('.treasure-chest-3d__world').style.transform='';
     chest.querySelector('.treasure-chest-3d__lid-anchor').style.left='';
     document.querySelector('#bad-board').remove();document.querySelector('img[alt="Broken visual fixture"]').remove();
+    document.querySelector('#bad-spider').dataset.roarFacing=String(Math.PI);
   });
   await page.getByRole('button',{name:'Minimize UI Doctor'}).tap();
   await page.getByRole('button',{name:'Open',exact:true}).tap();
@@ -41,13 +44,16 @@ try {
   });
   await page.getByRole('button',{name:'Open UI Doctor'}).tap();
   await page.getByRole('button',{name:'DEEP SCAN'}).tap();
+  await page.evaluate(()=>{ document.querySelector('#bad-spider').dataset.roarBody='0,0.5,0'; });
   await page.getByText('WATCHING…').waitFor({state:'hidden',timeout:10000});
   text=await page.locator('.ui-doctor__body').innerText();
   assert.match(text,/Chest artwork changed during scan/,'deep scan catches a late renderer swap');
   assert.match(text,/Chest opening is stalled/,'deep scan catches paused lid animation');
+  assert.match(text,/Spider body rotated during roar/,'deep scan catches body rotation while roaring');
   assert.match(text,/deep observation/);
   await page.locator('.ui-doctor__history summary').tap();
   assert.match(await page.locator('.ui-doctor__history').innerText(), /renderer switched/i, 'history retains the transient renderer swap');
+  assert.match(await page.locator('.ui-doctor__history').innerText(), /Spider body rotated during Battle Roar/i, 'history retains brief roar rotation');
   await page.getByRole('button',{name:'CLEAR HISTORY'}).tap();
   assert.match(await page.locator('.ui-doctor__history summary').innerText(),/0 events/);
   for(const [width,height] of [[280,653],[320,568],[390,844],[812,375]]) {
@@ -60,5 +66,5 @@ try {
     assert.ok(layout.buttons.every(b=>b.left>=0&&b.right<=width&&b.height>=40&&b.scroll<=b.client+1),`Doctor actions must fit and stay tappable at ${width}x${height}`);
   }
   assert.deepEqual(errors,[]);
-  console.log('PASS advanced Doctor detects misalignment, detached hinges, fallback flashes, failed images and stalled animation');
+  console.log('PASS advanced Doctor detects chest faults, bad Spider facing/rotation, fallback flashes, failed images and stalled animation');
 } finally {await browser.close();}

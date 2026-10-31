@@ -7,7 +7,7 @@ export function TreasureChest3D({ open }: { open: boolean }) {
       <div className="treasure-chest-3d__body-side treasure-chest-3d__body-side--left" />
       <div className="treasure-chest-3d__body-side treasure-chest-3d__body-side--right" />
       <div className="treasure-chest-3d__floor" />
-      <div className="treasure-chest-3d__cavity"><i /><i /><i /></div>
+      <div className="treasure-chest-3d__cavity"><i /><i /><i /><i /><i /><span className="treasure-chest-3d__gem" /></div>
       <div className="treasure-chest-3d__body-front"><span className="treasure-chest-3d__strap treasure-chest-3d__strap--left" /><span className="treasure-chest-3d__strap treasure-chest-3d__strap--right" /><span className="treasure-chest-3d__lock"><i /></span></div>
       <span className="treasure-chest-3d__body-anchor" />
       <div className="treasure-chest-3d__lid">
@@ -20,7 +20,7 @@ export function TreasureChest3D({ open }: { open: boolean }) {
         <div className="treasure-chest-3d__lid-ridge-top" />
         <div className="treasure-chest-3d__lid-ridge-back" />
         <div className="treasure-chest-3d__lid-bottom" />
-        <div className="treasure-chest-3d__lid-front"><span className="treasure-chest-3d__strap treasure-chest-3d__strap--left" /><span className="treasure-chest-3d__strap treasure-chest-3d__strap--right" /></div>
+        <div className="treasure-chest-3d__lid-front"><span className="treasure-chest-3d__strap treasure-chest-3d__strap--left" /><span className="treasure-chest-3d__strap treasure-chest-3d__strap--right" /><span className="treasure-chest-3d__lid-latch" /></div>
       </div>
     </div>
   </div>;

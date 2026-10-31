@@ -191,6 +191,8 @@ export interface BattleState {
   zones: Zone[];
   /** live spider webs (whole-board grand + aimed 3x3 snares) */
   webs: Web[];
+  /** Renderer-only deadline, in performance.now() milliseconds. */
+  visualWebUntil?: number;
 }
 
 let UID = 1;

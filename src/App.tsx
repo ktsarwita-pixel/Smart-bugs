@@ -5,7 +5,6 @@ import { warmRoster } from "./game/voxel";
 import { SpecimenIcon, RankBadge } from "./components/SpecimenIcon";
 import { CodexModal } from "./components/CodexModal";
 import { RoundResults } from "./components/RoundResults";
-import { GRAND_WEB_GROW_SECONDS } from "./game/web-growth";
 import { createTreasureBattle, treasureGuardTeam, treasureRound } from "./game/treasure";
 import { periodForRound } from "./game/period";
 import { AdminPanel } from "./components/AdminPanel";
@@ -177,14 +176,31 @@ function PixelTreasure({ open }: { open: boolean }) {
       <path fill="#fff2ae" d="M30 3h4v5h5v4h-5v5h-4v-5h-5V8h5zM9 15h3v3h3v3h-3v3H9v-3H6v-3h3zM51 14h3v3h3v3h-3v3h-3v-3h-3v-3h3z" />
       <path fill="#f6bb42" d="M21 22h5v5h-5zM40 19h4v4h-4zM34 26h5v5h-5z" />
     </g>
-    <g className="pixel-treasure__lid">
+    {/* Raised back-facing lid, drawn behind the rim and front wall. */}
+    <g className="pixel-treasure__lid-open">
+      <path fill="#28180f" d="M6 7h3V4h46v3h3v24H6z" />
+      <path fill="#bf792f" d="M10 8h44v21H10z" />
+      <path fill="#e7ac48" d="M10 8h44v3H10zM10 8h3v21h-3zM51 8h3v21h-3z" />
+      <path fill="#49301c" d="M14 12h36v15H14z" />
+      <path fill="#87502a" d="M17 14h30v10H17z" />
+      <path fill="#aa6a34" d="M17 16h30v2H17zM17 21h30v2H17z" />
+      <path fill="#e9bb59" d="M18 10h4v3h-4zM42 10h4v3h-4z" />
+    </g>
+    <g className="pixel-treasure__lid-closed">
       <path fill="#2e1b13" d="M8 28v-9h3v-4h4v-3h34v3h4v4h3v9h-3v3H11v-3z" />
       <path fill="#7e4222" d="M12 20h3v-4h34v4h3v7H12z" />
       <path fill="#c67a30" d="M15 17h34v3H15zM12 21h40v3H12z" />
       <path fill="#f4c45a" d="M16 16h5v11h-5zM43 16h5v11h-5zM13 24h38v3H13z" />
       <path fill="#fff0a4" d="M16 16h5v2h-5zM43 16h5v2h-5z" />
     </g>
-    <path fill="#28180f" d="M7 27h50v25h-3v4H10v-4H7z" />
+    {/* The open top and its treasure sit between the back lid and front. */}
+    <g className="pixel-treasure__inside">
+      <path fill="#28180f" d="M7 26h50v10H7z" />
+      <path fill="#56371b" d="M11 27h42v7H11z" />
+      <path fill="#ffc858" d="M17 29h8v4h-8zM30 27h7v6h-7zM42 29h7v4h-7z" />
+      <path fill="#ffef9a" d="M19 28h4v2h-4zM32 26h3v2h-3zM44 28h3v2h-3z" />
+    </g>
+    <path fill="#28180f" d="M7 31h50v21h-3v4H10v-4H7z" />
     <path fill="#9e5728" d="M11 30h42v20h-3v3H14v-3h-3z" />
     <path fill="#bb6d2e" d="M13 31h38v3H13zM15 37h34v2H15z" />
     <path fill="#683517" d="M14 47h36v4H14zM14 34h3v13h-3zM47 34h3v13h-3z" />
@@ -197,9 +213,16 @@ function PixelTreasure({ open }: { open: boolean }) {
 
 /** Monochrome, grid-aligned encounter glyphs: no rarity colours. */
 function RoundIcon({ chest }: { chest: boolean }) {
-  return <svg viewBox="0 0 16 16" aria-hidden="true" shapeRendering="crispEdges" className="round-track__icon">
-    {chest ? <path fill="currentColor" d="M3 2h10v1h1v2h1v9H1V5h1V3h1zm0 3v2h10V5h-1V4H4v1zM2 9v4h12V9H9v2H7V9z" /> :
-      <path fill="currentColor" d="M1 1h2v3h2v2H3V5H2V4H1zm12 0h2v3h-1v1h-1v1h-2V4h2zM5 5h6v1h1v2h2v2h-2v2h-1v2H5v-2H4v-2H2V8h2V6h1zm1 2v1h1V7zm3 0v1h1V7zM5 14h2v1H5zm4 0h2v1H9z" />}
+  return <svg viewBox="0 0 20 20" aria-hidden="true" shapeRendering="crispEdges" className="round-track__icon">
+    {chest ? <>
+      <path fill="currentColor" d="M3 4h14v2h2v11H1V6h2zm2 2v2h10V6H5zM3 11v4h14v-4h-5v2H8v-2z" />
+      <path fill="currentColor" opacity=".65" d="M5 5h2v3H5zm8 0h2v3h-2zM5 11h2v4H5zm8 0h2v4h-2z" />
+    </> : <>
+      {/* Stag beetle with forked mandibles, legs and divided wing cases. */}
+      <path fill="currentColor" d="M2 1h2v3h2v2H4V5H2zm14 0h2v4h-2v1h-2V4h2zM6 5h8v2h2v2h2v2h-2v3h2v2h-3v2h-3v1H8v-1H5v-2H2v-2h2v-3H2V9h2V7h2z" />
+      <path fill="#171717" d="M7 8h2v2H7zm4 0h2v2h-2zM9 12h2v5H9z" />
+      <path fill="currentColor" opacity=".7" d="M0 8h2v2H0zm18 0h2v2h-2zM1 16h2v2H1zm16 0h2v2h-2z" />
+    </>}
   </svg>;
 }
 
@@ -691,16 +714,27 @@ export default function App() {
 
   useEffect(() => {
     if (phase !== "battle" || !over) return;
-    // Keep a newly landed ultimate visible through its reveal even if its
-    // damage ends combat immediately; simulation remains stopped as before.
+    // The renderer reports its own reveal deadline. Sim time alone is not
+    // sufficient: a slow first WebGL frame may occur after the fight ends.
+    // Bound the wait so an unavailable renderer or background tab never traps
+    // the player, and keep reduced-motion results immediate as before.
     const b = battleRef.current;
     const reduced = document.documentElement.dataset.motion === "reduced" || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const newest = b?.webs.filter(w => w.kind === "grand" && w.spawnedAt !== undefined).reduce<number | null>((v, w) => Math.max(v ?? 0, w.spawnedAt!), null);
-    const inFlight = !!b?.pending.some(hit => hit.kind === "webgrand");
-    const elapsed = inFlight ? 0 : b && newest != null ? Math.max(0, (b.t - newest) / speedRef.current) : Infinity;
-    const hold = reduced ? 850 : Math.max(850, Math.ceil((GRAND_WEB_GROW_SECONDS - elapsed + 0.2) * 1000));
-    const t = window.setTimeout(() => finish(over), hold);
-    return () => window.clearTimeout(t);
+    const hasGrand = !!b && (b.webs.some(w => w.kind === "grand") || b.pending.some(hit => hit.kind === "webgrand"));
+    const start = performance.now();
+    let timer = 0;
+    const settleWhenVisible = () => {
+      const now = performance.now();
+      if (!reduced && hasGrand && !document.hidden) {
+        const deadline = b?.visualWebUntil;
+        const waitingForFrame = deadline == null && now - start < 3300;
+        const waitingForReveal = deadline != null && now < deadline + 100 && now - start < 5500;
+        if (waitingForFrame || waitingForReveal) { timer = window.setTimeout(settleWhenVisible, 100); return; }
+      }
+      finish(over);
+    };
+    timer = window.setTimeout(settleWhenVisible, 850);
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, over]);
 

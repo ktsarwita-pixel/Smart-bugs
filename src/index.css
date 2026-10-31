@@ -2056,17 +2056,8 @@ html[data-background="light"] .shop-heading .shop-toggle[aria-pressed="true"] { 
 .treasure-result { display:flex; align-items:center; gap:14px; margin:10px 0; padding:10px; color:#513209; background:#f4dca5; border:2px solid #aa7426; font-size:11px; }
 .treasure-result strong { display:block; font-family:var(--font-pixel, monospace); font-size:9px; color:#80500c; margin-bottom:5px; }
 .treasure-result small { display:block; margin-top:4px; }
-.pixel-chest { position:relative; flex:none; width:48px; height:40px; filter:drop-shadow(0 3px 0 #734b20); }
-.pixel-chest__body { position:absolute; left:4px; top:16px; width:40px; height:22px; background:#8c4d22; border:3px solid #392314; box-shadow:inset 0 -5px #663314; }
-.pixel-chest__lid { position:absolute; z-index:1; left:2px; top:8px; width:44px; height:13px; background:#bd7933; border:3px solid #392314; border-top:4px solid #f1be53; transform-origin:top center; }
-.pixel-chest__lock { position:absolute; z-index:2; left:20px; top:17px; width:8px; height:9px; background:#f4cd5c; border:2px solid #744719; }
-.pixel-chest--open .pixel-chest__lid { animation: chest-open .65s cubic-bezier(.2,.8,.2,1) both; }
-.pixel-chest--open { filter:drop-shadow(0 0 6px #ffce55); }
-@keyframes chest-open { from { transform:rotateX(0); } to { transform:translateY(-8px) rotateX(65deg); } }
 .treasure-queue { display:flex; align-items:center; justify-content:space-between; gap:4px; padding:0 2px; background:#3a2a12; color:#ffdb85; font:700 9px monospace; }
 .treasure-queue button { min-height:40px; padding:4px 6px; border:1px solid #e1a43a; background:#6a4619; color:#fff0be; font-weight:bold; }
-@media (prefers-reduced-motion: reduce) { .pixel-chest--open .pixel-chest__lid { animation:none; transform:translateY(-8px) rotateX(65deg); } }
-[data-motion="reduced"] .pixel-chest--open .pixel-chest__lid { animation:none; transform:translateY(-8px) rotateX(65deg); }
 
 .treasure-loot { display:flex; gap:4px; }
 .treasure-loot span { animation:loot-rise .55s ease-out both; }
@@ -2116,12 +2107,29 @@ html[data-background="light"] .shop-heading .shop-toggle[aria-pressed="true"] { 
 .round-track--compact .round-track__icon { width:12px; height:12px; }
 @media (max-width:380px) { .round-track--compact .round-track__cell { width:12px; height:18px; } .round-track--compact .round-track__icon { width:10px; height:10px; } .round-track:not(.round-track--compact) .round-track__cell { width:20px; height:20px; } }
 .pixel-treasure { display:block; flex:none; width:76px; height:76px; overflow:visible; image-rendering:pixelated; }
-.pixel-treasure__lid { transform-origin:9px 28px; }
 .pixel-treasure__loot { opacity:0; }
-.pixel-treasure--open .pixel-treasure__lid { animation:pixel-treasure-open 600ms steps(6,end) forwards; }
 .pixel-treasure--open .pixel-treasure__loot { animation:pixel-treasure-loot 420ms steps(3,end) 400ms forwards; }
-@keyframes pixel-treasure-open { to { transform:rotate(-62deg); } }
 @keyframes pixel-treasure-loot { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
-@media (prefers-reduced-motion: reduce) { .pixel-treasure--open .pixel-treasure__lid { animation:none; transform:rotate(-62deg); } .pixel-treasure--open .pixel-treasure__loot { animation:none; opacity:1; } }
-html[data-motion="reduced"] .pixel-treasure--open .pixel-treasure__lid { animation:none; transform:rotate(-62deg); }
+@media (prefers-reduced-motion: reduce) { .pixel-treasure--open .pixel-treasure__loot { animation:none; opacity:1; } }
 html[data-motion="reduced"] .pixel-treasure--open .pixel-treasure__loot { animation:none; opacity:1; }
+/* The open chest is a separate back-lid sprite, not a sideways rotation. */
+.pixel-treasure__lid-open, .pixel-treasure__inside { opacity:0; }
+.pixel-treasure--open .pixel-treasure__lid-closed { animation:pixel-lid-close-hide 500ms steps(1,end) forwards; }
+.pixel-treasure--open .pixel-treasure__lid-open { animation:pixel-lid-back 650ms steps(5,end) forwards; }
+.pixel-treasure--open .pixel-treasure__inside { animation:pixel-inside-show 500ms steps(1,end) forwards; }
+@keyframes pixel-lid-close-hide { 40%,100% { opacity:0; } }
+@keyframes pixel-lid-back { 0%,30% { opacity:0; transform:translateY(12px); } 31% { opacity:1; transform:translateY(12px); } 100% { opacity:1; transform:translateY(0); } }
+@keyframes pixel-inside-show { 0%,35% { opacity:0; } 36%,100% { opacity:1; } }
+@media (prefers-reduced-motion: reduce) { .pixel-treasure--open .pixel-treasure__lid-closed { animation:none; opacity:0; } .pixel-treasure--open .pixel-treasure__lid-open, .pixel-treasure--open .pixel-treasure__inside { animation:none; opacity:1; transform:none; } }
+html[data-motion="reduced"] .pixel-treasure--open .pixel-treasure__lid-closed { animation:none; opacity:0; }
+html[data-motion="reduced"] .pixel-treasure--open .pixel-treasure__lid-open, html[data-motion="reduced"] .pixel-treasure--open .pixel-treasure__inside { animation:none; opacity:1; transform:none; }
+/* Keep icons monochrome while giving the current tile a clear pixel frame. */
+.round-track { border-color:#454545; background:#121212; }
+.round-track__cell { position:relative; }
+.round-track__cell[data-state="past"] { opacity:.56; }
+.round-track__cell[data-state="future"] { opacity:.72; }
+.round-track__cell[data-state="current"] { background:#282828; border-color:#f4f4f4; }
+.round-track__cell[data-state="current"]::after { content:""; position:absolute; left:2px; right:2px; bottom:-3px; height:1px; background:#eee; }
+.round-track--compact .round-track__cell { width:16px; height:20px; }
+.round-track--compact .round-track__icon { width:14px; height:14px; }
+@media (max-width:380px) { .round-track--compact .round-track__cell { width:13px; height:19px; } .round-track--compact .round-track__icon { width:11px; height:11px; } }

@@ -9,7 +9,13 @@ try {
   await page.reload();
   await page.getByRole('button',{name:'PLAY MATCH'}).tap();
   await page.getByRole('button',{name:'BEGIN ROUND 1'}).first().tap();
-  await page.locator('.shop-grid button:not([disabled])').first().tap();
+  // A strong fielded unit keeps this UI fixture from naturally losing while
+  // software WebGL is busy and the admin panel is being opened.
+  await page.getByRole('button',{name:'Open admin panel'}).first().tap();
+  await page.getByRole('button',{name:'▸ ADVANCED — TYPE COMMANDS'}).tap();
+  await page.getByLabel('Admin command').fill('give spider 3');
+  await page.getByRole('button',{name:'RUN',exact:true}).tap();
+  await page.getByRole('button',{name:'Close admin panel'}).tap();
   for (let round=1;round<=4;round++) {
     const track = page.locator('.round-track--compact');
     assert.match(await track.getAttribute('aria-label'), new RegExp(`PERIOD 1.*ROUND ${round}/4`));
@@ -34,6 +40,12 @@ try {
     if (round===1 || round===4) {
       assert.equal(await page.locator('.treasure-result').count(),1);
       assert.equal(await page.locator('.pixel-treasure--open').count(),1);
+      await page.waitForTimeout(800);
+      const sprite = await page.locator('.pixel-treasure').evaluate(el => {
+        const back=el.querySelector('.pixel-treasure__lid-open'), closed=el.querySelector('.pixel-treasure__lid-closed'), rect=back.getBoundingClientRect(), outer=el.getBoundingClientRect();
+        return { back: getComputedStyle(back).opacity, closed: getComputedStyle(closed).opacity, offset: Math.abs((rect.left+rect.right-outer.left-outer.right)/2) };
+      });
+      assert.equal(sprite.back,'1'); assert.equal(sprite.closed,'0'); assert.ok(sprite.offset<4,'open lid should stay centered behind chest');
       assert.equal(await page.locator('.treasure-loot > span').count(),2);
       if(round===4) assert.match(await page.locator('.treasure-result').innerText(),/\+25G/);
       assert.equal(await page.locator('.result-health__change').getAttribute('data-loss'),'0');
@@ -60,7 +72,8 @@ try {
   assert.ok(claimBox.x >= 0 && claimBox.x + claimBox.width <= 280 && claimBox.height >= 40, 'claim control must fit small phones');
   await page.setViewportSize({width:384,height:725});
   await page.getByRole('button',{name:'Open admin panel'}).first().tap();
-  await page.getByRole('button',{name:'▸ ADVANCED — TYPE COMMANDS'}).tap();
+  const advanced = page.getByRole('button',{name:'▸ ADVANCED — TYPE COMMANDS'});
+  if (await advanced.count()) await advanced.tap();
   for (const id of ['stag','bomb','mantis','dragonfly','spider','stag']) {
     await page.getByLabel('Admin command').fill(`give ${id} 3`);
     await page.getByRole('button',{name:'RUN',exact:true}).tap();

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { createChestGeometry } from "../game/treasure-voxel";
 import { BUGS, COMMANDERS, SPECIMEN_IDS, type BugId, type CmdId } from "../game/data";
 import { COLS, ROWS, boardXY, type BattleState, type BUnit, type Zone, type PrepUnit } from "../game/engine";
 import { GRAND_WEB_GROW_SECONDS, grandWebGrowth } from "../game/web-growth";
@@ -1346,6 +1346,21 @@ export function Scene3D({
     growthMesh.renderOrder = 4;
     if (!showcase) scene.add(growthMesh);
 
+    // A bright growing lattice is drawn above the textured silk. Unlike a
+    // fading decal, its leading ends and cross-threads visibly move outward.
+    // One fixed buffer serves both teams, including low-detail devices.
+    const WEAVE_RAYS = 24, WEAVE_RINGS = 8, WEAVE_MAX = 2;
+    const weavePositions = new Float32Array(WEAVE_MAX * (WEAVE_RAYS + WEAVE_RAYS * WEAVE_RINGS) * 2 * 3);
+    const weaveColors = new Float32Array(weavePositions.length);
+    const weaveGeo = new THREE.BufferGeometry();
+    weaveGeo.setAttribute("position", new THREE.BufferAttribute(weavePositions, 3).setUsage(THREE.DynamicDrawUsage));
+    weaveGeo.setAttribute("color", new THREE.BufferAttribute(weaveColors, 3).setUsage(THREE.DynamicDrawUsage));
+    weaveGeo.setDrawRange(0, 0);
+    const weaveMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
+    const weaveLines = new THREE.LineSegments(weaveGeo, weaveMat);
+    weaveLines.frustumCulled = false; weaveLines.renderOrder = 4;
+    if (!showcase) scene.add(weaveLines);
+
     const webQ = new THREE.Quaternion();
     const webE = new THREE.Euler();
     const webS = new THREE.Vector3();
@@ -1471,6 +1486,8 @@ export function Scene3D({
         if (glintMesh.count !== 0) glintMesh.count = 0;
         glintMat.opacity = 0;
         canopyGeo.setDrawRange(0, 0);
+        weaveGeo.setDrawRange(0, 0);
+        if (host) delete host.dataset.webGrowth;
         webAge.clear();
         return;
       }
@@ -1482,6 +1499,8 @@ export function Scene3D({
       let en = 0;
       let glintN = 0;
       let canopyVertices = 0;
+      let weaveVertices = 0;
+      let weaveCount = 0;
       const motionEnabled = document.documentElement.dataset.motion !== "reduced" && !reducedMotionMedia.matches;
       const silkTime = motionEnabled ? time : 0;
       let canopyCount = 0;
@@ -1492,12 +1511,19 @@ export function Scene3D({
         // hidden by the result dialog before it could reach the drawer edges.
         const now = performance.now() / 1000;
         const started = webAge.get(w.id) ?? now;
-        if (!webAge.has(w.id)) webAge.set(w.id, started);
+        if (!webAge.has(w.id)) {
+          webAge.set(w.id, started);
+          if (grand && motionEnabled && b) b.visualWebUntil = Math.max(b.visualWebUntil ?? 0, (started + GRAND_WEB_GROW_SECONDS) * 1000);
+        }
         const age = Math.max(0, now - started);
         // The projectile has already landed. Reveal one anchored sheet once,
         // with a monotonic ease-out instead of a second drop or elastic pop.
         const k = motionEnabled ? Math.min(1, age / (grand ? GRAND_WEB_GROW_SECONDS : 0.48)) : 1;
         const grow = grand ? grandWebGrowth(age, motionEnabled) : 0.06 + 0.94 * (1 - Math.pow(1 - k, 3));
+        if (grand) {
+          const marker = String(Math.round(grow * 20) * 5);
+          if (host && host.dataset.webGrowth !== marker) host.dataset.webGrowth = marker;
+        }
         // end-of-life DISSOLVE: the snare shrinks and darkens in its last
         // 0.7s instead of popping out of existence
         const dissolve = w.life === undefined ? 1 : Math.max(0, Math.min(1, (w.life ?? 5) / 0.7));
@@ -1562,6 +1588,28 @@ export function Scene3D({
           const brightness = Math.sin(Math.PI * k) * 0.8;
           growthMesh.setColorAt(growthN, projCol.setRGB(brightness, brightness, brightness));
           growthN++;
+        }
+        if (grand && motionEnabled && k < 1 && weaveCount < WEAVE_MAX) {
+          weaveCount++;
+          const intensity = Math.min(1, k * 5) * Math.min(1, (1 - k) * 5);
+          const point = (ray: number, radius: number) => {
+            const a = ray * Math.PI * 2 / WEAVE_RAYS;
+            const c = Math.cos(a), sn = Math.sin(a);
+            // Map to a rectangle, so the threads actually reach all four
+            // corners of the drawer rather than stopping at an ellipse.
+            const edge = Math.max(Math.abs(c), Math.abs(sn));
+            weavePositions[weaveVertices * 3] = cx + c / edge * sw * 0.495 * radius;
+            weavePositions[weaveVertices * 3 + 1] = 0.08;
+            weavePositions[weaveVertices * 3 + 2] = cz + sn / edge * sh2 * 0.495 * radius;
+            weaveColors[weaveVertices * 3] = 0.9 * intensity;
+            weaveColors[weaveVertices * 3 + 1] = 0.72 * intensity;
+            weaveColors[weaveVertices * 3 + 2] = intensity;
+            weaveVertices++;
+          };
+          for (let ray = 0; ray < WEAVE_RAYS; ray++) { point(ray, 0); point(ray, 1); }
+          for (let ring = 1; ring <= WEAVE_RINGS; ring++) for (let ray = 0; ray < WEAVE_RAYS; ray++) {
+            point(ray, ring / WEAVE_RINGS); point(ray + 1, ring / WEAVE_RINGS);
+          }
         }
         if (!grand && !potatoOn && rimN < WEB_POOL_N) {
           webS.set(sw * 0.5, sh2 * 0.5, 1);
@@ -1696,6 +1744,8 @@ export function Scene3D({
           glintN++;
         }
       }
+      weaveGeo.setDrawRange(0, weaveVertices);
+      if (weaveVertices) { weaveGeo.attributes.position.needsUpdate = true; weaveGeo.attributes.color.needsUpdate = true; }
       canopyGeo.setDrawRange(0, canopyVertices);
       if (canopyVertices) {
         canopyGeo.attributes.position.needsUpdate = true;
@@ -3066,84 +3116,24 @@ export function Scene3D({
     // A small voxel-style chest stands behind the neutral guards. The lid is
     // a separate hinge; opening is visual only and never changes combat.
     const chest = new THREE.Group();
-    const chestWood = track(new THREE.MeshStandardMaterial({ color: 0x553018, roughness: 0.8 }));
-    const chestGold = track(new THREE.MeshStandardMaterial({ color: 0xe1a43a, metalness: 0.55, roughness: 0.35 }));
-    const chestBox = (w: number, h: number, d: number, mat: THREE.Material, x: number, y: number, z: number, parent: THREE.Group) => {
-      const mesh = new THREE.Mesh(track(new THREE.BoxGeometry(w, h, d)), mat);
-      mesh.position.set(x, y, z); mesh.userData.chestStatic = true; parent.add(mesh);
-    };
-    const chestDark = track(new THREE.MeshStandardMaterial({ color: 0x26170f, roughness: 0.88 }));
-    const chestLightWood = track(new THREE.MeshStandardMaterial({ color: 0x90502a, roughness: 0.78 }));
-    const chestGoldLight = track(new THREE.MeshStandardMaterial({ color: 0xffcd66, metalness: 0.45, roughness: 0.4 }));
-    // Hollow wooden coffer, assembled from squared planks and substantial
-    // metal corner caps. The interior is genuinely visible when the lid lifts.
-    chestBox(0.88, 0.07, 0.60, chestDark, 0, 0.055, 0, chest);
-    chestBox(0.76, 0.05, 0.48, chestLightWood, 0, 0.10, 0, chest);
-    for (const z of [-0.26, 0.26]) {
-      chestBox(0.84, 0.36, 0.08, chestWood, 0, 0.25, z, chest);
-      for (const y of [0.16, 0.26, 0.36]) {
-        chestBox(0.77, 0.012, 0.014, chestDark, 0, y, z + Math.sign(z) * 0.047, chest);
-      }
-    }
-    for (const x of [-0.39, 0.39]) {
-      chestBox(0.08, 0.36, 0.46, chestWood, x, 0.25, 0, chest);
-      chestBox(0.09, 0.40, 0.10, chestGold, x, 0.25, -0.25, chest);
-      chestBox(0.09, 0.40, 0.10, chestGold, x, 0.25, 0.25, chest);
-      for (const y of [0.15, 0.34]) for (const z of [-0.31, 0.31])
-        chestBox(0.035, 0.035, 0.02, chestGoldLight, x, y, z, chest);
-    }
-    chestBox(0.88, 0.06, 0.62, chestGold, 0, 0.075, 0, chest);
-    chestBox(0.86, 0.045, 0.60, chestGold, 0, 0.43, 0, chest);
-    // Raised clasp, keyhole and bright pixel rivets on the near face.
-    chestBox(0.19, 0.18, 0.035, chestDark, 0, 0.32, 0.32, chest);
-    chestBox(0.15, 0.14, 0.04, chestGoldLight, 0, 0.32, 0.345, chest);
-    chestBox(0.035, 0.065, 0.012, chestDark, 0, 0.32, 0.37, chest);
-    // Low-poly treasure inside, visible only when the lid opens.
-    const gemRed = track(new THREE.MeshStandardMaterial({ color: 0xa43829, emissive: 0x39110b, roughness: 0.4 }));
-    const gemBlue = track(new THREE.MeshStandardMaterial({ color: 0x4a99a1, emissive: 0x102b2c, roughness: 0.4 }));
-    chestBox(0.20, 0.08, 0.16, chestGold, -0.18, 0.14, 0, chest);
-    chestBox(0.15, 0.09, 0.14, chestGoldLight, 0.16, 0.14, -0.06, chest);
-    chestBox(0.09, 0.09, 0.09, gemRed, 0.04, 0.17, 0.12, chest);
-    chestBox(0.08, 0.08, 0.08, gemBlue, -0.10, 0.17, -0.11, chest);
+    // Contiguous voxel meshes expose only outer faces. No two materials
+    // occupy the same face, avoiding z-fighting during camera movement.
+    const chestMaterial = track(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.68, metalness: 0.12 }));
+    const chestBody = new THREE.Mesh(track(createChestGeometry("body")), chestMaterial);
+    chest.add(chestBody);
+    const chestLid = new THREE.Group();
+    chestLid.position.set(0, 0.46, -0.30);
+    chestLid.add(new THREE.Mesh(track(createChestGeometry("lid")), chestMaterial));
+    chest.add(chestLid);
     const chestGlowMat = track(new THREE.MeshBasicMaterial({ color: 0xffca65, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
-    const chestGlow = new THREE.Mesh(track(new THREE.PlaneGeometry(0.62, 0.62)), chestGlowMat);
-    chestGlow.rotation.x = -Math.PI / 2; chestGlow.position.y = 0.155; chest.add(chestGlow);
+    const chestGlow = new THREE.Mesh(track(new THREE.PlaneGeometry(0.56, 0.45)), chestGlowMat);
+    chestGlow.rotation.x = -Math.PI / 2; chestGlow.position.y = 0.13; chest.add(chestGlow);
     const chestSparkMat = track(new THREE.MeshBasicMaterial({ color: 0xffd981, transparent: true, opacity: 0, depthWrite: false }));
     const chestSparkGeo = track(new THREE.BoxGeometry(0.055, 0.055, 0.055));
     const chestSparks = Array.from({ length: 6 }, (_, i) => {
       const m = new THREE.Mesh(chestSparkGeo, chestSparkMat);
       m.position.set(Math.sin(i * 2.4) * 0.22, 0.4, Math.cos(i * 2.4) * 0.16); chest.add(m); return m;
     });
-    const chestLid = new THREE.Group(); chestLid.position.set(0, 0.42, -0.28); chest.add(chestLid);
-    // Stepped, barrel-like voxel lid and underside, all hinged as one piece.
-    chestBox(0.88, 0.09, 0.60, chestDark, 0, 0.045, 0.28, chestLid);
-    chestBox(0.84, 0.12, 0.56, chestWood, 0, 0.12, 0.28, chestLid);
-    chestBox(0.80, 0.08, 0.40, chestLightWood, 0, 0.22, 0.28, chestLid);
-    chestBox(0.76, 0.045, 0.23, chestWood, 0, 0.282, 0.28, chestLid);
-    for (const x of [-0.31, 0.31]) {
-      chestBox(0.075, 0.13, 0.58, chestGold, x, 0.12, 0.28, chestLid);
-      chestBox(0.075, 0.08, 0.42, chestGold, x, 0.22, 0.28, chestLid);
-      chestBox(0.075, 0.045, 0.25, chestGoldLight, x, 0.282, 0.28, chestLid);
-    }
-    chestBox(0.12, 0.08, 0.035, chestGoldLight, 0, 0.10, 0.585, chestLid);
-    // Batch the many pixel blocks by material while keeping the hinged lid
-    // separate. This preserves voxel detail without one draw call per block.
-    const batchChest = (parent: THREE.Group) => {
-      const batches = new Map<THREE.Material, THREE.Mesh[]>();
-      for (const child of parent.children) if (child instanceof THREE.Mesh && child.userData.chestStatic) {
-        const mat = child.material as THREE.Material;
-        const list = batches.get(mat) ?? []; list.push(child); batches.set(mat, list);
-      }
-      for (const [material, parts] of batches) {
-        const geometries = parts.map(part => { part.updateMatrix(); return part.geometry.clone().applyMatrix4(part.matrix); });
-        const merged = mergeGeometries(geometries);
-        geometries.forEach(geometry => geometry.dispose());
-        if (!merged) continue;
-        parts.forEach(part => parent.remove(part));
-        parent.add(new THREE.Mesh(track(merged), material));
-      }
-    };
-    batchChest(chest); batchChest(chestLid);
     chest.position.set(COLS / 2, UNIT_GROUND, 0.86); chest.scale.setScalar(1.22); scene.add(chest);
     let chestOpen = 0;
 
@@ -3602,6 +3592,7 @@ export function Scene3D({
       webMesh.dispose();
       snareRim.dispose(); snareRimGeo.dispose(); snareRimMat.dispose();
       growthMesh.dispose(); growthGeo.dispose(); growthMat.dispose();
+      weaveGeo.dispose(); weaveMat.dispose();
       eggMesh.dispose();
       glintMesh.dispose();
       webGeo.dispose(); webMat.dispose();

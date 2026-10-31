@@ -5,6 +5,7 @@ import { warmRoster } from "./game/voxel";
 import { SpecimenIcon, RankBadge } from "./components/SpecimenIcon";
 import { CodexModal } from "./components/CodexModal";
 import { RoundResults } from "./components/RoundResults";
+import { createTreasureBattle, treasureGuardTeam, treasureRound } from "./game/treasure";
 import { periodForRound } from "./game/period";
 import { AdminPanel } from "./components/AdminPanel";
 import { SettingsModal } from "./components/SettingsModal";
@@ -157,6 +158,13 @@ interface Report {
   streak: number;
   streakGold: number;
   echo: boolean;
+  treasure?: 1 | 4 | null;
+  rewards?: BugId[];
+  treasureGold?: number;
+}
+
+function ChestIcon({ size = 24 }: { size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" shapeRendering="crispEdges"><path fill="#3b2112" d="M2 4h12v2h1v8H1V6h1z"/><path fill="#a9692e" d="M3 5h10v3H3zM2 9h12v4H2z"/><path fill="#f1bb4c" d="M3 4h10v1H3zM2 8h12v1H2zM7 9h2v3H7z"/></svg>;
 }
 
 const RARITY_STYLE: Record<string, string> = {
@@ -202,6 +210,7 @@ export default function App() {
   const [gold, setGold] = useState(10);
   const [level, setLevel] = useState(3);
   const [units, setUnits] = useState<PrepUnit[]>([]);
+  const [pendingRewards, setPendingRewards] = useState<BugId[]>([]);
   const [shop, setShop] = useState<(BugId | null)[]>(rollShop);
   const [match, setMatch] = useState(createMatch);
   const [selected, setSelected] = useState<number | null>(null);
@@ -234,6 +243,7 @@ export default function App() {
 
   const round = match.round;
   const period = periodForRound(round);
+  const treasure = treasureRound(round);
   const playerColony = match.colonies.find((c) => c.id === PLAYER_ID)!;
   const hp = playerColony.hp;
   const activeCount = survivingColonies(match).length;
@@ -533,8 +543,7 @@ export default function App() {
         return say("RECRUIT & DEPLOY A BUG FIRST");
       }
     }
-    const foe = makeFoeTeam(foeIdx, round);
-    const initial = createBattle(activeBoard, foe, cmd ?? "matriarch", BOTS[foeIdx].cmd);
+    const initial = treasure ? createTreasureBattle(activeBoard, cmd ?? "matriarch", round) : createBattle(activeBoard, makeFoeTeam(foeIdx, round), cmd ?? "matriarch", BOTS[foeIdx].cmd);
     // Pre-render pass 1: guarantee every sculpt in this exact matchup exists
     // BEFORE the scene draws its first frame of the fight.
     warmRoster(initial.units);
@@ -607,6 +616,9 @@ export default function App() {
     // continuing a run pays out; a broken run resets to ±1
     const nextStreak = advanceStreak(streak, win);
     const streakGold = streakBonus(nextStreak);
+    const treasureGold = treasure === 4 && win ? 25 : 0;
+    const rewards = treasure && win ? [rollShop()[0]!, rollShop()[0]!] : [];
+    if (rewards.length) setPendingRewards(q => [...q, ...rewards]);
     const bonus = (win ? 2 : 0) + streakGold;
     const dealt = win ? base : 0;
     const taken = win ? 0 : base;
@@ -619,8 +631,8 @@ export default function App() {
     );
 
     setMatch(updated);
-    setGold((g) => g + 5 + interest + bonus);
-    setReport({ win, foeIdx, dealt, taken, hpBefore: hp, hpAfter: updated.colonies.find((c) => c.id === PLAYER_ID)?.hp ?? hp, base, interest, bonus, streak: nextStreak, streakGold, echo: duel.echo });
+    setGold((g) => g + 5 + interest + bonus + treasureGold);
+    setReport({ win, foeIdx, dealt, taken, hpBefore: hp, hpAfter: updated.colonies.find((c) => c.id === PLAYER_ID)?.hp ?? hp, base, interest, bonus, streak: nextStreak, streakGold, echo: duel.echo, treasure, rewards, treasureGold });
     setPhase("result");
   };
 
@@ -664,6 +676,7 @@ export default function App() {
     setMatch(createMatch());
     setLevel(3);
     setUnits([]);
+    setPendingRewards([]);
     setShop(rollShop());
     setShopLocked(false);
     setStreak(0);
@@ -1007,7 +1020,7 @@ export default function App() {
   /** Composition the next opponent will field — lets you plan before committing */
   const scoutTeam = useMemo(() => {
     if (phase !== "prep") return [];
-    const team = makeFoeTeam(foeIdx, round);
+    const team = treasure ? treasureGuardTeam(round) : makeFoeTeam(foeIdx, round);
     const tally = new Map<string, { bugId: BugId; star: number; n: number }>();
     for (const u of team) {
       const k = `${u.bugId}:${u.star}`;
@@ -1016,7 +1029,7 @@ export default function App() {
       else tally.set(k, { bugId: u.bugId, star: u.star, n: 1 });
     }
     return [...tally.values()].sort((a, b) => b.star - a.star || b.n - a.n);
-  }, [phase, foeIdx, round]);
+  }, [phase, foeIdx, round, treasure]);
 
   /* ── Keyboard shortcuts (desktop) ─────────────────────────── */
   useEffect(() => {
@@ -1674,12 +1687,12 @@ export default function App() {
                   It was a dead div before, so phones tapping "VS" got nothing —
                   the literal "vs is unresponsive" report. Inert in combat. */}
               {inCombat ? (
-                <div className="vs-plaque vs-cell min-w-[110px] flex-1 vs-plaque--combat" aria-label={tf("You versus {name}", { name: foe.name })}>
+                <div className="vs-plaque vs-cell min-w-[110px] flex-1 vs-plaque--combat" aria-label={tf("You versus {name}", { name: treasure ? t("TREASURE GUARDS") : foe.name })}>
                   <SpecimenIcon id={cmd ?? "matriarch"} size={24} badge="none" />
                   <span className="label hidden text-[7px] text-[#56DCA8] min-[420px]:inline">{t("YOU")}</span>
                   <span className="vs-word">VS</span>
-                  <span className="label max-w-[16ch] truncate text-[7px] text-[#F05A36]">{foe.short}</span>
-                  <SpecimenIcon id={foe.cmd} size={24} badge="none" />
+                  <span className="label max-w-[16ch] truncate text-[7px] text-[#F05A36]">{treasure ? t("TREASURE GUARDS") : foe.short}</span>
+                  {treasure ? <ChestIcon /> : <SpecimenIcon id={foe.cmd} size={24} badge="none" />}
                 </div>
               ) : (
                 <button
@@ -1688,13 +1701,13 @@ export default function App() {
                   aria-pressed={scouting}
                   title={t("Scout the next opponent (V)")}
                   className={`vs-plaque vs-cell min-w-[110px] flex-1 ${scouting ? "vs-plaque--scouting" : ""}`}
-                  aria-label={tf("You versus {name} — tap to scout their lineup", { name: foe.name })}
+                  aria-label={tf("You versus {name} — tap to scout their lineup", { name: treasure ? t("TREASURE GUARDS") : foe.name })}
                 >
                   <SpecimenIcon id={cmd ?? "matriarch"} size={24} badge="none" />
                   <span className="label hidden text-[7px] text-[#56DCA8] min-[420px]:inline">{t("YOU")}</span>
                   <span className="vs-word">VS</span>
-                  <span className="label max-w-[16ch] truncate text-[7px] text-[#F05A36]">{foe.short}</span>
-                  <SpecimenIcon id={foe.cmd} size={24} badge="none" />
+                  <span className="label max-w-[16ch] truncate text-[7px] text-[#F05A36]">{treasure ? t("TREASURE GUARDS") : foe.short}</span>
+                  {treasure ? <ChestIcon /> : <SpecimenIcon id={foe.cmd} size={24} badge="none" />}
                   <IconScout size={11} className={`vs-scout-ico shrink-0 ${scouting ? "text-[#F05A36]" : "text-[#8C7E6E]"}`} />
                 </button>
               )}
@@ -1746,9 +1759,9 @@ export default function App() {
               <div className="scout-panel rise mx-2 mb-1.5 border border-[#8E2A16] bg-[#1A100D] p-1.5">
                 <div className="mb-1 flex items-center justify-between">
                   <span className="label text-[7px] text-[#F05A36]">
-                    <IconScout size={10} /><span>{foe.short} {t("WILL FIELD")}</span>
+                    <IconScout size={10} /><span>{treasure ? t("TREASURE GUARDS") : foe.short} {t("WILL FIELD")}</span>
                   </span>
-                  <span className="latin text-[10.5px] text-[#8C7E6E]">{t(cmdById(foe.cmd).perk)}</span>
+                  <span className="latin text-[10.5px] text-[#8C7E6E]">{treasure ? t("Neutral guards · no colony damage") : t(cmdById(foe.cmd).perk)}</span>
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {scoutTeam.map((e) => (
@@ -1908,6 +1921,7 @@ export default function App() {
               interactive={phase === "prep"}
               cmdA={cmd ?? "matriarch"}
               cmdB={foe.cmd}
+              treasure={!!treasure}
               onCell={onCell}
               onUnit={onUnit}
               className="h-full w-full"
@@ -1918,13 +1932,12 @@ export default function App() {
                 the stage stays clean mid-fight */}
             {!sel && (
               <div className={`pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-2 border border-[#3B322A]/90 bg-[#120D09]/90 px-2 py-1 ${inCombat ? "hidden min-[720px]:flex" : ""}`}>
-                <SpecimenIcon id={foe.cmd} size={30} badge="none" />
-                <RankBadge id={foe.cmd} size={14} />
+                {treasure ? <ChestIcon size={30} /> : <><SpecimenIcon id={foe.cmd} size={30} badge="none" /><RankBadge id={foe.cmd} size={14} /></>}
                 <div className="leading-tight">
                   <div className="label text-[7px] text-[#F0A93B]">
-                    {inCombat ? t("FIGHTING") : "VS"} {foe.name}{(phase === "result" ? report?.echo : roundFixture?.echo) ? " / ECHO" : ""}
+                    {inCombat ? t("FIGHTING") : "VS"} {treasure ? t("TREASURE GUARDS") : foe.name}{(phase === "result" ? report?.echo : roundFixture?.echo) ? " / ECHO" : ""}
                   </div>
-                  <div className="latin text-[10.5px] text-[#56DCA8]">{t(cmdById(foe.cmd).perk)}</div>
+                  <div className="latin text-[10.5px] text-[#56DCA8]">{treasure ? t("Neutral guards · no colony damage") : t(cmdById(foe.cmd).perk)}</div>
                 </div>
               </div>
             )}
@@ -2100,7 +2113,7 @@ export default function App() {
                       {t("YOUR LINE")} · {allyLiveHp} HP · <span className="text-[#BDF8FF]">ΣATK {allyTeamAtk}</span>
                     </span>
                     <span className="text-[#F05A36]">
-                      <span className="text-[#FFB1A0]">ΣATK {foeTeamAtk}</span> · {foeLiveHp} HP · {foe.short}
+                      <span className="text-[#FFB1A0]">ΣATK {foeTeamAtk}</span> · {foeLiveHp} HP · {treasure ? t("TREASURE GUARDS") : foe.short}
                     </span>
                   </div>
                   <div className="relative mt-1 flex h-3 w-full overflow-hidden border border-[#3B322A] bg-[#962B16]">
@@ -2163,7 +2176,7 @@ export default function App() {
                   {([("ally"), ("foe")] as const).map((side) => (
                     <div key={side} className="min-w-0">
                       <div className={`label mb-1 text-[6.5px] ${side === "foe" ? "text-right text-[#F05A36]" : "text-[#56DCA8]"}`}>
-                        {side === "ally" ? t("YOUR LINE") : foe.short}
+                        {side === "ally" ? t("YOUR LINE") : treasure ? t("TREASURE GUARDS") : foe.short}
                       </div>
                       <div className="unit-strip">
                       {battleSnap.units
@@ -2253,12 +2266,23 @@ export default function App() {
                     {t("BENCH")} ({benchUnits.length}/{BENCH_SIZE})
                   </span>
                   <div className="bench-heading-actions">
+              {pendingRewards.length > 0 && <div className="treasure-queue" role="region" aria-label={t("Treasure rewards")}>
+                <button type="button" onClick={() => {
+                  const id = pendingRewards[0];
+                  const used = new Set(units.filter(u => u.zone === "bench").map(u => u.slot));
+                  const slot = Array.from({ length: BENCH_SIZE }, (_, i) => i).find(i => !used.has(i));
+                  if (slot === undefined) return say("MAKE ROOM ON THE BENCH TO CLAIM");
+                  const { out } = combine([...units, { uid: nextUid(), bugId: id, star: 1, zone: "bench", slot }]);
+                  setUnits(out); setPendingRewards(q => q.slice(1));
+                }}>{tf("CLAIM {name} · {n}", { name: t(BUGS[pendingRewards[0]].short), n: pendingRewards.length })}</button>
+              </div>}
+
                   {benchUnits.length > 0 && (
                     <button type="button" className="bench-inspect-mode label" aria-pressed={benchInspectMode}
                       aria-label={t("Inspect bench units")} title={t("Inspect bench units")}
                       onClick={() => setBenchInspectMode((v) => !v)}>{t("INSPECT")}</button>
                   )}
-                  {benchUnits.length > 0 && boardUnits.length < level && (
+                  {pendingRewards.length === 0 && benchUnits.length > 0 && boardUnits.length < level && (
                     <button
                       onClick={autoFillLine}
                       className="label flex items-center gap-1 text-[7.5px] text-[#56DCA8] hover:text-[#FFF0C0]"
@@ -2535,7 +2559,7 @@ export default function App() {
               {match.winnerId === PLAYER_ID ? t("LAST COLONY!") : hp <= 0 ? t("ELIMINATED") : report.win ? t("VICTORY") : t("DEFEAT")}
             </h2>
             <div className="latin text-[13.5px] text-[#5C4A38]">
-              vs {BOTS[report.foeIdx].name} — <i>{BOTS[report.foeIdx].latin}</i>
+              {report.treasure ? t("TREASURE GUARDS") : <>vs {BOTS[report.foeIdx].name} — <i>{BOTS[report.foeIdx].latin}</i></>}
             </div>
             <p className="mt-1.5 text-[11px] leading-snug text-[#5C4A38]">
               {match.winnerId
@@ -2550,6 +2574,16 @@ export default function App() {
               <p className="mt-1 text-[10px] text-[#7A5318]">{t("Echo match: only your colony can lose HP; the rival's real colony is not damaged here.")}</p>
             )}
 
+            {report.treasure && (
+              <div className="treasure-result" role="status">
+                <div className={`pixel-chest ${report.win ? "pixel-chest--open" : ""}`} aria-hidden="true"><span className="pixel-chest__lid" /><span className="pixel-chest__body" /><span className="pixel-chest__lock" /></div>
+                <div><strong>{report.win ? t("TREASURE UNLOCKED!") : t("CHEST STILL GUARDED")}</strong>
+                  <div>{report.win ? `${report.rewards?.map(id => t(BUGS[id].name)).join(" · ")}${report.treasureGold ? ` · +${report.treasureGold}G` : ""}` : t("Defeat the guards to earn the treasure.")}</div>
+                  {report.win && <div className="treasure-loot" aria-hidden="true">{report.rewards?.map((id, i) => <span key={i}><SpecimenIcon id={id} size={26} badge="none" /></span>)}</div>}
+                  {report.win && <small>{t("Claim your units from the bench reward queue.")}</small>}
+                </div>
+              </div>
+            )}
             <div className="result-health" aria-label={t("Colony HP")}>
               <div className="result-health__heading">
                 <div>
@@ -2575,9 +2609,10 @@ export default function App() {
                 },
                 {
                   l: t("TOTAL GOLD EARNED"),
-                  v: `+${5 + report.interest + report.bonus}G`,
+                  v: `+${5 + report.interest + report.bonus + (report.treasureGold ?? 0)}G`,
                   c: "#241B14",
                 },
+                ...(report.treasureGold ? [{ l: t("  · TREASURE"), v: `+${report.treasureGold}G`, c: "#7A5318" }] : []),
                 { l: t("  · ROUND STIPEND"), v: "+5G", c: "#5C4A38" },
                 { l: t("  · INTEREST (10G/PT)"), v: `+${report.interest}G`, c: "#5C4A38" },
                 { l: t("  · VICTORY BOUNTY"), v: `+${report.win ? 2 : 0}G`, c: "#5C4A38" },

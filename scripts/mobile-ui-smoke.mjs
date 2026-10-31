@@ -137,10 +137,10 @@ try {
     assert.equal(await page.locator('.result-card').getAttribute('data-win'), outcome === 'WIN' ? '1' : '0');
     assert.match(await page.locator('.result-health__value').innerText(), /^\d+\s*\/\s*100$/, `${outcome}: current/max colony health missing`);
     assert.match(await page.locator('.result-health__caption').innerText(), /100\/100/, `${outcome}: previous health missing`);
-    assert.equal(await page.locator('.result-health__change').getAttribute('data-loss'), outcome === 'WIN' ? '0' : '1');
+    assert.equal(await page.locator('.result-health__change').getAttribute('data-loss'), '0');
     const hp = page.locator('.result-health__track');
     const current = Number(await hp.getAttribute('aria-valuenow'));
-    assert.ok(outcome === 'WIN' ? current === 100 : current < 100, `${outcome}: incorrect colony HP`);
+    assert.ok(current === 100, `${outcome}: incorrect colony HP`);
     assert.equal(await page.locator('.result-body').evaluate(el => el.scrollTop), 0, `${outcome}: result opens scrolled past its heading`);
     assert.ok(await page.locator('.result-next').isVisible(), `${outcome}: continuation button is hidden`);
     console.log(`PASS ${outcome} report`);

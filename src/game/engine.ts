@@ -36,6 +36,7 @@ export interface BUnit {
   bugId: BugId;
   star: number;
   side: "ally" | "foe";
+  treasureGuard?: boolean;
   x: number;
   y: number;
   hp: number;

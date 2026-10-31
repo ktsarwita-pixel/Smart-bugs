@@ -19,6 +19,7 @@ interface Props {
   /** Live mutable battle ref for 60/120fps rendering without React re-renders */
   battleRef?: React.RefObject<BattleState | null>;
   battleSpeed?: number;
+  treasure?: boolean;
   selectedUid?: number | null;
   canDeployMore?: boolean;
   interactive?: boolean;
@@ -104,6 +105,7 @@ export function Scene3D({
   battle = null,
   battleRef,
   battleSpeed = 1,
+  treasure = false,
   selectedUid = null,
   canDeployMore = true,
   interactive = false,
@@ -127,6 +129,7 @@ export function Scene3D({
     battle,
     battleRef,
     battleSpeed,
+    treasure,
     selectedUid,
     canDeployMore,
     interactive,
@@ -143,6 +146,7 @@ export function Scene3D({
     battle,
     battleRef,
     battleSpeed,
+    treasure,
     selectedUid,
     canDeployMore,
     interactive,
@@ -2666,9 +2670,11 @@ export function Scene3D({
       dt: number,
       dive: AirstrikeDive | null = null,
       battleTime = 0,
+      treasureGuard = false,
     ) {
       seen.add(uid);
       const u = ensureUnit(uid, id, star, side, rx, ry, cd);
+      u.model.bodyMat.color.setHex(treasureGuard ? 0x22232b : 0xffffff);
       if (u.spawnT < 1) {
         const was = u.spawnT;
         u.spawnT = Math.min(1, u.spawnT + dt * 3.4);
@@ -3015,6 +3021,24 @@ export function Scene3D({
       }
     }
 
+    // A small voxel-style chest stands behind the neutral guards. The lid is
+    // a separate hinge; opening is visual only and never changes combat.
+    const chest = new THREE.Group();
+    const chestWood = track(new THREE.MeshStandardMaterial({ color: 0x553018, roughness: 0.8 }));
+    const chestGold = track(new THREE.MeshStandardMaterial({ color: 0xe1a43a, metalness: 0.55, roughness: 0.35 }));
+    const chestBox = (w: number, h: number, d: number, mat: THREE.Material, x: number, y: number, z: number, parent: THREE.Group) => {
+      const mesh = new THREE.Mesh(track(new THREE.BoxGeometry(w, h, d)), mat);
+      mesh.position.set(x, y, z); parent.add(mesh);
+    };
+    chestBox(0.82, 0.42, 0.56, chestWood, 0, 0.21, 0, chest);
+    chestBox(0.86, 0.08, 0.6, chestGold, 0, 0.06, 0, chest);
+    chestBox(0.12, 0.43, 0.57, chestGold, 0, 0.23, 0, chest);
+    const chestLid = new THREE.Group(); chestLid.position.set(0, 0.42, -0.28); chest.add(chestLid);
+    chestBox(0.84, 0.19, 0.58, chestWood, 0, 0.095, 0.28, chestLid);
+    chestBox(0.12, 0.2, 0.59, chestGold, 0, 0.1, 0.28, chestLid);
+    chest.position.set(COLS / 2, UNIT_GROUND, 0.48); scene.add(chest);
+    let chestOpen = 0;
+
     function tick(now: number) {
       if (paused) return;
       raf = requestAnimationFrame(tick);
@@ -3118,6 +3142,11 @@ export function Scene3D({
       updateScars(dt);
 
       const activeBattle = p.mode === "prep" ? null : p.battleRef?.current ?? p.battle;
+      chest.visible = !showcase && p.treasure;
+      const shouldOpen = !!activeBattle && activeBattle.over === "ally";
+      const reduceChestMotion = document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches;
+      chestOpen = shouldOpen ? (reduceChestMotion ? 1 : Math.min(1, chestOpen + dt * 2.3)) : 0;
+      chestLid.rotation.x = -1.35 * (1 - Math.pow(1 - chestOpen, 3));
       if (activeBattle !== clockBattle) {
         clockBattle = activeBattle;
         visualBattleTime = activeBattle?.t ?? 0;
@@ -3208,6 +3237,7 @@ export function Scene3D({
         totemState.allyHolder.rotation.y = 0.08 + Math.sin(t * 0.7) * 0.05;
         if (totemState.allyRing) totemState.allyRing.opacity = 0.4 + Math.sin(t * 2.4) * 0.18;
       }
+      if (totemState.foeHolder) totemState.foeHolder.visible = !p.treasure;
       if (totemState.foeModel && totemState.foeHolder) {
         animateInsectRig(totemState.foeModel, p.cmdB, t + 1.2, 1002, false, 0, 0, 0, 0, 0, false, 0, dt, 0);
         totemState.foeSpawn = Math.min(1, totemState.foeSpawn + dt * 1.7);
@@ -3326,6 +3356,7 @@ export function Scene3D({
             dt,
             r.dive,
             visualBattleTime,
+            !!r.treasureGuard,
           );
         }
       } else {

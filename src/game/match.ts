@@ -1,6 +1,9 @@
 import { BOTS, STARTING_COLONY_HP, type CmdId } from "./data";
 import { createBattle, makeFoeTeam, stepBattle, type BattleState, type PrepUnit } from "./engine";
 
+import { createTreasureBattle, treasureRound } from "./treasure";
+
+export const TREASURE_ID = "treasure-guards";
 export const PLAYER_ID = "you";
 
 export interface Colony {
@@ -60,7 +63,7 @@ export function createMatch(commander: CmdId = "matriarch"): MatchState {
 }
 
 export function colonyName(id: string): string {
-  return id === PLAYER_ID ? "Your Colony" : BOTS.find((b) => b.id === id)?.name ?? id;
+  return id === TREASURE_ID ? "Treasure Guards" : id === PLAYER_ID ? "Your Colony" : BOTS.find((b) => b.id === id)?.name ?? id;
 }
 
 export function survivingColonies(match: MatchState): Colony[] {
@@ -71,6 +74,7 @@ export function survivingColonies(match: MatchState): Colony[] {
 export function getRoundFixtures(match: MatchState): RoundFixture[] {
   const active = survivingColonies(match);
   if (match.winnerId || active.length < 2) return [];
+  if (treasureRound(match.round)) return active.map((c) => ({ aId: c.id, bId: TREASURE_ID, echo: false }));
   const echoPlayer = active.length % 2 ? active[match.round % active.length] : null;
   const paired = active.filter((c) => c !== echoPlayer);
   const rotating = paired.slice(1);
@@ -145,6 +149,17 @@ export function resolveMatchRound(
     };
   }
   const fixtures = getRoundFixtures(match);
+  if (treasureRound(match.round)) {
+    if (survivors.some(c => c.id === PLAYER_ID) && !playerBattle?.over) return match;
+    const duels: DuelResult[] = fixtures.map(fixture => {
+      const colony = survivors.find(c => c.id === fixture.aId)!;
+      let battle = colony.id === PLAYER_ID ? playerBattle! : createTreasureBattle(teamFor(colony, match.round, "ally", playerTeam), colony.commander, match.round);
+      if (colony.id !== PLAYER_ID) for (let tick = 0; !battle.over && tick < 420; tick++) battle = stepBattle(battle, 0.1);
+      const won = battle.over === "ally";
+      return { ...fixture, winnerId: won ? colony.id : TREASURE_ID, loserId: won ? TREASURE_ID : colony.id, damage: 0, survivors: battle.units.filter(u => !u.dead && u.side === (won ? "ally" : "foe")).length };
+    });
+    return { ...match, lastRound: { round: match.round, duels, eliminatedIds: [] } };
+  }
   const playerRound = playerFixture(match);
   // The human's live battle must be finished before the round can settle.
   if (playerRound && !playerBattle?.over) return match;

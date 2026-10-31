@@ -1873,3 +1873,14 @@ button:not(:disabled).pressable:active,
   .battle-stage { height: clamp(180px, 60svh, 340px); }
   .game-dock { max-height: none; }
 }
+
+/* Fill unused vertical space with the board, not an inert background. The
+   controls remain in normal flow so small screens can still scroll safely. */
+@media (max-width: 1023.98px) {
+  .battle-main { flex: 1 0 auto; }
+  .battle-stage { flex: 1 0 auto; }
+}
+@media (min-width: 580px) and (max-width: 1023.98px) and (max-height: 540px) {
+  .battle-main { min-height: 100dvh; }
+  .battle-stage { flex: 1 0 auto; }
+}

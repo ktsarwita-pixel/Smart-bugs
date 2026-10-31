@@ -201,7 +201,10 @@ export function Scene3D({
     renderer.domElement.style.display = "block";
     renderer.domElement.style.width = "100%";
     renderer.domElement.style.height = "100%";
-    renderer.domElement.style.touchAction = "none";
+    // Let vertical touch gestures scroll the surrounding page; horizontal
+    // showcase drags still rotate the turntable. Board actions happen on a
+    // completed tap, never on the start of a scroll gesture.
+    renderer.domElement.style.touchAction = "pan-y";
     hostEl.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
@@ -2570,21 +2573,10 @@ export function Scene3D({
       dragMoved = false;
       dragBaseSpin = userSpinOffset;
 
-      if (showcase) return;
-      setNdc(e.clientX, e.clientY);
-      const p = P.current;
-      const uid = pickUnit();
-      if (uid != null) {
-        p.onUnit?.(uid);
-        return;
-      }
-      if (p.mode !== "prep" || !p.interactive) return;
-      const c = cellFromRay();
-      if (!c || c.row < ALLY_ROW_MIN) return;
-      p.onCell?.(c.row * COLS + c.col - ALLY_ROW_MIN * COLS);
     };
 
     const onMove = (e: PointerEvent) => {
+      if (isDragging && Math.hypot(e.clientX - dragStartX, e.clientY - dragStartY) > 8) dragMoved = true;
       if (showcase) {
         if (isDragging) {
           const dx = e.clientX - dragStartX;
@@ -2625,6 +2617,21 @@ export function Scene3D({
     };
 
     const onUp = (e: PointerEvent) => {
+      if (!showcase && isDragging && !dragMoved) {
+        const bounds = renderer.domElement.getBoundingClientRect();
+        if (e.clientX >= bounds.left && e.clientX <= bounds.right && e.clientY >= bounds.top && e.clientY <= bounds.bottom) {
+          const p = P.current;
+          if (p.mode === "prep" && p.interactive) {
+            setNdc(e.clientX, e.clientY);
+            const uid = pickUnit();
+            if (uid != null) p.onUnit?.(uid);
+            else {
+              const c = cellFromRay();
+              if (c && c.row >= ALLY_ROW_MIN) p.onCell?.(c.row * COLS + c.col - ALLY_ROW_MIN * COLS);
+            }
+          }
+        }
+      }
       if (showcase && isDragging && !dragMoved) {
         setNdc(e.clientX, e.clientY);
         const groups = showcaseItems.map((it) => it.model.group);
@@ -2676,6 +2683,7 @@ export function Scene3D({
     el.addEventListener("pointermove", onMove, { passive: true });
     window.addEventListener("pointerup", onUp, { passive: true });
     el.addEventListener("pointerleave", onLeave);
+    el.addEventListener("pointercancel", onLeave);
 
     /* ── Render Loop ── */
     const proj = new THREE.Vector3();
@@ -3498,6 +3506,7 @@ export function Scene3D({
       el.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       el.removeEventListener("pointerleave", onLeave);
+      el.removeEventListener("pointercancel", onLeave);
       units.forEach((_, uid) => killUnit(uid));
       popEls.forEach((elp) => elp.remove());
       for (const r of ringPool) {

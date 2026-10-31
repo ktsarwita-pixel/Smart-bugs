@@ -175,6 +175,13 @@ export default function App() {
   }
 
   const [phase, setPhase] = useState<Phase>("title");
+  // Screen changes should not inherit the previous screen's scroll offset.
+  // On short phones that could leave the new board above the viewport.
+  useEffect(() => {
+    if (phase === "title" || phase === "cmd" || phase === "prep") {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    }
+  }, [phase]);
   const [focusId, setFocusId] = useState<string>("stag");
   const [guideOpen, setGuideOpen] = useState(false);
   const [patchOpen, setPatchOpen] = useState(false);
@@ -2245,11 +2252,12 @@ export default function App() {
                     const u = benchUnits.find((b) => b.slot === i);
                     const isSel = !!u && selected === u.uid;
                     return (
+                      <div key={i} className="bench-item relative min-w-0">
                       <button
-                        key={i}
+                        type="button"
                         onClick={() => onBench(i)}
                         title={u ? tf("{name} — tap to deploy instantly", { name: t(BUGS[u.bugId].name) }) : t("Empty bench slot")}
-                        className={`lift bench-slot relative grid h-11 place-items-center border sm:h-12 ${
+                        className={`lift bench-slot relative grid h-11 w-full place-items-center border sm:h-12 ${
                           isSel ? "border-[#F0A93B] bg-[#241B14]" : "border-[#3B322A] bg-[#120D09]"
                         } ${!u && benchUnits.length >= BENCH_SIZE ? "bench-slot--over" : ""}`}
                         style={{
@@ -2268,23 +2276,22 @@ export default function App() {
                             <span className="pointer-events-none absolute left-0.5 top-0.5">
                               <RankBadge id={u.bugId} size={11} />
                             </span>
-                            <span
-                              role="button"
-                              aria-label={t("INSPECT")}
-                              title={t("INSPECT")}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelected(u.uid);
-                              }}
-                              className="hit-24 absolute right-0.5 top-0.5 grid h-6 w-6 place-items-center border border-[#4A3828] bg-[#0D0907]/90 font-pixel text-[8px] text-[#9C8F7E] hover:text-[#F0A93B]"
-                            >
-                              i
-                            </span>
+
                           </>
                         ) : (
                           <span className="bench-slot__index">{i + 1}</span>
                         )}
                       </button>
+                      {u && (
+                        <button
+                          type="button"
+                          aria-label={`${t("INSPECT")} ${t(BUGS[u.bugId].name)}`}
+                          title={t("INSPECT")}
+                          onClick={() => setSelected(u.uid)}
+                          className="bench-inspect absolute right-0 top-0 z-10 grid h-5 w-5 place-items-center border border-[#4A3828] bg-[#0D0907]/95 font-pixel text-[8px] text-[#EDE2CB] hover:text-[#F0A93B]"
+                        >i</button>
+                      )}
+                      </div>
                     );
                   })}
                 </div>

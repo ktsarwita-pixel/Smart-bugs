@@ -117,3 +117,16 @@ The game is a single static HTML file, so any static host works:
    then Settings → Pages → deploy from branch.
 
 For development you can also just run `npm run dev` / `npm run build` as above.
+
+### Mobile UI smoke test
+
+With a Chromium executable installed, start the Vite server and run:
+
+```bash
+npm run dev
+CHROMIUM_PATH=/path/to/chromium npm run test:mobile
+```
+
+The test exercises mobile and tablet viewports, board scrolling, shop and bench taps,
+phase transitions, battle speed controls, horizontal overflow, and unused screen space.
+Set `BASE_URL` if the development server is not on port 5173.

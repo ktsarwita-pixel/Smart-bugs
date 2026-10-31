@@ -1420,7 +1420,7 @@ export function Scene3D({
     canopyGeo.setAttribute("position", new THREE.BufferAttribute(canopyPositions, 3).setUsage(THREE.DynamicDrawUsage));
     canopyGeo.setAttribute("color", new THREE.BufferAttribute(canopyColors, 3).setUsage(THREE.DynamicDrawUsage));
     canopyGeo.setDrawRange(0, 0);
-    const canopyMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.88, blending: THREE.AdditiveBlending, depthWrite: false });
+    const canopyMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.64, blending: THREE.AdditiveBlending, depthWrite: false });
     const canopy = new THREE.LineSegments(canopyGeo, canopyMat);
     canopy.frustumCulled = false;
     canopy.renderOrder = 3;
@@ -1613,7 +1613,7 @@ export function Scene3D({
             canopyPositions[canopyVertices * 3] = cx + canopyCos[ray] * sw * 0.46 * radius * sx;
             canopyPositions[canopyVertices * 3 + 1] = 0.052 + (0.09 + dome * rise - 0.052) * sy;
             canopyPositions[canopyVertices * 3 + 2] = cz + canopySin[ray] * sh2 * 0.46 * radius * sz;
-            const pulse = (0.8 + 0.2 * Math.max(0, Math.sin(phase * 2.2 - radius * 8 + angle * 2))) * fade;
+            const pulse = (0.55 + 0.45 * Math.max(0, Math.sin(phase * 2.2 - radius * 8 + angle * 2))) * fade;
             canopyColors[canopyVertices * 3] = 0.7 * pulse;
             canopyColors[canopyVertices * 3 + 1] = 0.54 * pulse;
             canopyColors[canopyVertices * 3 + 2] = 0.95 * pulse;

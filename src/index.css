@@ -2077,7 +2077,7 @@ html[data-background="light"] .shop-heading .shop-toggle[aria-pressed="true"] { 
 .round-track--compact { min-height:30px; padding:2px; }
 .round-track--compact .round-track__cells { gap:1px; }
 .round-track--compact .round-track__cell { width:16px; height:20px; }
-.round-track--compact .round-track__icon { width:12px; height:12px; }
+.round-track--compact .round-track__icon { width:14px; height:14px; }
 @media (max-width:719.98px) {
   .deck-row { grid-template-columns:minmax(0,1fr) auto 44px; }
   .round-track--compact { flex-shrink:0; }
@@ -2089,7 +2089,7 @@ html[data-background="light"] .shop-heading .shop-toggle[aria-pressed="true"] { 
   .round-track--compact[data-round-count="6"] .round-track__cell,
   .round-track--compact[data-round-count="7"] .round-track__cell { width:12px; }
   .round-track--compact[data-round-count="6"] .round-track__icon,
-  .round-track--compact[data-round-count="7"] .round-track__icon { width:8px; height:8px; }
+  .round-track--compact[data-round-count="7"] .round-track__icon { width:10px; height:10px; }
 }
 .result-period { margin-top:9px; }
 .fight-banner { position:relative; display:flex; flex-direction:column; align-items:center; min-width:min(76vw,320px); padding:13px 28px 12px; background:linear-gradient(180deg,#49301c,#1d140d 55%,#341c0f); border:3px solid #e6b15b; outline:3px solid #3b2516; box-shadow:0 8px 0 #100b08,0 0 32px #e2a54580; animation:fightWord 780ms cubic-bezier(.22,1,.36,1) both; }

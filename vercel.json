@@ -1,8 +1,33 @@
 {
   "rewrites": [
-    { "source": "/advanced", "destination": "/index.html" },
-    { "source": "/advanced/", "destination": "/index.html" },
-    { "source": "/advenced", "destination": "/index.html" },
-    { "source": "/advenced/", "destination": "/index.html" }
+    {
+      "source": "/advanced",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/advanced/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/advenced",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/advenced/",
+      "destination": "/index.html"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "query",
+          "key": "advenced"
+        }
+      ],
+      "destination": "/preview/?advenced=1",
+      "permanent": false
+    }
   ]
 }

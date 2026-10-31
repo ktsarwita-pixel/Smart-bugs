@@ -26,6 +26,8 @@ interface Ctx extends Settings {
 const ID: Record<string, string> = {
   "ADVANCED TEST BUILD — updates in testing": "VERSI UJI LANJUTAN — pembaruan sedang diuji",
   "Colony defended": "Koloni bertahan",
+  "No HP lost": "HP tidak berkurang",
+  "Before round: {hp}/{max} HP": "Sebelum ronde: {hp}/{max} HP",
   "{n} HP lost": "Kehilangan {n} HP",
   "FULLSCREEN": "LAYAR PENUH",
   "Enter fullscreen": "Masuk layar penuh",

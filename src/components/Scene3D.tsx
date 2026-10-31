@@ -63,7 +63,6 @@ interface UnitObj {
   el: HTMLElement;
   hpEl: HTMLElement;
   hpSegEl: HTMLElement;
-  hpTextEl: HTMLElement;
   energyEl: HTMLElement;
   pipsEl: HTMLElement;
   nameEl: HTMLElement;
@@ -72,7 +71,6 @@ interface UnitObj {
   ly: number;
   lhp: number;
   lmaxHp: number;
-  lhpText: string;
   lenergy: number;
   lvis: number;
   lsel: boolean;
@@ -2270,14 +2268,13 @@ export function Scene3D({
       const el = document.createElement("div");
       el.className = "ov-unit";
       el.innerHTML =
-        '<div class="ov-bars"><span class="ov-hp-value"></span><div class="ov-hp"><i></i><b class="ov-hp-seg"></b></div><div class="ov-energy"><i></i></div></div>' +
+        '<div class="ov-bars"><div class="ov-hp"><i></i><b class="ov-hp-seg"></b></div><div class="ov-energy"><i></i></div></div>' +
         '<div class="ov-pips"></div><div class="ov-name"></div>';
       ovEl.appendChild(el);
       return {
         el,
         hpEl: el.querySelector(".ov-hp i") as HTMLElement,
         hpSegEl: el.querySelector(".ov-hp-seg") as HTMLElement,
-        hpTextEl: el.querySelector(".ov-hp-value") as HTMLElement,
         energyEl: el.querySelector(".ov-energy i") as HTMLElement,
         pipsEl: el.querySelector(".ov-pips") as HTMLElement,
         nameEl: el.querySelector(".ov-name") as HTMLElement,
@@ -2388,7 +2385,6 @@ export function Scene3D({
         ly: -999,
         lhp: -1,
         lmaxHp: -1,
-        lhpText: "",
         lenergy: -1,
         lvis: -1,
         lsel: false,
@@ -2942,11 +2938,6 @@ export function Scene3D({
             tick.style.left = `${(k / segs) * 100}%`;
             u.hpSegEl.appendChild(tick);
           }
-        }
-        const hpText = `${Math.max(0, Math.ceil(hp))}/${Math.ceil(maxHp)}`;
-        if (hpText !== u.lhpText) {
-          u.lhpText = hpText;
-          u.hpTextEl.textContent = hpText;
         }
         const hpPct = Math.round(Math.max(0, Math.min(100, (hp / Math.max(1, maxHp)) * 100)));
         if (hpPct !== u.lhp) {

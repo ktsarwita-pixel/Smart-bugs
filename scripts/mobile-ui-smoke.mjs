@@ -105,8 +105,7 @@ try {
     assert.equal(await bench.count(), 0, `${width}: tapping bench centre did not deploy`);
     await page.getByRole('button', { name: /Engage battle/ }).tap();
     await page.getByText('COMBAT TELEMETRY').waitFor();
-    await page.locator('.ov-unit.ov-battle .ov-hp-value').first().waitFor({ state: 'attached' });
-    assert.match(await page.locator('.ov-unit.ov-battle .ov-hp-value').first().textContent(), /^\d+\/\d+$/, `${width}: missing current/max unit health`);
+    assert.equal(await page.locator('.ov-hp-value').count(), 0, `${width}: unit health text should be hidden`);
     await page.getByRole('button', { name: '2×' }).tap();
     assert.equal(await page.getByRole('button', { name: '2×' }).getAttribute('aria-pressed'), 'true', `${width}: battle control did not respond`);
     console.log(`PASS ${width}x${height}`);
@@ -128,6 +127,9 @@ try {
     await page.getByRole('button', { name: 'Close admin panel' }).tap();
     await page.locator('.result-card').waitFor();
     assert.equal(await page.locator('.result-card').getAttribute('data-win'), outcome === 'WIN' ? '1' : '0');
+    assert.match(await page.locator('.result-health__value').innerText(), /^\d+\s*\/\s*100$/, `${outcome}: current/max colony health missing`);
+    assert.match(await page.locator('.result-health__caption').innerText(), /100\/100/, `${outcome}: previous health missing`);
+    assert.equal(await page.locator('.result-health__change').getAttribute('data-loss'), outcome === 'WIN' ? '0' : '1');
     const hp = page.locator('.result-health__track');
     const current = Number(await hp.getAttribute('aria-valuenow'));
     assert.ok(outcome === 'WIN' ? current === 100 : current < 100, `${outcome}: incorrect colony HP`);

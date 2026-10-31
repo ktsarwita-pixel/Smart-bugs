@@ -2546,13 +2546,18 @@ export default function App() {
 
             <div className="result-health" aria-label={t("Colony HP")}>
               <div className="result-health__heading">
-                <span className="label">{t("Colony HP")}</span>
-                <span className="result-health__value">{report.hpBefore} <span aria-hidden="true">→</span> <strong>{report.hpAfter}</strong> <small>/ {STARTING_COLONY_HP}</small></span>
+                <div>
+                  <span className="label">{t("Colony HP")}</span>
+                  <div className="result-health__value"><strong>{report.hpAfter}</strong><small> / {STARTING_COLONY_HP}</small></div>
+                </div>
+                <span className="result-health__change" data-loss={report.hpAfter < report.hpBefore ? 1 : 0}>
+                  {report.hpAfter < report.hpBefore ? tf("{n} HP lost", { n: report.hpBefore - report.hpAfter }) : t("No HP lost")}
+                </span>
               </div>
               <div className="result-health__track" role="progressbar" aria-label={t("Colony HP")} aria-valuemin={0} aria-valuemax={STARTING_COLONY_HP} aria-valuenow={Math.max(0, Math.min(STARTING_COLONY_HP, report.hpAfter))}>
                 <span style={{ width: `${Math.max(0, Math.min(100, report.hpAfter / STARTING_COLONY_HP * 100))}%` }} />
               </div>
-              <div className="result-health__caption">{report.win ? t("Colony defended") : tf("{n} HP lost", { n: Math.max(0, report.hpBefore - report.hpAfter) })}</div>
+              <div className="result-health__caption">{tf("Before round: {hp}/{max} HP", { hp: report.hpBefore, max: STARTING_COLONY_HP })}</div>
             </div>
 
             <div className="result-breakdown mt-3 space-y-1 border-y border-[#241B14]/25 py-2.5">

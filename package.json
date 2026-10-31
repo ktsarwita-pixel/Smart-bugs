@@ -9,7 +9,10 @@
     "preview": "vite preview",
     "test:mobile": "node scripts/mobile-ui-smoke.mjs",
     "test:doctor": "node scripts/ui-doctor-smoke.mjs",
-    "test:background": "node scripts/background-smoke.mjs"
+    "test:background": "node scripts/background-smoke.mjs",
+    "test:round-icons": "node scripts/round-icon-smoke.mjs",
+    "test:roar": "node scripts/spider-roar-smoke.mjs",
+    "test:roar:visual": "node scripts/spider-roar-visual-harness.mjs && node scripts/spider-live-visual-smoke.mjs"
   },
   "dependencies": {
     "clsx": "2.1.1",

@@ -118,6 +118,17 @@ The game is a single static HTML file, so any static host works:
 
 For development you can also just run `npm run dev` / `npm run build` as above.
 
+### Public game vs. opt-in test build
+
+`smart-bugs.vercel.app/?advenced` opens the playable **test** build (the
+spelling is intentional). The plain `smart-bugs.vercel.app` remains on the
+pinned public game. For a production deployment, run `bash smartbugs-build.sh`:
+it builds the current checkout into `dist/preview/`, builds the original from
+the pinned public commit, and packages both with the existing query router.
+The normal `npm run build` alone is a single development bundle, not the
+public/test split. Locally, `/?advenced` enables test-only visuals and `/`
+keeps the original versions of those visuals.
+
 ### Mobile UI smoke test
 
 With a Chromium executable installed, start the Vite server and run:
@@ -129,4 +140,14 @@ CHROMIUM_PATH=/path/to/chromium npm run test:mobile
 
 The test exercises mobile and tablet viewports, board scrolling, shop and bench taps,
 phase transitions, battle speed controls, horizontal overflow, and unused screen space.
-Set `BASE_URL` if the development server is not on port 5173.
+Set `BASE_URL` if the development server is not on port 5173. The targeted
+visual regressions can also be run against the development server:
+
+```bash
+npm run test:roar                # simulation and pose timing (no browser)
+CHROMIUM_PATH=/path/to/chromium npm run test:round-icons
+CHROMIUM_PATH=/path/to/chromium npm run test:roar:visual
+```
+
+`REDUCED=1`, `POTATO=1` or `SPEED=3` exercise alternate roar settings. The
+browser harness also supports `SCENARIO=simultaneous` and `SCENARIO=legacy`.

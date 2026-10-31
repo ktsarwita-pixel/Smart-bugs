@@ -1,4 +1,5 @@
-import { CHEST_PATH, CHEST_VIEWBOX, STAG_PATH, STAG_VIEWBOX } from "./game/round-icons";
+import { ADVANCED_CHEST_PATHS, ADVANCED_STAG_PATHS, CHEST_PATH, CHEST_VIEWBOX, STAG_PATH, STAG_VIEWBOX } from "./game/round-icons";
+import { isAdvancedGameLocation } from "./game/build-mode";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Scene3D } from "./components/Scene3D";
 import { PatchNotesModal } from "./components/PatchNotesModal";
@@ -213,7 +214,13 @@ function PixelTreasure({ open }: { open: boolean }) {
 }
 
 /** Monochrome, grid-aligned encounter glyphs: no rarity colours. */
-function RoundIcon({ chest }: { chest: boolean }) {
+function RoundIcon({ chest, advanced }: { chest: boolean; advanced: boolean }) {
+  if (advanced) {
+    const paths = chest ? ADVANCED_CHEST_PATHS : ADVANCED_STAG_PATHS;
+    return <svg viewBox="0 0 16 16" aria-hidden="true" shapeRendering="crispEdges" className="round-track__icon" data-sprite={chest ? "chest" : "stag"}>
+      {paths.map(({ color, path }) => <path key={color} fill={color} d={path} />)}
+    </svg>;
+  }
   return <svg viewBox={chest ? CHEST_VIEWBOX : STAG_VIEWBOX} aria-hidden="true" shapeRendering="crispEdges" className="round-track__icon">
     <path fill="currentColor" d={chest ? CHEST_PATH : STAG_PATH} />
   </svg>;
@@ -221,15 +228,15 @@ function RoundIcon({ chest }: { chest: boolean }) {
 
 /** A compact, fixed-size map of the current period (decorative cells are
  * mirrored by the accessible label). It never affects the match schedule. */
-function RoundTrack({ period, round, length, label, compact = false }: {
-  period: number; round: number; length: number; label: string; compact?: boolean;
+function RoundTrack({ period, round, length, label, advanced, compact = false }: {
+  period: number; round: number; length: number; label: string; advanced: boolean; compact?: boolean;
 }) {
-  return <div className={`round-track ${compact ? "round-track--compact" : ""}`} role="img" aria-label={label} data-round-count={length}>
+  return <div className={`round-track ${compact ? "round-track--compact" : ""} ${advanced ? "round-track--advanced" : ""}`} role="img" aria-label={label} data-round-count={length}>
     <div className="round-track__cells" aria-hidden="true">
       {Array.from({ length }, (_, i) => {
         const special = period === 1 && (i === 0 || i === 3);
         return <span key={i} className="round-track__cell" data-state={i + 1 < round ? "past" : i + 1 === round ? "current" : "future"} data-treasure={special ? "1" : "0"}>
-          <RoundIcon chest={special} />
+          <RoundIcon chest={special} advanced={advanced} />
         </span>;
       })}
     </div>
@@ -255,6 +262,7 @@ export default function App() {
     return <AdvancedView onExit={() => { window.location.assign("/"); }} />;
   }
 
+  const advancedGame = isAdvancedGameLocation(window.location);
   const [phase, setPhase] = useState<Phase>("title");
   const [ladderFocus, setLadderFocus] = useState<string | null>(null);
   // Screen changes should not inherit the previous screen's scroll offset.
@@ -589,6 +597,7 @@ export default function App() {
      combat loop start ticking — the fight never stutters at frame one. */
   const [simLive, setSimLive] = useState(false);
   const [fightFlash, setFightFlash] = useState(0);
+  const fightHasRoar = useRef(false);
 
   const engage = () => {
     if (phase !== "prep" || hp <= 0 || !roundFixture || match.winnerId) return;
@@ -616,6 +625,10 @@ export default function App() {
     // Pre-render pass 1: guarantee every sculpt in this exact matchup exists
     // BEFORE the scene draws its first frame of the fight.
     warmRoster(initial.units);
+    // In the test build the fight card plays during the existing pre-roll,
+    // so it cannot cover most of a three-star Spider's opening cast.
+    fightHasRoar.current = advancedGame && initial.units.some((u) => u.roarEnd !== undefined && !u.dead);
+    if (fightHasRoar.current) setFightFlash((n) => n + 1);
     battleRef.current = initial;
     settledBattleRef.current = null;
     setBattleSnap({ ...initial });
@@ -664,7 +677,7 @@ export default function App() {
     if (phase !== "battle" || simLive) return;
     const t = window.setTimeout(() => {
       setSimLive(true);
-      setFightFlash((n) => n + 1);
+      if (!fightHasRoar.current) setFightFlash((n) => n + 1);
     }, 640);
     return () => window.clearTimeout(t);
   }, [phase, simLive]);
@@ -710,10 +723,11 @@ export default function App() {
     // The renderer reports its own reveal deadline. Sim time alone is not
     // sufficient: a slow first WebGL frame may occur after the fight ends.
     // Bound the wait so an unavailable renderer or background tab never traps
-    // the player, and keep reduced-motion results immediate as before.
+    // the player. Reduced motion keeps the static roar impact but no shake.
     const b = battleRef.current;
     const reduced = document.documentElement.dataset.motion === "reduced" || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const hasGrand = !!b && (b.webs.some(w => w.kind === "grand") || b.pending.some(hit => hit.kind === "webgrand"));
+    const hasFreshRoar = advancedGame && b?.lastRoarAt !== undefined && b.t - b.lastRoarAt < 0.3;
     const start = performance.now();
     let timer = 0;
     const settleWhenVisible = () => {
@@ -723,6 +737,12 @@ export default function App() {
         const waitingForFrame = deadline == null && now - start < 3300;
         const waitingForReveal = deadline != null && now < deadline + 1600 && now - start < 12000;
         if (waitingForFrame || waitingForReveal) { timer = window.setTimeout(settleWhenVisible, 100); return; }
+      }
+      if (hasFreshRoar && !document.hidden) {
+        const deadline = b?.visualRoarUntil;
+        const waitingForFrame = deadline == null && now - start < 2500;
+        const waitingForImpact = deadline != null && now < deadline && now - start < 3500;
+        if (waitingForFrame || waitingForImpact) { timer = window.setTimeout(settleWhenVisible, 100); return; }
       }
       finish(over);
     };
@@ -1752,14 +1772,14 @@ export default function App() {
               whole deck is ~70px — every pixel the old wrapped chip grid
               wasted now goes to the 3D stage. */}
           <div className="deck shrink-0">
-            <div className="deck-row" data-ui-boundary>
+            <div className="deck-row" data-ui-boundary data-long-period={advancedGame && period.length >= 6 ? "1" : undefined}>
               <div className="deck-cluster">
                 <div className="deck-stat" title={t("Your colony HP — reach zero and you're out")}>
                   <IconHeart size={14} />
                   <span className="deck-num colony-health" style={{ color: hp > 30 ? "#56DCA8" : "#F05A36" }}>{hp}<small>/{STARTING_COLONY_HP}</small></span>
                   <span className="deck-cap">{t("Colony HP")}</span>
                 </div>
-                <RoundTrack compact period={period.period} round={period.round} length={period.length}
+                <RoundTrack compact advanced={advancedGame} period={period.period} round={period.round} length={period.length}
                   label={tf("PERIOD {p} · ROUND {n}/{total}", { p: period.period, n: period.round, total: period.length })} />
               </div>
 
@@ -1997,6 +2017,7 @@ export default function App() {
               battle={phase === "prep" ? null : battleSnap}
               battleRef={phase === "prep" ? undefined : battleRef}
               battleSpeed={speed}
+              advancedEffects={advancedGame}
               selectedUid={selected}
               canDeployMore={canDeployMore}
               interactive={phase === "prep"}
@@ -2600,8 +2621,8 @@ export default function App() {
         </aside>
       </div>
 
-      {/* Round-start FIGHT flare (rendered once the sim actually starts) */}
-      {simLive && fightFlash > 0 && phase === "battle" && (
+      {/* Play the fight flare in pre-roll for a test-build roar, otherwise at combat start. */}
+      {(simLive || fightHasRoar.current) && fightFlash > 0 && phase === "battle" && (
         <div key={fightFlash} className="fight-flare pointer-events-none fixed inset-0 z-30 grid place-items-center" aria-hidden="true">
           <div className="fight-banner" data-treasure={treasure ? "1" : "0"}>
             <div className="fight-banner__crest">{treasure ? <ChestIcon size={27} /> : <IconClash size={23} />}</div>
@@ -2640,7 +2661,7 @@ export default function App() {
               </span>
             </div>
 
-            <div className="result-period"><RoundTrack period={period.period} round={period.round} length={period.length}
+            <div className="result-period"><RoundTrack advanced={advancedGame} period={period.period} round={period.round} length={period.length}
               label={tf("PERIOD {p} · ROUND {n}/{total}", { p: period.period, n: period.round, total: period.length })} /></div>
             <h2 id="round-result-title" className="mt-2 font-pixel text-[20px] text-[#241B14]">
               {match.winnerId === PLAYER_ID ? t("LAST COLONY!") : hp <= 0 ? t("ELIMINATED") : report.win ? t("VICTORY") : t("DEFEAT")}

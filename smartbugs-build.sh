@@ -1,24 +1,34 @@
-#!/bin/bash
-# Build the published game from its last production commit and the current
-# session branch separately. Vercel routes /?advenced to the latter.
-set -euxo pipefail
-ROOT="$PWD"
-mkdir -p repo-preview repo-public
-curl -fsSL "https://codeload.github.com/ktsarwita-pixel/Smart-bugs/tar.gz/refs/heads/arena/9fb9b0ed-smart-bugs" | tar xz --strip-components=1 -C repo-preview
-curl -fsSL "https://codeload.github.com/ktsarwita-pixel/Smart-bugs/tar.gz/723715b" | tar xz --strip-components=1 -C repo-public
-for dir in repo-preview repo-public; do
-  (cd "$ROOT/$dir" && npm install --include=dev --no-audit --no-fund --loglevel=error && npm run build)
-done
-rm -rf dist
-mkdir -p dist/preview dist/advanced dist/advenced
-# Static files take precedence over Vercel rewrites at /. Route the test
-# query before the public bundle executes; keep the public bundle unchanged.
-node <<'JSROUTE'
+#!/usr/bin/env bash
+# Publish two independent bundles: the original remains at the pinned public
+# commit, while /?advenced is built from this checkout (the test branch).
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+PUBLIC_COMMIT="723715b"
+
+# Vercel's install command is intentionally a no-op; install exactly the lockfile
+# for both projects here. The test build must not fetch a different branch.
+cd "$ROOT"
+npm ci --include=dev --no-audit --no-fund --loglevel=error
+npm run build
+cp dist/index.html "$WORK/preview.html"
+
+mkdir "$WORK/public"
+curl -fsSL "https://codeload.github.com/ktsarwita-pixel/Smart-bugs/tar.gz/$PUBLIC_COMMIT" | tar xz --strip-components=1 -C "$WORK/public"
+(cd "$WORK/public" && npm ci --include=dev --no-audit --no-fund --loglevel=error && npm run build)
+
+rm -rf "$ROOT/dist"
+mkdir -p "$ROOT/dist/preview" "$ROOT/dist/advanced" "$ROOT/dist/advenced"
+# Static files can take precedence over Vercel's query redirect. Preserve the
+# existing fallback router in the public HTML; the public game itself remains
+# the pinned build and does not include any test-build visual changes.
+PUBLIC_HTML="$WORK/public/dist/index.html" OUTPUT_HTML="$ROOT/dist/index.html" node <<'JSROUTE'
 const fs = require("fs");
-const html = fs.readFileSync("repo-public/dist/index.html", "utf8");
+const html = fs.readFileSync(process.env.PUBLIC_HTML, "utf8");
 const router = "<script>if(new URLSearchParams(location.search).has('advenced'))location.replace('/preview/'+location.search+location.hash);</script>";
-fs.writeFileSync("dist/index.html", html.replace("<head>", "<head>" + router));
+fs.writeFileSync(process.env.OUTPUT_HTML, html.replace("<head>", "<head>" + router));
 JSROUTE
-cp repo-public/dist/index.html dist/advanced/index.html
-cp repo-public/dist/index.html dist/advenced/index.html
-cp repo-preview/dist/index.html dist/preview/index.html
+cp "$WORK/public/dist/index.html" "$ROOT/dist/advanced/index.html"
+cp "$WORK/public/dist/index.html" "$ROOT/dist/advenced/index.html"
+cp "$WORK/preview.html" "$ROOT/dist/preview/index.html"

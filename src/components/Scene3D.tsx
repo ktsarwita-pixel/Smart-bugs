@@ -6,6 +6,7 @@ import { COLS, ROWS, SPIDER_ROAR_SECONDS, boardXY, type BattleState, type BUnit,
 import { GRAND_WEB_GROW_SECONDS, grandWebGrowth, visualGrandImpactReady, setGrandWebScale } from "../game/web-growth";
 import { buildVoxelModel, dotTexture, warmVoxelCache, V, type VoxModel } from "../game/voxel";
 import { animateInsectRig } from "../game/animate";
+import { sampleRoarWave } from "../game/spider-roar-visual";
 import { useSettings } from "../i18n";
 import {
   AIRSTRIKE_RADIUS, AIRSTRIKE_SECONDS, createAirstrikePose, sampleAirstrikeDive,
@@ -21,6 +22,8 @@ interface Props {
   /** Live mutable battle ref for 60/120fps rendering without React re-renders */
   battleRef?: React.RefObject<BattleState | null>;
   battleSpeed?: number;
+  /** Visual changes reserved for the opt-in playable test build. */
+  advancedEffects?: boolean;
   treasure?: boolean;
   selectedUid?: number | null;
   canDeployMore?: boolean;
@@ -34,6 +37,13 @@ interface Props {
   onUnit?: (uid: number) => void;
   className?: string;
   style?: React.CSSProperties;
+}
+
+interface RoarCue {
+  root: HTMLDivElement;
+  badge: HTMLElement;
+  meter: HTMLElement;
+  waves: SVGSVGElement[];
 }
 
 interface UnitObj {
@@ -62,6 +72,8 @@ interface UnitObj {
   prevRoarProgress: number;
   /** Last emitted roar-wave index, keeping the effect deterministic per cast. */
   roarPulse: number;
+  roarCue: RoarCue | null;
+  roarImpactLife: number;
   prevCd: number;
   /** 0→1 deploy pop when the voxel sculpt first mounts (instant if reduced motion) */
   spawnT: number;
@@ -100,7 +112,7 @@ const SHOWCASE_ORDER = SPECIMEN_IDS;
 const OV_ID: Record<string, string> = {
   CLIMB: "NAIK", "LOCK ON": "MENGUNCI", DIVE: "MENUKIK", LANDED: "Mendarat",
   AIRSTRIKE: "SERBUAN UDARA", PINCER: "CAPITAN", RAKE: "TEBASAN", BURST: "LEDAKAN",
-  GLOW: "CAHAYA", HOLE: "LUBANG", "TRAP!": "Jebakan!", TOUCHDOWN: "Mendarat", "ROAR!": "RAUNGAN!",
+  GLOW: "CAHAYA", HOLE: "LUBANG", "TRAP!": "Jebakan!", TOUCHDOWN: "Mendarat", "ROAR!": "RAUNGAN!", "IMPACT!": "HANTAM!",
 };
 const ovWord = (w: string): string =>
   typeof document !== "undefined" && document.documentElement.lang === "id" ? OV_ID[w] ?? w : w;
@@ -111,6 +123,7 @@ export function Scene3D({
   battle = null,
   battleRef,
   battleSpeed = 1,
+  advancedEffects = false,
   treasure = false,
   selectedUid = null,
   canDeployMore = true,
@@ -2109,6 +2122,45 @@ export function Scene3D({
     }[] = [];
     const sharedRingGeo = track(new THREE.RingGeometry(0.2, 0.3, 22));
 
+    // Broad, pooled ground-pressure fronts for the opt-in roar. Unlike the
+    // small generic hit ring, these travel visibly across the battle board.
+    const roarWaveGeo = track(new THREE.RingGeometry(0.92, 1, 32));
+    roarWaveGeo.rotateX(-Math.PI / 2);
+    const roarWaves = Array.from({ length: advancedEffects ? (isCompact ? 6 : 10) : 0 }, () => {
+      const mat = track(new THREE.MeshBasicMaterial({
+        transparent: true, opacity: 0, depthWrite: false,
+        blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false,
+      }));
+      const mesh = new THREE.Mesh(roarWaveGeo, mat);
+      mesh.visible = false;
+      mesh.renderOrder = 5;
+      scene.add(mesh);
+      return { mesh, mat, life: 0, max: 1, radius: 1 };
+    });
+    let roarWaveCursor = 0;
+    function spawnRoarWave(x: number, z: number, side: "ally" | "foe", impact = false) {
+      if (!roarWaves.length) return;
+      const wave = roarWaves[roarWaveCursor];
+      roarWaveCursor = (roarWaveCursor + 1) % roarWaves.length;
+      wave.mesh.position.set(x, UNIT_GROUND + 0.027, z);
+      wave.mat.color.setHex(side === "ally" ? 0xffa64f : 0xff5554);
+      wave.max = impact ? 0.9 : 0.7;
+      wave.life = wave.max;
+      wave.radius = impact ? 3.25 : 2.1;
+      wave.mesh.visible = true;
+    }
+    function updateRoarWaves(dt: number) {
+      for (const wave of roarWaves) {
+        if (wave.life <= 0) continue;
+        wave.life = Math.max(0, wave.life - dt);
+        const remaining = wave.life / wave.max;
+        const progress = 1 - remaining;
+        wave.mesh.scale.setScalar(0.42 + (1 - (1 - progress) ** 2) * wave.radius);
+        wave.mat.opacity = remaining * 0.55;
+        if (wave.life === 0) wave.mesh.visible = false;
+      }
+    }
+
     /** A single bright bloom that swells and dies — the flash of an impact. */
     function spawnFlash(x: number, y: number, z: number, color: number, scale = 1.6) {
       const mat = new THREE.SpriteMaterial({
@@ -2339,6 +2391,33 @@ export function Scene3D({
       ringPool.push({ mesh, mat, life: 0.58 });
     }
 
+    function makeRoarCue(uid: number, side: "ally" | "foe"): RoarCue {
+      const root = document.createElement("div");
+      root.className = "roar-cue";
+      root.dataset.roarUnit = String(uid);
+      root.dataset.roarSide = side;
+      root.setAttribute("aria-hidden", "true");
+      // Pixel-stepped pressure fronts stay legible against the dark model and
+      // the green/brown board. The centre is transparent, so the rig remains
+      // visible. This one element follows the actual projected unit.
+      const outline = 'M35 5H65V9H78V15H85V22H91V35H95V65H91V78H85V85H78V91H65V95H35V91H22V85H15V78H9V65H5V35H9V22H15V15H22V9H35Z';
+      root.innerHTML = `
+        <div class="roar-cue__halo"></div>
+        <svg class="roar-cue__wave" viewBox="0 0 100 100" aria-hidden="true"><path class="roar-cue__wave-shadow" d="${outline}"/><path class="roar-cue__wave-line" d="${outline}"/></svg>
+        <svg class="roar-cue__wave" viewBox="0 0 100 100" aria-hidden="true"><path class="roar-cue__wave-shadow" d="${outline}"/><path class="roar-cue__wave-line" d="${outline}"/></svg>
+        <svg class="roar-cue__rays" viewBox="0 0 100 100" aria-hidden="true">
+          <path d="M11 29 3 23 8 34 1 36M89 29 97 23 92 34 99 36M14 70 5 75 13 75 10 84M86 70 95 75 87 75 90 84"/>
+        </svg>
+        <div class="roar-cue__badge"><span></span><i><b></b></i></div>`;
+      ovEl.prepend(root);
+      return {
+        root,
+        badge: root.querySelector(".roar-cue__badge span") as HTMLElement,
+        meter: root.querySelector(".roar-cue__badge b") as HTMLElement,
+        waves: Array.from(root.querySelectorAll<SVGSVGElement>(".roar-cue__wave")),
+      };
+    }
+
     function makeTag() {
       const el = document.createElement("div");
       el.className = "ov-unit";
@@ -2449,6 +2528,8 @@ export function Scene3D({
         prevCast: 0,
         prevRoarProgress: -1,
         roarPulse: -1,
+        roarCue: null,
+        roarImpactLife: 0,
         prevCd: cd,
         shadow,
         blurDisc,
@@ -2487,6 +2568,7 @@ export function Scene3D({
       void u.prevPhase;
       (u.ring?.material as THREE.Material | undefined)?.dispose();
       u.model.dispose();
+      u.roarCue?.root.remove();
       u.el.remove();
       units.delete(uid);
     }
@@ -2670,6 +2752,7 @@ export function Scene3D({
     const alivePops = new Set<number>();
     let raf = 0;
     let impactShake = 0;
+    let roarImpactRendered = false;
     let paused = document.hidden;
     let last = performance.now();
     let t = 0;
@@ -2712,6 +2795,7 @@ export function Scene3D({
       battleTime = 0,
       treasureGuard = false,
       roarProgress?: number,
+      roarCompleted = false,
     ) {
       seen.add(uid);
       const u = ensureUnit(uid, id, star, side, rx, ry, cd);
@@ -2782,17 +2866,37 @@ export function Scene3D({
       if (cast > 0 && u.prevCast <= 0 && id !== "dragonfly") spawnRing(rx, ry, side === "ally" ? 0x4fd3a0 : 0xe0522f);
       u.prevCast = cast;
 
-      // Three-star Spider opener: its body animation is paired with visible
-      // pressure waves. The unit stays planted while these pulses radiate;
-      // the last flash coincides with the engine's one-time 650 hit.
+      // The engine owns cast timing and interruption. In the test build the
+      // stronger cue follows this exact unit, with a held pose and two visual
+      // pressure fronts; it never starts or applies damage on its own.
+      const quietRoar = document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches;
       if (roarProgress !== undefined) {
         u.el.dataset.roaring = "true";
         u.el.dataset.roarProgress = String(Math.round(roarProgress * 100));
         const pulse = Math.min(3, Math.floor(roarProgress * 4));
-        const quietMotion = document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches;
-        if (!quietMotion && pulse > u.roarPulse) {
-          spawnRing(rx, ry, side === "ally" ? 0xff9b55 : 0xff5147);
-          if (pulse === 2) spawnBurst(rx, 0.34, ry, 0xffcf72, isCompact ? 5 : 8, 1.2);
+        if (!quietRoar && pulse > u.roarPulse) {
+          if (advancedEffects) spawnRoarWave(rx, ry, side);
+          else {
+            spawnRing(rx, ry, side === "ally" ? 0xff9b55 : 0xff5147);
+            if (pulse === 2) spawnBurst(rx, 0.34, ry, 0xffcf72, isCompact ? 5 : 8, 1.2);
+          }
+        }
+        if (advancedEffects) {
+          const cue = u.roarCue ?? (u.roarCue = makeRoarCue(uid, side));
+          cue.root.hidden = false;
+          if (cue.root.dataset.roarCue !== "charging") cue.root.dataset.roarCue = "charging";
+          if (cue.root.dataset.roarSide !== side) cue.root.dataset.roarSide = side;
+          const roarWord = ovWord("ROAR!");
+          if (cue.badge.textContent !== roarWord) cue.badge.textContent = roarWord;
+          cue.meter.style.transform = `scaleX(${quietRoar ? 0.5 : roarProgress})`;
+          cue.waves.forEach((wave, index) => {
+            const sample = quietRoar
+              ? { scale: index === 0 ? 0.8 : 1.05, opacity: 0.7 }
+              : sampleRoarWave(roarProgress, index);
+            wave.style.transform = `scale(${sample.scale.toFixed(3)})`;
+            wave.style.opacity = sample.opacity.toFixed(3);
+          });
+          u.roarImpactLife = 0;
         }
         u.roarPulse = Math.max(u.roarPulse, pulse);
         u.prevRoarProgress = roarProgress;
@@ -2800,18 +2904,49 @@ export function Scene3D({
         delete u.el.dataset.roaring;
         delete u.el.dataset.roarProgress;
         if (u.prevRoarProgress >= 0) {
-          // A death before 1.5s interrupts the ultimate and gets no hit wave.
-          if (!dead && battleTime >= SPIDER_ROAR_SECONDS) {
-            const quietMotion = document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches;
-            spawnRing(rx, ry, side === "ally" ? 0xffb35c : 0xff604f);
-            if (!quietMotion) {
-              spawnFlash(rx, 0.42, ry, 0xffb15b, 2.1);
-              spawnBurst(rx, 0.38, ry, 0xffd58a, isCompact ? 10 : 16, 2.4);
+          // Completion is read from the simulation, not the interpolated
+          // render clock. This also handles simultaneous opposing roars; a
+          // spider killed *during* the cast still has roarEnd and never hits.
+          const landed = advancedEffects ? roarCompleted : !dead && battleTime >= SPIDER_ROAR_SECONDS;
+          if (landed) {
+            if (advancedEffects) {
+              u.roarImpactLife = 0.62;
+              roarImpactRendered = true;
+              if (!quietRoar) {
+                spawnRoarWave(rx, ry, side, true);
+                spawnFlash(rx, 0.42, ry, side === "ally" ? 0xffb85b : 0xff6555, 3.0);
+                spawnBurst(rx, 0.38, ry, 0xffd58a, isCompact ? 10 : 16, 2.4);
+                impactShake = Math.max(impactShake, 0.4);
+              }
+            } else {
+              spawnRing(rx, ry, side === "ally" ? 0xffb35c : 0xff604f);
+              if (!quietRoar) {
+                spawnFlash(rx, 0.42, ry, 0xffb15b, 2.1);
+                spawnBurst(rx, 0.38, ry, 0xffd58a, isCompact ? 10 : 16, 2.4);
+              }
             }
+          } else if (u.roarCue) {
+            u.roarCue.root.hidden = true;
+            u.roarImpactLife = 0;
           }
           u.prevRoarProgress = -1;
           u.roarPulse = -1;
         }
+      }
+      if (advancedEffects && u.roarCue && u.roarImpactLife > 0) {
+        const cue = u.roarCue;
+        cue.root.hidden = false;
+        if (cue.root.dataset.roarCue !== "impact") cue.root.dataset.roarCue = "impact";
+        const impactWord = ovWord("IMPACT!");
+        if (cue.badge.textContent !== impactWord) cue.badge.textContent = impactWord;
+        const impactProgress = 1 - u.roarImpactLife / 0.62;
+        cue.waves.forEach((wave, index) => {
+          const scale = quietRoar ? (index === 0 ? 0.9 : 1.12) : 0.8 + impactProgress * 0.5 + index * 0.18;
+          wave.style.transform = `scale(${scale.toFixed(3)})`;
+          wave.style.opacity = quietRoar ? "0.7" : String(Math.max(0, 0.9 * (1 - impactProgress)));
+        });
+        u.roarImpactLife = Math.max(0, u.roarImpactLife - dt);
+        if (u.roarImpactLife === 0) cue.root.hidden = true;
       }
 
       /* ── Dragonfly flight realism ─────────────────────────────
@@ -2943,6 +3078,10 @@ export function Scene3D({
         if (flash > 0) {
           const eb = u.model.emissiveBase;
           u.model.bodyMat.emissive.setRGB(flash * 2.1 + eb[0], flash * 1.5 + eb[1], flash * 1.0 + eb[2]);
+        } else if (advancedEffects && roarProgress !== undefined) {
+          const eb = u.model.emissiveBase;
+          const glow = quietRoar ? 0.18 : 0.1 + 0.14 * Math.sin(roarProgress * Math.PI);
+          u.model.bodyMat.emissive.setRGB(eb[0] + glow, eb[1] + glow * 0.22, eb[2] + glow * 0.08);
         } else if (poison > 0 || snared > 0) {
           // status silk: poisoned foes seep venom green, foes stuck in the
           // After Web sheen sticky violet — both breathe with the sim
@@ -2982,6 +3121,7 @@ export function Scene3D({
         0,
         flight,
         roarProgress,
+        advancedEffects,
       );
 
       if (flight && dive) {
@@ -3008,6 +3148,19 @@ export function Scene3D({
         selRing.position.set(u.holder.position.x, 0.026, u.holder.position.z);
         selRing.scale.setScalar(u.scale * (1 + Math.sin(t * 5) * 0.05));
         selRing.rotation.z += dt * 1.4;
+      }
+
+      // Project the effect around the body (not the health-bar anchor).
+      if (u.roarCue && !u.roarCue.root.hidden) {
+        proj.set(u.holder.position.x, u.holder.position.y + 0.28 + u.inner.position.y, u.holder.position.z).project(camera);
+        const cx = (proj.x * 0.5 + 0.5) * W;
+        const cy = (-proj.y * 0.5 + 0.5) * H;
+        u.roarCue.root.style.transform = `translate3d(${cx.toFixed(1)}px,${cy.toFixed(1)}px,0) translate(-50%,-50%)`;
+        // Keep even the longer translated badge inside the stage when a
+        // spider is on an outermost tile, without moving its centred waves.
+        const safeHalf = Math.min(50, W / 2);
+        const labelShift = Math.max(safeHalf, Math.min(W - safeHalf, cx)) - cx;
+        u.roarCue.root.style.setProperty("--roar-label-shift", `${labelShift.toFixed(1)}px`);
       }
 
       // Project & dirty-write DOM HUD tag
@@ -3123,6 +3276,7 @@ export function Scene3D({
       if (paused) return;
       raf = requestAnimationFrame(tick);
       const dt = Math.min(0.05, (now - last) / 1000);
+      roarImpactRendered = false;
       last = now;
       t += dt;
       const p = P.current;
@@ -3217,6 +3371,7 @@ export function Scene3D({
       }
 
       updateSparks(dt);
+      updateRoarWaves(dt);
       updateDust(dt);
       updateWalls(dt);
       updateScars(dt);
@@ -3448,8 +3603,9 @@ export function Scene3D({
             r.roarEnd !== undefined && !r.dead
               ? (document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches
                   ? 0.5
-                  : Math.max(0, Math.min(1, liveBattle.t / SPIDER_ROAR_SECONDS)))
+                  : Math.max(0, Math.min(1, (advancedEffects ? visualBattleTime : liveBattle.t) / SPIDER_ROAR_SECONDS)))
               : undefined,
+            r.bugId === "spider" && r.star >= 3 && r.roarEnd === undefined && liveBattle.t + 1e-9 >= SPIDER_ROAR_SECONDS,
           );
         }
       } else {
@@ -3475,7 +3631,7 @@ export function Scene3D({
           let elp = popEls.get(pop.id);
           if (!elp) {
             elp = document.createElement("div");
-            elp.className = `ov-pop ov-${pop.kind}`;
+            elp.className = `ov-pop ov-${pop.kind}${advancedEffects && pop.text === "ROAR!" ? " ov-pop--roar" : ""}`;
             elp.textContent = ovWord(pop.text);
             ovEl.appendChild(elp);
             popEls.set(pop.id, elp);
@@ -3483,7 +3639,7 @@ export function Scene3D({
             if (pop.kind === "skill") {
               // Airstrike's effect comes from the Dragonfly touching down,
               // not an extra explosion travelling alongside the specimen.
-              if (pop.text !== "AIRSTRIKE" && pop.text !== "TOUCHDOWN") {
+              if (pop.text !== "AIRSTRIKE" && pop.text !== "TOUCHDOWN" && !(advancedEffects && pop.text === "ROAR!")) {
                 spawnRing(pop.x, pop.y + 0.25, pop.text === "GLOW" ? 0x56dca8 : 0xf0a93b);
                 spawnBurst(
                   pop.x,
@@ -3522,6 +3678,9 @@ export function Scene3D({
       }
 
       renderer.render(scene, camera);
+      // Hold a winning opening impact on screen even if a slow WebGL frame
+      // reaches it only after the simulation has already ended the round.
+      if (activeBattle && roarImpactRendered) activeBattle.visualRoarUntil = performance.now() + 620;
       // Anchor the result deadline after WebGL returns, not before expensive
       // driver work. A slow frame must not consume unseen animation time.
       if (activeBattle && activeBattle.visualWebRemaining != null) {

@@ -56,3 +56,69 @@ export const CHEST_PATH = pixelPath(CHEST_PIXELS);
 export const STAG_PATH = pixelPath(STAG_PIXELS);
 export const CHEST_VIEWBOX = '0 0 20 16';
 export const STAG_VIEWBOX = '0 0 16 20';
+
+/**
+ * Test-build encounter sprites. Each character is one actual pixel, rather
+ * than a scaled illustration: the chest has a curved lid, iron straps and a
+ * keyhole; the beetle has hooked mandibles, eyes, six legs and split elytra.
+ * A small neutral palette retains the timeline's monochrome, non-rarity UI.
+ */
+export const ADVANCED_CHEST_PIXELS = [
+  '................',
+  '...oooooooooo...',
+  '..osssssssssso..',
+  '.osmmllmmllmmso.',
+  '.osmmllmmllmmso.',
+  'osmmmlmssmlmmmso',
+  'osmmmlmssmlmmmso',
+  'oooooooooooooooo',
+  'osmmmlhhhhlmmmso',
+  'osmmmlhoohlmmmso',
+  'osmmmlhoohlmmmso',
+  'osmmmlhhhhlmmmso',
+  'osmmmlmssmlmmmso',
+  'osssslsssslsssso',
+  '.oooooooooooooo.',
+  '................',
+] as const;
+
+export const ADVANCED_STAG_PIXELS = [
+  '.....l....l.....',
+  '...olh....hlo...',
+  '..ol........lo..',
+  '..ol........lo..',
+  '...ol......lo...',
+  '....ol....lo....',
+  '.....olmmlo.....',
+  '.oo..ohmmho..oo.',
+  's...ommmmmmo...s',
+  '.sssomlsslmosss.',
+  '....omlsslmo....',
+  'msssomlsslmosssm',
+  '....omlsslmo....',
+  '..ssommssmmoss..',
+  '.s..oomssmoo..s.',
+  's....oooooo....s',
+] as const;
+
+export const ADVANCED_ICON_PALETTE = {
+  o: '#525252', // outline
+  s: '#818181', // shadow / legs
+  m: '#b8b8b8', // shell / wood
+  l: '#e3e3e3', // iron / wing shine
+  h: '#ffffff', // keyhole plate / eyes
+} as const;
+
+type SpriteColor = keyof typeof ADVANCED_ICON_PALETTE;
+
+/** One path per shade keeps the 16×16 art crisp without hundreds of nodes. */
+function spritePaths(rows: readonly string[]): { color: string; path: string }[] {
+  return (Object.keys(ADVANCED_ICON_PALETTE) as SpriteColor[]).map((shade) => ({
+    color: ADVANCED_ICON_PALETTE[shade],
+    path: rows.flatMap((row, y) => [...row].flatMap((pixel, x) =>
+      pixel === shade ? [`M${x} ${y}h1v1h-1z`] : [])).join(''),
+  }));
+}
+
+export const ADVANCED_CHEST_PATHS = spritePaths(ADVANCED_CHEST_PIXELS);
+export const ADVANCED_STAG_PATHS = spritePaths(ADVANCED_STAG_PIXELS);

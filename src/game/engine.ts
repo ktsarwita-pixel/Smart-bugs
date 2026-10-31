@@ -199,6 +199,10 @@ export interface BattleState {
   /** Seconds of renderer-only growth left, advanced once per visible frame. */
   visualWebRemaining?: number;
   visualWebFinished?: boolean;
+  /** Presentation-only: simulation time of the most recent completed roar. */
+  lastRoarAt?: number;
+  /** Renderer deadline to show an opening impact before a result obscures it. */
+  visualRoarUntil?: number;
 }
 
 let UID = 1;
@@ -908,6 +912,7 @@ export function stepBattle(b: BattleState, dt: number): BattleState {
   // Resolve simultaneous opening roars together so opposing spiders cannot
   // cancel one another solely because of array order. Dead casters interrupt.
   const roaring = b.units.filter(u => !u.dead && u.roarEnd !== undefined && b.t + 1e-9 >= u.roarEnd);
+  if (roaring.length) b.lastRoarAt = b.t;
   for (const u of roaring) u.roarEnd = undefined;
   for (const u of roaring) {
     for (const enemy of b.units) if (enemy.side !== u.side && !enemy.dead) damage(b, u, enemy, SPIDER_ROAR_DAMAGE, false, true);

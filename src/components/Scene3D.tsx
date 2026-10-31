@@ -3305,8 +3305,8 @@ export function Scene3D({
     }
     chest.position.set(COLS / 2, UNIT_GROUND, 0.86);
     chest.scale.setScalar(advancedEffects ? 1.38 : 1.22);
-    if (advancedEffects) chest.rotation.y = -0.22; // reveal the side and depth on the board
     scene.add(chest);
+    const chestForward = new THREE.Vector3();
     let chestOpen = 0;
 
     function tick(now: number) {
@@ -3415,6 +3415,21 @@ export function Scene3D({
 
       const activeBattle = p.mode === "prep" ? null : p.battleRef?.current ?? p.battle;
       chest.visible = !showcase && p.treasure;
+      if (detailedChest && chest.visible) {
+        // Keep the chest square to the actual camera even during parallax.
+        const cameraHeading = Math.atan2(camera.position.x - chest.position.x, camera.position.z - chest.position.z);
+        chest.rotation.y = cameraHeading;
+        chest.updateWorldMatrix(true, true);
+        detailedChest.body.getWorldDirection(chestForward);
+        const bodyHeading = Math.atan2(chestForward.x, chestForward.z);
+        const facingError = Math.atan2(Math.sin(bodyHeading - cameraHeading), Math.cos(bodyHeading - cameraHeading));
+        const facingText = facingError.toFixed(5), gapText = detailedChest.inspect().hingeGap.toFixed(5);
+        if (renderer.domElement.dataset.chestFacingError !== facingText) renderer.domElement.dataset.chestFacingError = facingText;
+        if (renderer.domElement.dataset.chestHingeGap !== gapText) renderer.domElement.dataset.chestHingeGap = gapText;
+      } else if (renderer.domElement.dataset.chestFacingError !== undefined) {
+        delete renderer.domElement.dataset.chestFacingError;
+        delete renderer.domElement.dataset.chestHingeGap;
+      }
       const shouldOpen = !!activeBattle && activeBattle.over === "ally";
       const reduceChestMotion = document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches;
       chestOpen = shouldOpen ? (reduceChestMotion ? 1 : Math.min(1, chestOpen + dt * (advancedEffects ? 1 / 1.15 : 2.3))) : 0;

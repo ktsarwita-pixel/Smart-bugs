@@ -15,5 +15,6 @@ for (const detailed of [false, true]) for (const part of ['body','lid']) {
   assert.ok(faces.size>100); assert.ok(Math.abs(geo.boundingBox.min.x+geo.boundingBox.max.x)<1e-6, `${part} silhouette must be centered`); bounds[`${part}-${detailed}`]=geo.boundingBox.clone(); geo.dispose(); console.log(`PASS ${part} detailed=${detailed}: ${faces.size} unique exposed triangles`);
 }
 
-for (const detailed of [false,true]) assert.ok(bounds[`lid-${detailed}`].min.y+0.46 > bounds[`body-${detailed}`].max.y, 'closed lid must not overlap body');
-console.log('PASS closed lid has physical clearance');
+assert.ok(bounds['lid-false'].min.y+0.46 > bounds['body-false'].max.y, 'legacy lid clearance remains unchanged');
+assert.ok(Math.abs(bounds['lid-true'].min.y+0.44-bounds['body-true'].max.y)<1e-6, 'advanced lid must meet the body without a gap');
+console.log('PASS legacy clearance and connected advanced lid');

@@ -168,20 +168,17 @@ interface Report {
 
 function ChestIcon({ size = 24, advanced = false }: { size?: number; advanced?: boolean }) {
   if (advanced) return <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" shapeRendering="crispEdges" className="chest-icon chest-icon--advanced">
-    {/* A three-quarter view with a separate side, domed lid, metal straps and lock. */}
-    <path fill="#24160f" d="M3 12V8h2V6h2V4h3V3h11l6 3v2l3 2v14l-7 5H4l-2-2V12z" />
-    <path fill="#613313" d="m23 13 5-3v13l-5 4z" />
-    <path fill="#a25a21" d="M4 13h19v12l-2 2H5l-1-2z" />
-    <path fill="#c7792e" d="M5 14h17v3H5zM5 19h17v3H5z" />
-    <path fill="#713818" d="M5 17h17v2H5zM5 23h17v2H5z" />
-    <path fill="#7c3e1b" d="M4 11V8h2V6h2V5h12v1h2v2h1v4H4z" />
-    <path fill="#c7792e" d="M7 7h14v2H6V8h1zM5 10h17v2H5z" />
-    <path fill="#9e5a23" d="m22 6 5 2v2l-4 2V8h-1z" />
-    <path fill="#db9b36" d="M7 5h3v7H7zM18 5h3v7h-3zM5 12h18v2H5zM7 14h3v12H7zM18 14h3v12h-3zM5 25h17v2H5z" />
-    <path fill="#ffdf81" d="M7 5h3v2H7zM18 5h3v2h-3zM7 14h2v2H7zM18 14h2v2h-2zM6 25h16v1H6z" />
-    <path fill="#b87825" d="m23 12 5-3v2l-5 3zM25 13l2-1v12l-2 2z" />
-    <path fill="#46270e" d="M12 12h5v7h-5z" /><path fill="#ffd36d" d="M13 13h3v5h-3z" /><path fill="#633a16" d="M14 15h1v2h-1z" />
-    <path fill="#ffe9a7" d="M8 21h1v1H8zM19 21h1v1h-1z" />
+    {/* Symmetric, front-facing chest, matching the reward and board model. */}
+    <path fill="#27170e" d="M4 12V9h2V7h2V5h16v2h2v2h2v17h-2v2H6v-2H4z" />
+    <path fill="#82421e" d="M6 12V9h2V7h16v2h2v3z" />
+    <path fill="#be702e" d="M8 7h16v2H8zM6 10h20v3H6z" />
+    <path fill="#a85724" d="M6 14h20v11H6z" />
+    <path fill="#cc7b31" d="M7 15h18v3H7zM7 20h18v3H7z" />
+    <path fill="#713719" d="M7 18h18v2H7zM7 23h18v2H7z" />
+    <path fill="#d99d3d" d="M8 7h3v6H8zM21 7h3v6h-3zM6 12h20v2H6zM8 14h3v12H8zM21 14h3v12h-3zM6 25h20v2H6z" />
+    <path fill="#ffe39a" d="M8 7h3v2H8zM21 7h3v2h-3zM8 14h1v2H8zM23 14h1v2h-1zM7 25h18v1H7z" />
+    <path data-chest-lock fill="#43270f" d="M13 12h6v7h-6z" /><path fill="#ffd574" d="M14 13h4v5h-4z" /><path fill="#633a16" d="M15 15h2v2h-2z" />
+    <path fill="#ffe9a7" d="M9 21h1v1H9zM22 21h1v1h-1z" />
   </svg>;
   return <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" shapeRendering="crispEdges"><path fill="#3b2112" d="M2 4h12v2h1v8H1V6h1z"/><path fill="#a9692e" d="M3 5h10v3H3zM2 9h12v4H2z"/><path fill="#f1bb4c" d="M3 4h10v1H3zM2 8h12v1H2zM7 9h2v3H7z"/></svg>;
 }
@@ -2701,7 +2698,7 @@ export default function App() {
 
             {report.treasure && (
               <div className="treasure-result" role="status">
-                {advancedGame ? <TreasureChest3D open={report.win} fallback={<PixelTreasure open={report.win} />} /> : <PixelTreasure open={report.win} />}
+                {advancedGame ? <TreasureChest3D open={report.win} /> : <PixelTreasure open={report.win} />}
                 <div><strong>{report.win ? t("TREASURE UNLOCKED!") : t("CHEST STILL GUARDED")}</strong>
                   <div>{report.win ? `${report.rewards?.map(id => t(BUGS[id].name)).join(" · ")}${report.treasureGold ? ` · +${report.treasureGold}G` : ""}` : t("Defeat the guards to earn the treasure.")}</div>
                   {report.win && <div className="treasure-loot" aria-hidden="true">{report.rewards?.map((id, i) => <span key={i}><SpecimenIcon id={id} size={26} badge="none" /></span>)}</div>}

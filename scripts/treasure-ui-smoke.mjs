@@ -31,6 +31,15 @@ try {
     if (round===1 || round===4) {
       assert.ok(await page.getByText('TREASURE GUARDS').count()>0);
       assert.equal(await page.locator('.vs-plaque .chest-icon--advanced').count(),1,'enhanced VS chest icon');
+      const icon=await page.locator('.vs-plaque .chest-icon--advanced').evaluate(svg=>{
+        const silhouette=svg.querySelector('path').getBBox(), lock=svg.querySelector('[data-chest-lock]').getBBox(), view=svg.viewBox.baseVal;
+        const mid=view.x+view.width/2;
+        return {silhouette:Math.abs(silhouette.x+silhouette.width/2-mid),lock:Math.abs(lock.x+lock.width/2-mid)};
+      });
+      assert.ok(icon.silhouette<.1 && icon.lock<.1,'VS icon must be symmetric and face the player');
+      await page.waitForFunction(()=>document.querySelector('.battle-stage canvas')?.dataset.chestFacingError!==undefined,null,{timeout:15000});
+      const board=await page.locator('.battle-stage canvas').evaluate(c=>({facing:Number(c.dataset.chestFacingError),hinge:Number(c.dataset.chestHingeGap)}));
+      assert.ok(Math.abs(board.facing)<.01&&board.hinge<.001,'board chest must face the camera and have an attached hinge');
     }
     await page.getByRole('button',{name:/Engage battle/}).tap();
     if (round===1 || round===4) assert.equal(await page.locator('.vs-plaque .chest-icon--advanced').count(),1,'enhanced combat VS chest icon');
@@ -51,6 +60,11 @@ try {
       await page.getByRole('button',{name:'SCAN SCREEN'}).tap();
       const report=await page.locator('.ui-doctor__body').innerText();
       assert.doesNotMatch(report,/SCROLL[^\n]*result-body/,'doctor should not find result-body scrolling');
+      assert.match(report,/1 visual targets/,'doctor checks the actual result chest');
+      assert.doesNotMatch(report,/Chest not facing|Chest lid disconnected|Old chest artwork|Chest depth flattened|Chest is clipped/,'healthy result has no chest visual faults');
+      await page.getByRole('button',{name:'DEEP SCAN'}).tap();
+      await page.getByText('WATCHING…').waitFor({state:'hidden',timeout:12000});
+      assert.doesNotMatch(await page.locator('.ui-doctor__body').innerText(),/Chest opening is stalled|Chest artwork changed during scan|Open chest lid is still closed/,'healthy opening passes the deeper observation');
       await page.getByRole('button',{name:'Minimize UI Doctor'}).tap();
       await page.evaluate(() => window.dispatchEvent(new CustomEvent('sb-doctor',{detail:false})));
       await page.locator('.result-details summary').tap();
@@ -80,28 +94,22 @@ try {
     assert.ok(aligned,'result icons must remain centered in every state');
     if (round===1 || round===4) {
       assert.equal(await page.locator('.treasure-result').count(),1);
-      assert.equal(await page.locator('.pixel-treasure--open').count(),1);
       const chest3d = page.locator('.treasure-chest-3d');
       await chest3d.waitFor();
+      assert.equal(await chest3d.getAttribute('data-renderer'),'css3d');
+      assert.equal(await page.locator('.treasure-result .pixel-treasure, .treasure-result canvas').count(),0,'no old artwork or delayed WebGL swap');
       await page.waitForFunction(() => {
-        const el = document.querySelector('.treasure-chest-3d');
-        return el?.dataset.renderer === 'webgl' && Number(el.querySelector('canvas')?.dataset.openProgress) >= 90;
+        const lid = document.querySelector('.treasure-chest-3d__lid');
+        if (!lid) return false;
+        const m = new DOMMatrixReadOnly(getComputedStyle(lid).transform);
+        return Math.atan2(m.m23,m.m22)*180/Math.PI > 80;
       }, null, {timeout:15000});
       const visual = await chest3d.evaluate(el => {
-        const canvas=el.querySelector('canvas');
-        const gl=canvas.getContext('webgl2') || canvas.getContext('webgl');
-        return {lost:gl?.isContextLost(), angle:Number(canvas.dataset.lidAngle), fallback:getComputedStyle(el.querySelector('.pixel-treasure')).visibility};
+        const world=el.querySelector('.treasure-chest-3d__world'), a=el.querySelector('.treasure-chest-3d__body-anchor').getBoundingClientRect(), b=el.querySelector('.treasure-chest-3d__lid-anchor').getBoundingClientRect();
+        const m=new DOMMatrixReadOnly(getComputedStyle(world).transform);
+        return {yaw:Math.atan2(m.m31,m.m33),gap:Math.hypot(a.left-b.left,a.top-b.top)};
       });
-      assert.equal(visual.lost,false,'3D canvas must survive StrictMode and stay rendered');
-      assert.ok(visual.angle < -1.3,'the actual 3D lid must open');
-      assert.equal(visual.fallback,'hidden','show the 3D chest, not its fallback sprite');
-      await page.waitForTimeout(800);
-      const sprite = await page.locator('.pixel-treasure').evaluate(el => {
-        const back=el.querySelector('.pixel-treasure__lid-open'), closed=el.querySelector('.pixel-treasure__lid-closed'), rect=back.getBoundingClientRect(), outer=el.getBoundingClientRect();
-        const ink=back.getBBox(), inside=el.querySelector('.pixel-treasure__inside').getBBox();
-        return { back: getComputedStyle(back).opacity, closed: getComputedStyle(closed).opacity, offset: Math.abs((rect.left+rect.right-outer.left-outer.right)/2), lidCenter: ink.x+ink.width/2, insideCenter: inside.x+inside.width/2 };
-      });
-      assert.equal(sprite.back,'1'); assert.equal(sprite.closed,'0'); assert.ok(sprite.offset<1,'open lid should stay centered behind chest'); assert.equal(sprite.lidCenter,32); assert.equal(sprite.insideCenter,32);
+      assert.ok(Math.abs(visual.yaw)<.01 && visual.gap<1,'result chest faces the player and the lid stays attached');
       assert.equal(await page.locator('.treasure-loot > span').count(),2);
       if(round===4) assert.match(await page.locator('.treasure-result').innerText(),/\+25G/);
       assert.equal(await page.locator('.result-health__change').getAttribute('data-loss'),'0');

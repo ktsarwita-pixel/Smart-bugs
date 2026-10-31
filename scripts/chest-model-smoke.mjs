@@ -14,9 +14,16 @@ for(let i=0;i<=200;i++){
 }
 const chest=createDetailedChest();
 assert.ok(Math.abs(chest.lid.rotation.x)<1e-6);
-chest.update(.5,.5); const middle=chest.lid.rotation.x;
-chest.update(1,1); assert.ok(chest.lid.rotation.x<middle);
-chest.update(1,999,true); const still=chest.root.children.slice(-8).map(s=>s.position.toArray());
-chest.update(1,1000,true); assert.deepEqual(chest.root.children.slice(-8).map(s=>s.position.toArray()),still,'reduced-motion sparks stay still');
+assert.ok(chest.inspect().hingeGap<1e-6,'lid hinge must touch the back of the body');
+assert.equal(chest.lid.parent,chest.root);
+const pileTop=chest.pile.position.y+.10;
+assert.ok(Math.abs(chest.pile.position.y-.10-.12)<1e-6,'treasure pile must rest on the chest floor');
+const coins=chest.root.children.filter(x=>x.geometry?.type==='CylinderGeometry'&&x.position.y<.4);
+assert.equal(coins.length,6);
+for(const coin of coins) assert.ok(Math.abs(coin.position.y-.0175-pileTop)<1e-6,'coins must rest on the supported pile');
+chest.update(.5); const middle=chest.lid.rotation.x;
+chest.update(1); assert.ok(chest.lid.rotation.x<middle);
+assert.ok(chest.inspect().hingeGap<1e-6,'opening must preserve the hinge position');
+assert.equal(chest.root.children.filter(x=>x.geometry?.type==='OctahedronGeometry').length,1,'no loose floating shards');
 chest.dispose();
-console.log('PASS hinged chest, smoothly sampled motion, 3D loot and reduced motion');
+console.log('PASS smooth hinge, connected lid and supported 3D treasure');

@@ -1948,3 +1948,13 @@ html[data-motion="reduced"] .result-health__track > span { transition: none; }
 @media (max-width: 719.98px) {
   .shop-heading .shop-toggle { flex: 0 0 62px; }
 }
+
+/* Keep controls steady as labels and contextual panels change. */
+.shop-heading .shop-lock { box-sizing: border-box; width: 80px; min-width: 80px; max-width: 80px; flex: 0 0 80px; }
+.deck-ladder { position: relative; }
+.ladder-detail { position: absolute; z-index: 20; left: 8px; right: 8px; bottom: 5px; margin: 0; box-shadow: 0 5px 16px #000b; }
+@media (max-width: 719.98px) {
+  .shop-heading > div:last-child > .shop-lock { width: 66px; min-width: 66px; max-width: 66px; flex: 0 0 66px; }
+  .deck { position: relative; }
+  .scout-panel { position: absolute; z-index: 19; left: 0; right: 0; bottom: 0; max-height: 110px; overflow-y: auto; box-shadow: 0 5px 16px #000b; }
+}

@@ -10,7 +10,7 @@ const errors = [];
 page.on('pageerror', e => errors.push(e.message));
 const base = process.env.BASE_URL || 'http://127.0.0.1:5173';
 try {
-  for (const [width, height] of [[320, 568], [390, 844], [768, 1024], [812, 375]]) {
+  for (const [width, height] of [[280, 653], [320, 568], [390, 844], [768, 1024], [812, 375], [1280, 800]]) {
     await page.setViewportSize({ width, height });
     await page.goto(`${base}/?advenced`);
     await page.getByRole('button', { name: 'PLAY MATCH' }).tap();
@@ -33,15 +33,32 @@ try {
     assert.equal(ladder.length, 8, `${width}: missing ladder entries`);
     assert.ok(ladder.every(hp => hp.left >= 0 && hp.right >= 0), `${width}: ladder HP overflows its cell`);
     const ladderButton = page.locator('.ladder-button').first();
+    const boardBefore = await page.locator('.battle-stage').boundingBox();
     await ladderButton.tap();
+    const boardWithDetails = await page.locator('.battle-stage').boundingBox();
+    assert.equal(boardWithDetails.height, boardBefore.height, `${width}: details resized the board`);
+    assert.equal(boardWithDetails.y, boardBefore.y, `${width}: details moved the board`);
     assert.equal(await ladderButton.getAttribute('aria-expanded'), 'true', `${width}: ladder tap did not open details`);
     await page.locator('.ladder-detail button').tap();
     assert.equal(await ladderButton.getAttribute('aria-expanded'), 'false');
     const lock = page.locator('.shop-toggle').last();
+    const lockBefore = await lock.boundingBox();
     await lock.tap();
+    const lockAfter = await lock.boundingBox();
+    assert.equal(lockAfter.width, lockBefore.width, `${width}: lock button resized`);
+    assert.equal(lockAfter.height, lockBefore.height, `${width}: lock button changed height`);
     assert.equal(await lock.getAttribute('aria-pressed'), 'true', `${width}: lock did not activate`);
     await lock.tap();
     assert.equal(await lock.getAttribute('aria-pressed'), 'false', `${width}: lock did not deactivate`);
+    if (width < 720) {
+      const scout = page.locator('.shop-toggle').first();
+      const beforeScout = await page.locator('.battle-stage').boundingBox();
+      await scout.tap();
+      const afterScout = await page.locator('.battle-stage').boundingBox();
+      assert.equal(afterScout.height, beforeScout.height, `${width}: scout resized the board`);
+      assert.equal(afterScout.y, beforeScout.y, `${width}: scout moved the board`);
+      await scout.tap();
+    }
     if (width === 320) {
       // A vertical swipe beginning on the WebGL board must scroll the page,
       // not dispatch a board tap or trap the gesture.

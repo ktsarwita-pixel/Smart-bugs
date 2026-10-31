@@ -1738,7 +1738,7 @@ export default function App() {
                 state as the INTIP/SCOUT button and the V key; auto-closes when
                 the round starts (startBattle) and on next/restart. */}
             {scouting && !inCombat && (
-              <div className="rise mx-2 mb-1.5 border border-[#8E2A16] bg-[#1A100D] p-1.5">
+              <div className="scout-panel rise mx-2 mb-1.5 border border-[#8E2A16] bg-[#1A100D] p-1.5">
                 <div className="mb-1 flex items-center justify-between">
                   <span className="label text-[7px] text-[#F05A36]">
                     <IconScout size={10} /><span>{foe.short} {t("WILL FIELD")}</span>
@@ -2343,7 +2343,7 @@ export default function App() {
                       onClick={toggleLock}
                       title={t("Lock the shop so it carries into the next drawer (L)")}
                       aria-pressed={shopLocked}
-                      className={`shop-toggle label hit-y relative flex min-h-[32px] items-center gap-1 border px-2 text-[7px] ${
+                      className={`shop-toggle shop-lock label hit-y relative flex min-h-[32px] items-center gap-1 border px-2 text-[7px] ${
                         shopLocked
                           ? "border-[#F0A93B] bg-[#241B14] text-[#F0A93B]"
                           : "border-[#3B322A] text-[#9C8F7E] hover:border-[#F0A93B] hover:text-[#F0A93B]"

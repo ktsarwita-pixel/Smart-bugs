@@ -15,6 +15,16 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    v: "0.62",
+    title: "THE BATTLE ROAR",
+    items: [
+      "Spider 3★ ultimate replaced: the old whole-board opening web is gone. The Spider now plants itself and roars for 1.5 seconds, then deals exactly 650 damage to every enemy; defeating it during the roar interrupts the hit.",
+      "The roar has a dedicated rearing-and-tremble pose, pressure rings and a final impact flash. The Spider cannot walk or attack while roaring. After Web remains its full-Energy skill.",
+      "Round-map art rebuilt as larger monochrome pixel medallions: a rear-latched treasure chest and a centered antlered stag, joined by a clearer timeline.",
+      "Edge containment pass: consistent phone gutters and border-box sizing keep in-game frames inside the display; UI Doctor now audits panel overflow and off-screen borders, not only controls.",
+    ],
+  },
+  {
     v: "0.61",
     title: "THE FALLEN REST",
     items: [
@@ -123,7 +133,7 @@ export function PatchNotesModal({ open, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/78 backdrop-blur-[3px] sm:items-center sm:p-4"
+      className="edge-modal-backdrop fixed inset-0 z-[70] flex items-end justify-center bg-black/78 backdrop-blur-[3px] sm:items-center sm:p-4"
       role="presentation"
       onClick={onClose}
     >

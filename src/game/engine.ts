@@ -22,6 +22,8 @@ export function combinedTeamAtk(b: BattleState, side: "ally" | "foe"): number {
 export const COLS = 7;
 export const ROWS = 6;
 export const TICK = 0.1;
+export const SPIDER_ROAR_SECONDS = 1.5;
+export const SPIDER_ROAR_DAMAGE = 650;
 
 export interface PrepUnit {
   uid: number;
@@ -53,6 +55,8 @@ export interface BUnit {
   vuln: number;
   flash: number;
   cast: number;
+  /** Opening roar ends at this battle time; absent after completion. */
+  roarEnd?: number;
   dead: boolean;
   fade: number;
   /** Seconds since death — drives the corpse timeline (settle → rest → sink). */
@@ -143,10 +147,9 @@ export interface Hole {
 }
 
 /**
- * Spider webs (3-star "Sticky Webs").
- * - grand: the whole-board opening web — 50% slow + 500 dmg/s to enemies.
- * - snare: a 3×3 web from the After-Web spit — 750 dmg on entry + 30% slow
- *   while standing in it. Webs last the rest of the battle.
+ * Spider After Web: a 3×3 snare deals 750 damage on entry and slows 30%
+ * while occupied. `grand` remains in the shape only for old recorded battle
+ * snapshots; the removed whole-board ultimate has no gameplay producer.
  */
 export interface Web {
   id: number;
@@ -158,10 +161,10 @@ export interface Web {
   y: number;
   /** coverage: enemies within this radius of (x, y) are ON the web */
   half: number;
-  /** seconds of life left; undefined = lasts the whole battle (grand web) */
+  /** seconds of life left (legacy captured grand webs omitted this field) */
   life?: number;
   slowPct: number;
-  /** grand only: raw damage per 1s tick while the enemy stands anywhere */
+  /** legacy snapshot field; new After Web snares always store 0 */
   dotDps: number;
   /** snare only: damage dealt on stepping in (per continuous presence) */
   snareDmg: number;
@@ -189,7 +192,7 @@ export interface BattleState {
   holes: Hole[];
   /** live Airstrike fields */
   zones: Zone[];
-  /** live spider webs (whole-board grand + aimed 3x3 snares) */
+  /** live 3×3 After Web snares (legacy snapshots may contain a grand web) */
   webs: Web[];
   /** Renderer-only deadline, in performance.now() milliseconds. */
   visualWebUntil?: number;
@@ -337,28 +340,30 @@ export function createBattle(
   // under the enemy's strongest bug, before the first step is taken.
   if (cmdA === "worm") digHole(st, "ally");
   if (cmdB === "worm") digHole(st, "foe");
-  // Sticky Webs is an opening gambit too: every 3-star spider webs the
-  // whole board right as the battle begins.
+  // The three-star spider roars in place before dealing its opening hit.
   for (const u of units) {
-    if (u.bugId === "spider" && u.star >= 3) spitWeb(st, u, "grand");
+    if (u.bugId === "spider" && u.star >= 3) {
+      u.roarEnd = SPIDER_ROAR_SECONDS;
+      pop(st, u, "ROAR!", "skill");
+    }
   }
   return st;
 }
 
 /**
- * Spider spit: lob a sticky ball (a white shell) from the spider to the
- * target tile. The web itself is created when the ball lands (resolveShells).
+ * After Web: lob one sticky ball from the Spider to its target tile. The
+ * 3×3 snare itself is created only when that ball lands (resolveShells).
  */
-function spitWeb(b: BattleState, u: BUnit, kind: "grand" | "snare") {
-  const tx = kind === "grand" ? COLS / 2 : Math.min(COLS - 0.3, Math.max(0.3, u.x));
-  const ty = kind === "grand" ? ROWS / 2 : Math.min(ROWS - 0.3, Math.max(0.3, u.y));
+function spitWeb(b: BattleState, u: BUnit) {
+  const tx = Math.min(COLS - 0.3, Math.max(0.3, u.x));
+  const ty = Math.min(ROWS - 0.3, Math.max(0.3, u.y));
   const d = Math.hypot(tx - u.x, ty - u.y);
   const dur = 0.32 + Math.min(0.4, d * 0.07);
   b.shots.push({
     id: b.nid++,
     fromUid: u.uid,
-    kind: kind === "grand" ? "webgrand" : "websnare",
-    size: kind === "grand" ? 1.7 : 1.4,
+    kind: "websnare",
+    size: 1.4,
     x0: u.x,
     y0: u.y,
     x1: tx,
@@ -375,33 +380,14 @@ function spitWeb(b: BattleState, u: BUnit, kind: "grand" | "snare") {
     y: ty,
     raw: 0,
     aoe: 0,
-    kind: kind === "grand" ? "webgrand" : "websnare",
+    kind: "websnare",
   });
   u.cast = Math.max(u.cast, 0.4);
-  pop(b, u, kind === "grand" ? "STICKY WEBS" : "AFTER WEB", "skill");
+  pop(b, u, "AFTER WEB", "skill");
 }
 
-/** Builds the actual web where a sticky ball landed. */
-function landWeb(b: BattleState, src: BUnit, kind: "grand" | "snare", x: number, y: number) {
-  if (kind === "grand") {
-    if (b.webs.some((w) => w.owner === src.side && w.kind === "grand")) return;
-    b.webs.push({
-      id: b.nid++,
-      owner: src.side,
-      kind: "grand",
-      spawnedAt: b.t,
-      x: COLS / 2,
-      y: ROWS / 2,
-      half: 999, // the entire board
-      slowPct: 0.5,
-      dotDps: 500,
-      snareDmg: 0,
-      tickIn: 1,
-      inside: new Set<number>(),
-      rot: 0,
-    });
-    return;
-  }
+/** Builds the actual 3×3 After Web where its sticky ball landed. */
+function landWeb(b: BattleState, src: BUnit, x: number, y: number) {
   b.webs.push({
     id: b.nid++,
     owner: src.side,
@@ -422,17 +408,17 @@ function landWeb(b: BattleState, src: BUnit, kind: "grand" | "snare", x: number,
 const dist = (a: BUnit, b: BUnit) => Math.hypot(a.x - b.x, a.y - b.y);
 
 function pop(b: BattleState, u: BUnit, text: string, kind: Pop["kind"]) {
-  b.pops.push({ id: b.nid++, x: u.x, y: u.y - 0.25, text, life: kind === "skill" ? 1.1 : 0.85, kind });
+  b.pops.push({ id: b.nid++, x: u.x, y: u.y - 0.25, text, life: text === "ROAR!" ? 1.5 : kind === "skill" ? 1.1 : 0.85, kind });
   if (b.pops.length > 30) b.pops.shift();
 }
 
-function damage(b: BattleState, _src: BUnit, tgt: BUnit, raw: number, projectile = false) {
+function damage(b: BattleState, _src: BUnit, tgt: BUnit, raw: number, projectile = false, exact = false) {
   if (tgt.dead) return;
   // Airborne: a diving dragonfly is metres above the soil. Nothing —
   // melee, shells, fields or traps — can touch it until touchdown.
   // (Zones/holes already exempted it; direct attacks did not, so the
   // ultimate could be killed mid-flight and silently lost.)
-  if (tgt.dive && !tgt.dive.landed) return;
+  if (!exact && tgt.dive && !tgt.dive.landed) return;
   // DESIGNER RULE: damage dealt equals the ATK stat, exactly.
   // A basic attack from a 254-ATK dragonfly pops "254" — what the stat
   // sheet says is what the hit does. There is NO hidden DEF/armour
@@ -445,8 +431,8 @@ function damage(b: BattleState, _src: BUnit, tgt: BUnit, raw: number, projectile
   // and the dragonfly's Slipstream passive (50% vs non-projectiles,
   // its Codex entry says so). Skills multiply ATK exactly as stated
   // (e.g. Pincer Lock = 2.1 × ATK).
-  const amp = tgt.vuln > 0 ? 1.5 : 1;
-  const slipstream = tgt.bugId === "dragonfly" && !projectile ? 0.5 : 1;
+  const amp = !exact && tgt.vuln > 0 ? 1.5 : 1;
+  const slipstream = !exact && tgt.bugId === "dragonfly" && !projectile ? 0.5 : 1;
   const dmg = Math.max(1, Math.round(raw * amp * slipstream));
   tgt.hp -= dmg;
   tgt.flash = 0.3;
@@ -487,7 +473,7 @@ function castSkill(b: BattleState, u: BUnit, t: BUnit): boolean {
     const tx = cluster ? cluster.x : t.x;
     const ty = cluster ? cluster.y : t.y;
     u.cast = 0.55;
-    spitWeb(b, u, "snare");
+    spitWeb(b, u);
     // re-aim the pending ball at the cluster centroid (spitWeb staged it at
     // the spider's own tile for snare — retarget before it flies)
     const shot = b.shots[b.shots.length - 1];
@@ -651,10 +637,13 @@ function resolveShells(b: BattleState) {
   for (const p of due) {
     const src = b.units.find((u) => u.uid === p.fromUid);
     if (!src || src.dead) continue;
-    if (p.kind === "webgrand" || p.kind === "websnare") {
-      landWeb(b, src, p.kind === "webgrand" ? "grand" : "snare", p.x, p.y);
+    if (p.kind === "websnare") {
+      landWeb(b, src, p.x, p.y);
       continue;
     }
+    // `webgrand` is accepted only by the legacy presentation type so old
+    // captured snapshots can be opened; the removed ultimate has no producer.
+    if (p.kind === "webgrand") continue;
     if (p.aoe > 0) {
       // Caustic Burst: splash everything clustered around the impact tile
       for (const e of b.units) {
@@ -768,7 +757,7 @@ export function webSlowMul(b: BattleState, u: BUnit): number {
   return 1 - slow;
 }
 
-/** Grand-web damage ticks + snare on-entry hits. Runs every step. */
+/** After Web on-entry hits; the grand branch only replays legacy snapshots. */
 function stepWebs(b: BattleState, dt: number) {
   if (!b.webs.length) return;
   // limited-life webs (After Web snares) dissolve when their timer runs out
@@ -916,6 +905,13 @@ export function stepBattle(b: BattleState, dt: number): BattleState {
     }
   }
 
+  // Resolve simultaneous opening roars together so opposing spiders cannot
+  // cancel one another solely because of array order. Dead casters interrupt.
+  const roaring = b.units.filter(u => !u.dead && u.roarEnd !== undefined && b.t + 1e-9 >= u.roarEnd);
+  for (const u of roaring) u.roarEnd = undefined;
+  for (const u of roaring) {
+    for (const enemy of b.units) if (enemy.side !== u.side && !enemy.dead) damage(b, u, enemy, SPIDER_ROAR_DAMAGE, false, true);
+  }
   resolveShells(b);
   stepAirstrikeDives(b);
   stepZones(b);
@@ -946,7 +942,7 @@ export function stepBattle(b: BattleState, dt: number): BattleState {
 
   for (let li = 0; li < live.length; li++) {
     const u = live[li];
-    if (u.dead || u.stun > 0 || u.dive) continue;
+    if (u.dead || u.stun > 0 || u.dive || u.roarEnd !== undefined) continue;
     const foes = u.side === "ally" ? liveFoe : liveAlly;
     if (!foes.length) continue;
     let t: BUnit | null = null;
@@ -981,7 +977,7 @@ export function stepBattle(b: BattleState, dt: number): BattleState {
     for (let j = i + 1; j < live.length; j++) {
       const a = live[i];
       const c = live[j];
-      if (a.dead || c.dead || a.dive || c.dive || a.side !== c.side) continue;
+      if (a.dead || c.dead || a.dive || c.dive || a.roarEnd !== undefined || c.roarEnd !== undefined || a.side !== c.side) continue;
       let dx = c.x - a.x;
       let dy = c.y - a.y;
       let d = Math.hypot(dx, dy);

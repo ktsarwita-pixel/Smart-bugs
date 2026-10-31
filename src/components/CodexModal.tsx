@@ -239,8 +239,8 @@ export function CodexModal({ open, onClose }: Props) {
                 },
                 {
                   n: "07",
-                  t: "WEBS & VENOM",
-                  d: "The Spider (5G) webs the WHOLE board at battle start: enemies are slowed 50% and take 500 damage per second for the entire fight. At full Energy it spits a big 3×3 web onto the densest enemy pack — stepping on it deals 750 damage and slows 30%, and that web dissolves after 5 seconds. Its Enraged bite hits for 2× damage and adds 3 poison ticks 1s apart. Every web BLOOMS from its strike point and floods outward, and the spun silk is fitted with exact math so it can never hang past the drawer.",
+                  t: "ROAR & VENOM",
+                  d: "At 3-star, the Spider opens battle by planting its feet and roaring for 1.5 seconds, then deals exactly 650 damage to every enemy. Defeating it during the roar interrupts the hit. At full Energy, After Web still targets the densest enemy pack: the 3×3 snare deals 750 damage on entry, slows 30%, and dissolves after 5 seconds. Its Enraged bite hits for 2× damage and adds 3 poison ticks 1 second apart.",
                 },
                 {
                   n: "08",

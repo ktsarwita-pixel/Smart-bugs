@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 /* Opt-in, non-destructive diagnostics: never click the game's controls.
    Scroll findings describe navigation, not necessarily a defect. */
-type Kind = "TAP" | "COVERED" | "INTERACTION" | "CLIPPED" | "OVERFLOW" | "SCROLL";
+type Kind = "TAP" | "COVERED" | "INTERACTION" | "CLIPPED" | "OVERFLOW" | "BORDER" | "SCROLL";
 type Issue = { id: number; kind: Kind; severity: "high" | "warning"; label: string; detail: string; el: HTMLElement | null; x: number; y: number };
 type Scan = { issues: Issue[]; width: number; height: number; checked: number; time: string };
 const KEY = "sb-doctor";
@@ -58,11 +58,77 @@ function audit(): Scan {
     add("SCROLL", "warning", `${el.getAttribute("aria-label") || el.getAttribute("title") || selectorFor(el)} scroll area`, `${selectorFor(el)}: ${directions} scroll range; ${controls} enabled controls inside. Scrolling may be intentional.`, el, r.left, r.top);
   }
   if (scrollCount > 12) add("SCROLL", "warning", "Additional scroll areas", `${scrollCount - 12} more visible scroll areas omitted.`, null);
+  // Inspect layout containers as well as controls. A clipped panel can keep
+  // every button tappable while its frame or heading is visibly cut off.
+  const boundarySelector = '[data-ui-boundary], [role="dialog"], main, header, footer, nav, .battle-main, .game-dock, .deck, .deck-row, .action-bar, .selected-actions, .bench-section, .shop-section, .round-track, .shop-grid, .ladder-strip, .result-card, .fight-banner';
+  const boundaries = [scope, ...Array.from(scope.querySelectorAll<HTMLElement>(boundarySelector))];
+  const edgeReported = new Set<HTMLElement>();
+  const inHorizontalScroller = (el: HTMLElement) => {
+    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+      const ps = getComputedStyle(p);
+      if (/(auto|scroll)/.test(ps.overflowX) && p.scrollWidth > p.clientWidth + 2) return true;
+    }
+    return false;
+  };
+  for (const el of boundaries) {
+    if (!(el instanceof HTMLElement) || el.closest('[data-ui-doctor], [inert], [aria-hidden="true"]')) continue;
+    const st = getComputedStyle(el), r = el.getBoundingClientRect();
+    if (st.display === "none" || st.visibility !== "visible" || r.width < 2 || r.height < 2 || r.bottom <= 0 || r.top >= height || r.right <= 0 || r.left >= width) continue;
+    if (!inHorizontalScroller(el) && (r.left < -1 || r.right > width + 1)) {
+      add("OVERFLOW", "warning", el.getAttribute('aria-label') || selectorFor(el), `${selectorFor(el)}: panel extends ${Math.round(Math.max(0,-r.left))}px left and ${Math.round(Math.max(0,r.right-width))}px right of the viewport`, el, r.left, r.top);
+      edgeReported.add(el);
+    }
+    const hiddenX = /(hidden|clip)/.test(st.overflowX) && el.scrollWidth > el.clientWidth + 2;
+    if (hiddenX && el.hasAttribute('data-ui-boundary')) {
+      add("OVERFLOW", "warning", el.getAttribute('aria-label') || selectorFor(el), `${selectorFor(el)}: ${Math.round(el.scrollWidth-el.clientWidth)}px of content clipped horizontally by the panel`, el, r.left, r.top);
+      edgeReported.add(el);
+    }
+  }
+  // Border audit is deliberately independent of controls. It catches the
+  // failure class the original Doctor missed: a card can be interactive and
+  // have no document overflow while its actual border sits beyond the screen.
+  let borderFindings = 0;
+  for (const node of [scope, ...Array.from(scope.querySelectorAll<HTMLElement>("*"))]) {
+    if (!(node instanceof HTMLElement) || edgeReported.has(node) || node.closest('[data-ui-doctor], [inert], [aria-hidden="true"]')) continue;
+    const st = getComputedStyle(node), r = node.getBoundingClientRect();
+    if (st.display === "none" || st.visibility !== "visible" || Number(st.opacity) === 0 || r.width < 2 || r.height < 2 || r.bottom <= 0 || r.top >= height || r.right <= 0 || r.left >= width) continue;
+    const widths = [st.borderTopWidth, st.borderRightWidth, st.borderBottomWidth, st.borderLeftWidth].map(v => Number.parseFloat(v) || 0);
+    const outline = st.outlineStyle !== "none" ? Number.parseFloat(st.outlineWidth) || 0 : 0;
+    const thick = Math.max(...widths, outline);
+    if (thick <= 0) continue;
+    const visualLeft = r.left - outline, visualRight = r.right + outline;
+    const visualTop = r.top - outline, visualBottom = r.bottom + outline;
+    let clippedBy: HTMLElement | null = null;
+    for (let p = node.parentElement; p && p !== document.body; p = p.parentElement) {
+      const ps = getComputedStyle(p), pr = p.getBoundingClientRect();
+      const clipsX = /(hidden|clip)/.test(ps.overflowX) && (visualLeft < pr.left - 1 || visualRight > pr.right + 1);
+      const clipsY = /(hidden|clip)/.test(ps.overflowY) && (visualTop < pr.top - 1 || visualBottom > pr.bottom + 1);
+      if (clipsX || clipsY) { clippedBy = p; break; }
+    }
+    const fixedVerticalMiss = (st.position === "fixed" || node.getAttribute("role") === "dialog") && (visualTop < -1 || visualBottom > height + 1);
+    if (clippedBy) {
+      if (borderFindings++ < 12) add("BORDER", "warning", node.getAttribute("aria-label") || labelFor(node) || selectorFor(node), `${selectorFor(node)}: border is clipped by ${selectorFor(clippedBy)}`, node, r.left, r.top);
+      edgeReported.add(node);
+    } else if ((!inHorizontalScroller(node) && (visualLeft < -1 || visualRight > width + 1)) || fixedVerticalMiss) {
+      if (borderFindings++ < 12) add("BORDER", "warning", node.getAttribute("aria-label") || labelFor(node) || selectorFor(node), `${selectorFor(node)}: visible border extends outside the viewport`, node, r.left, r.top);
+      edgeReported.add(node);
+    } else if (thick >= 8 && Math.min(r.width, r.height) >= 20) {
+      if (borderFindings++ < 12) add("BORDER", "warning", node.getAttribute("aria-label") || labelFor(node) || selectorFor(node), `${selectorFor(node)}: ${Math.round(thick)}px border/outline is unusually heavy`, node, r.left, r.top);
+    }
+  }
   for (const el of activeElements) {
     const cs = getComputedStyle(el), r = el.getBoundingClientRect();
     if (cs.display === "none" || cs.visibility !== "visible" || Number(cs.opacity) === 0 || r.width < 2 || r.height < 2) continue;
-    // Only inspect controls with a center in view; scrolling to other controls is expected.
+    // Report partially or fully cut-off controls even when their center lies
+    // outside the viewport; vertical off-screen items can be normal scrolling.
     const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    if (r.bottom > 0 && r.top < height && (r.left < -1 || r.right > width + 1)) {
+      let scrollable = false;
+      for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+        if (/(auto|scroll)/.test(getComputedStyle(p).overflowX) && p.scrollWidth > p.clientWidth + 2) { scrollable = true; break; }
+      }
+      if (!scrollable) add("CLIPPED", "warning", labelFor(el), `${selectorFor(el)}: extends beyond the horizontal viewport`, el, r.left, r.top);
+    }
     if (cx < 0 || cy < 0 || cx >= width || cy >= height) continue;
     // Scrollable off-screen controls are covered by SCROLL findings. Controls
     // cut off by a non-scrollable ancestor cannot be reached that way.
@@ -111,7 +177,6 @@ function audit(): Scan {
     }
     const touchW = r.width + extraX, touchH = r.height + extraY;
     if (Math.min(touchW, touchH) < 40) add("TAP", Math.min(touchW, touchH) < 32 ? "high" : "warning", label, `${selector}: ${Math.round(touchW)}×${Math.round(touchH)}px touch target (recommended 40×40)`, el, r.left, r.top);
-    if (r.left < -1 || r.right > width + 1) add("CLIPPED", "warning", label, `${selector}: extends beyond the horizontal viewport; may be in a scrollable strip`, el, r.left, r.top);
   }
   return { issues, width, height, checked, time: new Date().toLocaleTimeString() };
 }
@@ -170,7 +235,7 @@ export function UiDoctor() {
   const report = scan ? [`UI Doctor · ${scan.width}×${scan.height} · DPR ${devicePixelRatio || 1} · ${scan.time}`,
     `${scan.checked} visible controls checked · ${scan.issues.length} findings`,
     `FPS ${perf.fps} · worst frame (last second) ${perf.worst}ms · frames over 100ms ${perf.janks}`,
-    "Non-destructive snapshot: pointer blockers and scroll ranges are detected, but button actions are not tested. Scrolling can be intentional.",
+    "Non-destructive snapshot: pointer blockers, panel/border overflow and scroll ranges are detected, but button actions are not tested. Scrolling can be intentional.",
     ...scan.issues.map(i => `[${i.severity.toUpperCase()}] ${i.kind} ${i.label}: ${i.detail}`)].join("\n") : "";
   const copy = async () => {
     try { if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable"); await navigator.clipboard.writeText(report); setCopyStatus("Copied"); }

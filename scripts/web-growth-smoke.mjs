@@ -35,16 +35,17 @@ for (const progress of [0,0.25,0.5,1]) {
   if (progress===1) assert.ok(near.distanceTo(new Vector3(0,0.052,0))<1e-9 && far.distanceTo(new Vector3(COLS,0.052,ROWS))<1e-9);
 }
 const b=createBattle([{uid:1,bugId:'spider',star:3,zone:'board',slot:10}],[{uid:2,bugId:'stag',star:3,zone:'board',slot:10}], 'matriarch','matriarch');
-assert.equal(b.shots[0].kind,'webgrand');
-assert.equal(b.shots[0].x1,COLS/2); assert.equal(b.shots[0].y1,ROWS/2);
-assert.equal(b.webs.length,0,'web must not spawn before impact');
-for(let i=0;i<20 && !b.webs.length;i++) stepBattle(b,0.1);
-const web=b.webs.find(w=>w.kind==='grand');
-assert.ok(web); assert.ok(web.spawnedAt>0); assert.equal(web.half,999); assert.equal(web.dotDps,500); assert.equal(web.slowPct,0.5);
+assert.equal(b.units.find(u=>u.uid===1).roarEnd,1.5);
+assert.ok(!b.shots.some(s=>s.kind==='webgrand'),'removed ultimate must not fire a grand-web shell');
+assert.ok(!b.webs.some(w=>w.kind==='grand'),'removed ultimate must not create a grand web');
+for(const u of b.units){u.hp=u.maxHp=5000;u.cd=100;u.spd=0;}
+for(let i=0;i<30;i++) stepBattle(b,0.1);
+assert.ok(!b.shots.some(s=>s.kind==='webgrand'));
+assert.ok(!b.webs.some(w=>w.kind==='grand'),'grand web must remain absent after the opener resolves');
 const hit={fromUid:7,at:0.5};
 const shot={id:42,fromUid:7,kind:'webgrand',t0:0,dur:0.5};
 assert.equal(visualGrandImpactReady(hit,[shot],new Map()),false);
 assert.equal(visualGrandImpactReady(hit,[shot],new Map([[42,0.99]])),false);
 assert.equal(visualGrandImpactReady(hit,[shot],new Map([[42,1]])),true);
 assert.equal(visualGrandImpactReady(hit,[],new Map()),true);
-console.log('PASS progressive web growth, reduced motion and unchanged combat coverage');
+console.log('PASS legacy web utility remains isolated; Spider opener creates no grand web');

@@ -1,4 +1,4 @@
-import { CHEST_PATH, STAG_PATH } from "./game/round-icons";
+import { CHEST_PATH, CHEST_VIEWBOX, STAG_PATH, STAG_VIEWBOX } from "./game/round-icons";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Scene3D } from "./components/Scene3D";
 import { PatchNotesModal } from "./components/PatchNotesModal";
@@ -214,7 +214,7 @@ function PixelTreasure({ open }: { open: boolean }) {
 
 /** Monochrome, grid-aligned encounter glyphs: no rarity colours. */
 function RoundIcon({ chest }: { chest: boolean }) {
-  return <svg viewBox="0 0 16 16" aria-hidden="true" shapeRendering="crispEdges" className="round-track__icon">
+  return <svg viewBox={chest ? CHEST_VIEWBOX : STAG_VIEWBOX} aria-hidden="true" shapeRendering="crispEdges" className="round-track__icon">
     <path fill="currentColor" d={chest ? CHEST_PATH : STAG_PATH} />
   </svg>;
 }
@@ -1752,7 +1752,7 @@ export default function App() {
               whole deck is ~70px — every pixel the old wrapped chip grid
               wasted now goes to the 3D stage. */}
           <div className="deck shrink-0">
-            <div className="deck-row">
+            <div className="deck-row" data-ui-boundary>
               <div className="deck-cluster">
                 <div className="deck-stat" title={t("Your colony HP — reach zero and you're out")}>
                   <IconHeart size={14} />

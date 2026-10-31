@@ -34,6 +34,7 @@ export function animateInsectRig(
   dt: number,
   baseY = 0,
   flightPose?: AirstrikePose,
+  roarProgress?: number,
 ) {
   const p: Pose = {
     torsoX: 0, torsoY: 0, torsoZ: 0, torsoS: 1, torsoPosY: 0, torsoPosZ: 0,
@@ -327,7 +328,18 @@ export function animateInsectRig(
       // (a scurrying scuttle, no alternating tripods), the body rides low.
       // The bite rears the front half up and STABS both fangs down-forward;
       // the web spit rears higher with the fangs spread wide.
-      if (cp > 0) {
+      if (roarProgress !== undefined) {
+        const phase = Math.max(0, Math.min(1, roarProgress));
+        const swell = Math.sin(Math.PI * phase);
+        const tremble = Math.sin(phase * Math.PI * 12) * swell;
+        p.torsoX = -0.34 * swell;
+        p.torsoPosY = 0.1 * swell;
+        p.headX = -0.3 * swell + tremble * 0.07;
+        p.laX = p.raX = -0.5 * swell;
+        p.laZ = -0.65 * swell; p.raZ = 0.65 * swell;
+        p.legsAX = -0.18 * swell; p.legsBX = 0.18 * swell;
+        p.rootY = 0.06 * swell;
+      } else if (cp > 0) {
         const rear = Math.sin(Math.min(1, cp / 0.75) * Math.PI);
         p.torsoX = -0.2 * rear;
         p.torsoPosY = 0.06 * rear;

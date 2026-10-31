@@ -16,8 +16,7 @@ try {
    await new Promise(resolve => setTimeout(resolve, 1000));
    return !!document.querySelector('.result-card');
  });
- assert.equal(observed,false,'fresh ultimate must be visible before results');
- await page.getByRole('button',{name:'Close admin panel'}).tap();
- await page.locator('.result-card').waitFor({timeout:10000}); assert.deepEqual(errors,[]);
- console.log('PASS fresh spider ultimate can finish revealing before the result');
+ assert.equal(observed,true,'removed grand web must not keep the result screen waiting');
+ assert.deepEqual(errors,[]);
+ console.log('PASS removed grand web no longer adds a stale result delay');
 } finally {await browser.close();}

@@ -269,9 +269,9 @@ export const BUGS: Record<BugId, BugDef> = {
     spd: 2.6,
     atkCd: 1.05,
     skill: {
-      name: "Sticky Webs",
+      name: "Battle Roar",
       desc:
-        "3-star ultimate. Battle start: the Spider spits one giant web over the whole board — enemies on it are slowed 50% and take 500 damage per second for the entire battle. When Energy is full it spits a second ball at the densest enemy group: one big 3×3 web deals 750 damage to and slows 30% any enemy that steps on it. The 3×3 web dissolves after 5 seconds.",
+        "3-star ultimate. At battle start the Spider roars in place for 1.5 seconds, then deals 650 damage to every enemy. If it is defeated before the roar ends, the roar is interrupted. When Energy is full, After Web still traps the densest enemy group: a 3×3 web deals 750 damage and slows enemies by 30% for 5 seconds.",
     },
     skillMinStar: 3,
     passive: {
@@ -550,7 +550,7 @@ export const SHOP_WEIGHTS: { id: BugId; w: number }[] = [
 ];
 
 export const GAME_INFO = {
-  version: "0.61",
+  version: "0.62",
   units: BUG_ORDER.length,
   commanders: COMMANDERS.length,
   rivals: BOTS.length,

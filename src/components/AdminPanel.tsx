@@ -285,7 +285,7 @@ export function AdminPanel({ open, onClose, snapshot, onCommand, initiallyUnlock
   const pickStats = pickBug !== "random" ? statsFor(pickBug, pickStar) : null;
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/78 backdrop-blur-[3px] sm:items-center sm:p-4" role="presentation" onClick={onClose}>
+    <div className="edge-modal-backdrop fixed inset-0 z-[80] flex items-end justify-center bg-black/78 backdrop-blur-[3px] sm:items-center sm:p-4" role="presentation" onClick={onClose}>
       <section
         role="dialog"
         aria-modal="true"
@@ -437,7 +437,7 @@ export function AdminPanel({ open, onClose, snapshot, onCommand, initiallyUnlock
                       ))}
                     {pickBug === "spider" &&
                       (pickStar >= 3 ? (
-                        <span className="text-[#C77DFF]">{t("· Sticky Webs UNLOCKED (board web + snare traps)")}</span>
+                        <span className="text-[#C77DFF]">{t("· Battle Roar: 650 damage to every enemy after 1.5s")}</span>
                       ) : (
                         <span className="text-[#8C7E6E]">{t("· passive only — ultimate needs 3-star")}</span>
                       ))}

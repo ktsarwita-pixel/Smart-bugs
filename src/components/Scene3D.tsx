@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { createChestGeometry } from "../game/treasure-voxel";
 import { BUGS, COMMANDERS, SPECIMEN_IDS, type BugId, type CmdId } from "../game/data";
-import { COLS, ROWS, boardXY, type BattleState, type BUnit, type Zone, type PrepUnit } from "../game/engine";
+import { COLS, ROWS, SPIDER_ROAR_SECONDS, boardXY, type BattleState, type BUnit, type Zone, type PrepUnit } from "../game/engine";
 import { GRAND_WEB_GROW_SECONDS, grandWebGrowth, visualGrandImpactReady, setGrandWebScale } from "../game/web-growth";
 import { buildVoxelModel, dotTexture, warmVoxelCache, V, type VoxModel } from "../game/voxel";
 import { animateInsectRig } from "../game/animate";
@@ -58,6 +58,10 @@ interface UnitObj {
   /** one-shot detector for the death moment (dust puff + grounded shadow) */
   prevDead: boolean;
   prevCast: number;
+  /** Last rendered opening-roar phase; -1 means the unit is not roaring. */
+  prevRoarProgress: number;
+  /** Last emitted roar-wave index, keeping the effect deterministic per cast. */
+  roarPulse: number;
   prevCd: number;
   /** 0→1 deploy pop when the voxel sculpt first mounts (instant if reduced motion) */
   spawnT: number;
@@ -96,7 +100,7 @@ const SHOWCASE_ORDER = SPECIMEN_IDS;
 const OV_ID: Record<string, string> = {
   CLIMB: "NAIK", "LOCK ON": "MENGUNCI", DIVE: "MENUKIK", LANDED: "Mendarat",
   AIRSTRIKE: "SERBUAN UDARA", PINCER: "CAPITAN", RAKE: "TEBASAN", BURST: "LEDAKAN",
-  GLOW: "CAHAYA", HOLE: "LUBANG", "TRAP!": "Jebakan!", TOUCHDOWN: "Mendarat",
+  GLOW: "CAHAYA", HOLE: "LUBANG", "TRAP!": "Jebakan!", TOUCHDOWN: "Mendarat", "ROAR!": "RAUNGAN!",
 };
 const ovWord = (w: string): string =>
   typeof document !== "undefined" && document.documentElement.lang === "id" ? OV_ID[w] ?? w : w;
@@ -2443,6 +2447,8 @@ export function Scene3D({
         deadT: 0,
         prevDead: false,
         prevCast: 0,
+        prevRoarProgress: -1,
+        roarPulse: -1,
         prevCd: cd,
         shadow,
         blurDisc,
@@ -2705,6 +2711,7 @@ export function Scene3D({
       dive: AirstrikeDive | null = null,
       battleTime = 0,
       treasureGuard = false,
+      roarProgress?: number,
     ) {
       seen.add(uid);
       const u = ensureUnit(uid, id, star, side, rx, ry, cd);
@@ -2774,6 +2781,38 @@ export function Scene3D({
 
       if (cast > 0 && u.prevCast <= 0 && id !== "dragonfly") spawnRing(rx, ry, side === "ally" ? 0x4fd3a0 : 0xe0522f);
       u.prevCast = cast;
+
+      // Three-star Spider opener: its body animation is paired with visible
+      // pressure waves. The unit stays planted while these pulses radiate;
+      // the last flash coincides with the engine's one-time 650 hit.
+      if (roarProgress !== undefined) {
+        u.el.dataset.roaring = "true";
+        u.el.dataset.roarProgress = String(Math.round(roarProgress * 100));
+        const pulse = Math.min(3, Math.floor(roarProgress * 4));
+        const quietMotion = document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches;
+        if (!quietMotion && pulse > u.roarPulse) {
+          spawnRing(rx, ry, side === "ally" ? 0xff9b55 : 0xff5147);
+          if (pulse === 2) spawnBurst(rx, 0.34, ry, 0xffcf72, isCompact ? 5 : 8, 1.2);
+        }
+        u.roarPulse = Math.max(u.roarPulse, pulse);
+        u.prevRoarProgress = roarProgress;
+      } else {
+        delete u.el.dataset.roaring;
+        delete u.el.dataset.roarProgress;
+        if (u.prevRoarProgress >= 0) {
+          // A death before 1.5s interrupts the ultimate and gets no hit wave.
+          if (!dead && battleTime >= SPIDER_ROAR_SECONDS) {
+            const quietMotion = document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches;
+            spawnRing(rx, ry, side === "ally" ? 0xffb35c : 0xff604f);
+            if (!quietMotion) {
+              spawnFlash(rx, 0.42, ry, 0xffb15b, 2.1);
+              spawnBurst(rx, 0.38, ry, 0xffd58a, isCompact ? 10 : 16, 2.4);
+            }
+          }
+          u.prevRoarProgress = -1;
+          u.roarPulse = -1;
+        }
+      }
 
       /* ── Dragonfly flight realism ─────────────────────────────
          Every cue below is derived from the same sampler the simulation
@@ -2862,7 +2901,7 @@ export function Scene3D({
       }
       if (flight) u.prevPhase = flight.phase;
       else if (u.prevPhase !== "grounded") u.prevPhase = "grounded";
-      const hop = cast > 0 && id !== "dragonfly" ? Math.sin((1 - cast / 0.55) * Math.PI) * 0.18 : 0;
+      const hop = roarProgress === undefined && cast > 0 && id !== "dragonfly" ? Math.sin((1 - cast / 0.55) * Math.PI) * 0.18 : 0;
 
       const bobY = dead ? 0 : moving ? Math.abs(Math.sin(u.bob)) * 0.048 : Math.sin(u.bob) * 0.012;
       // corpses sink beneath the soil as they fade — the body goes INTO the
@@ -2942,6 +2981,7 @@ export function Scene3D({
         dt,
         0,
         flight,
+        roarProgress,
       );
 
       if (flight && dive) {
@@ -3405,6 +3445,11 @@ export function Scene3D({
             r.dive,
             visualBattleTime,
             !!r.treasureGuard,
+            r.roarEnd !== undefined && !r.dead
+              ? (document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches
+                  ? 0.5
+                  : Math.max(0, Math.min(1, liveBattle.t / SPIDER_ROAR_SECONDS)))
+              : undefined,
           );
         }
       } else {

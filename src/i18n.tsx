@@ -52,6 +52,8 @@ const ID: Record<string, string> = {
   "Potato mode turns off shadows and glow, drops the render resolution, and hides fireflies. For weaker phones and laptops.": "Mode kentang mematikan bayangan dan glow, menurunkan resolusi render, dan menyembunyikan kunang-kunang. Untuk ponsel serta laptop yang lebih lemah.",
   "UI DOCTOR": "DOKTER UI",
   "On — find broken taps": "Nyala — cari tombol bermasalah",
+  "On — find UI and visual bugs": "Nyala — cari masalah UI dan visual",
+  "Scans touch, layout, chest alignment and rendering. Deep Scan watches for flashes and stalled animation; visual history records swaps while enabled.": "Memeriksa sentuhan, tata letak, arah peti, dan render. Pemindaian mendalam mencari kedipan dan animasi macet; riwayat visual mencatat pergantian saat aktif.",
   "Off — normal play": "Mati — main normal",
   "Overlay that hunts unresponsive UI: tiny tap targets, covered buttons, clipped panels, and dropped frames. Shows an FPS meter and a copyable report.": "Lapisan pemeriksa yang mencari UI tak responsif: target sentuh kecil, tombol tertutup, panel terpotong, dan frame yang jatuh. Menampilkan meter FPS dan laporan yang bisa disalin.",
   "PRIVATE": "PRIBADI",

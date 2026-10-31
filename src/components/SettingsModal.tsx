@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { IconClose, IconGlobe, IconSettings } from "./CustomIcons";
 import { useSettings, type Lang } from "../i18n";
+import { isAdvancedGameLocation } from "../game/build-mode";
 
 interface Props {
   open: boolean;
@@ -35,7 +36,13 @@ export function SettingsModal({ open, onClose }: Props) {
       setFullscreenError(true);
     }
   };
-  const [doctor, setDoctor] = useState(() => localStorage.getItem("sb-doctor") === "1");
+  const advancedDoctor = isAdvancedGameLocation(window.location);
+  const [doctor, setDoctor] = useState(() => {
+    try {
+      const stored = localStorage.getItem("sb-doctor");
+      return stored === "1" || (advancedDoctor && stored !== "0" && new URLSearchParams(location.search).get("doctor") === "1");
+    } catch { return advancedDoctor && new URLSearchParams(location.search).get("doctor") === "1"; }
+  });
   const setDoctorState = (v: boolean) => {
     setDoctor(v);
     try { localStorage.setItem("sb-doctor", v ? "1" : "0"); } catch { /* storage blocked */ }
@@ -231,13 +238,13 @@ export function SettingsModal({ open, onClose }: Props) {
                       : "border-[#3B322A] bg-[#17110C] text-[#B3A594]"
                   }`}
                 >
-                  {option === true ? t("On — find broken taps") : t("Off — normal play")}
+                  {option === true ? t(advancedDoctor ? "On — find UI and visual bugs" : "On — find broken taps") : t("Off — normal play")}
                 </button>
               );
             })}
           </div>
           <p className="mt-2 text-[10px] leading-snug text-[#7B6E5F]">
-            {t("Overlay that hunts unresponsive UI: tiny tap targets, covered buttons, clipped panels, and dropped frames. Shows an FPS meter and a copyable report.")}
+            {t(advancedDoctor ? "Scans touch, layout, chest alignment and rendering. Deep Scan watches for flashes and stalled animation; visual history records swaps while enabled." : "Overlay that hunts unresponsive UI: tiny tap targets, covered buttons, clipped panels, and dropped frames. Shows an FPS meter and a copyable report.")}
           </p>
         </div>
 

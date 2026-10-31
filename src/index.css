@@ -1978,3 +1978,22 @@ html[data-motion="reduced"] .result-health__track > span { transition: none; }
 .result-health__change { flex: none; max-width: 50%; padding: 5px 7px; border: 1px solid #8ab39d; background: #d7e8d8; color: #165c43; font-size: 10px; font-weight: 700; text-align: center; line-height: 1.25; }
 .result-health__change[data-loss="1"] { border-color: #c69d8c; background: #efdbd0; color: #8e2a16; }
 .result-health__caption { font-variant-numeric: tabular-nums; }
+
+/* UI Doctor: a non-blocking badge and a viewport-bounded diagnostic panel. */
+.ui-doctor { position: fixed; inset: 0; z-index: 300; pointer-events: none; font-family: var(--font-mono); }
+.ui-doctor__badge, .ui-doctor__panel { pointer-events: auto; }
+.ui-doctor__badge { position: absolute; left: 4px; top: 46%; width: 44px; height: 44px; border: 2px solid #bdf8ff; border-radius: 50%; background: #103a3b; color: #dffcff; touch-action: none; display: grid; place-content: center; line-height: 1; box-shadow: 0 4px 14px #000b; }
+.ui-doctor__badge span { font-size: 9px; } .ui-doctor__badge b { font-size: 12px; }
+.ui-doctor__panel { position: absolute; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); bottom: max(8px, env(safe-area-inset-bottom)); width: min(420px, calc(100% - 16px)); max-height: min(76dvh, 620px); display: flex; flex-direction: column; margin-inline: auto; background: #120e0b; color: #ede2cb; border: 1px solid #705b44; box-shadow: 0 10px 35px #000d; font-size: 11px; }
+.ui-doctor__header { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: #1b2421; border-bottom: 1px solid #4a5a4e; }
+.ui-doctor__header strong { color: #75d9e8; letter-spacing: .08em; } .ui-doctor__header small { display: block; color: #9aa99c; margin-top: 2px; }
+.ui-doctor__header button { width: 44px; height: 44px; font-size: 22px; color: #ede2cb; }
+.ui-doctor__metrics { display: flex; flex-wrap: wrap; gap: 5px 10px; align-items: center; padding: 8px 10px; color: #b5a899; }
+.ui-doctor__metrics b { color: #d9f9e6; } .ui-doctor__metrics button { margin-left: auto; min-height: 32px; padding: 0 8px; border: 1px solid #5e4c39; }
+.ui-doctor__actions { display: flex; gap: 6px; padding: 0 10px 8px; } .ui-doctor__actions button { flex: 1; min-height: 44px; border: 1px solid #a98b49; background: #292014; color: #ffda89; font-weight: bold; } .ui-doctor__actions button:disabled { opacity: .45; }
+.ui-doctor__body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 10px 10px; } .ui-doctor__body p { color: #c4b6a3; line-height: 1.45; margin: 7px 0; }
+.ui-doctor__summary { display: flex; justify-content: space-between; gap: 8px; padding: 8px; background: #272016; } .ui-doctor__summary span { color: #d7b67c; }
+.ui-doctor__list { display: grid; gap: 5px; padding: 0; margin: 8px 0; list-style: none; } .ui-doctor__list button { width: 100%; min-height: 44px; padding: 7px; display: grid; gap: 3px; text-align: left; border: 1px solid #4a3828; background: #1e1712; overflow-wrap: anywhere; } .ui-doctor__list span { color: #f2bc67; font-size: 9px; } .ui-doctor__list span[data-severity="high"] { color: #ff9380; } .ui-doctor__list strong { color: #f3e7d2; } .ui-doctor__list small { color: #bcae9b; line-height: 1.4; }
+.ui-doctor details { margin-top: 8px; } .ui-doctor summary { min-height: 36px; padding: 9px 0; color: #75d9e8; cursor: pointer; } .ui-doctor pre { white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; color: #cfc1ad; }
+.ui-doctor__marker { position: absolute; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #a96612; color: white; border: 1px solid white; font-size: 10px; font-weight: bold; } .ui-doctor__marker[data-severity="high"] { background: #b6271a; }
+.ui-doctor__highlight { position: absolute; border: 2px solid #75d9e8; background: #75d9e833; box-shadow: 0 0 0 3px #061d22; }

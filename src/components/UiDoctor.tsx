@@ -1,375 +1,164 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-/* ── UI DOCTOR — mobile interface diagnostic overlay ──────────────
-   Finds the four classic causes of an "unresponsive" phone UI:
-   1. TAP     — controls smaller than a fingertip (<40px, hard-fail <32px)
-   2. COVERED — buttons whose center point is stolen by another element,
-                so the tap lands somewhere else entirely
-   3. CLIPPED — visible controls hanging past the viewport edge
-   4. JANK    — dropped frames / frozen main thread (the other "lag")
-   Plus a live FPS + worst-frame meter while the doctor is open.
+/* Opt-in, viewport-only diagnostics. Findings are a snapshot, not a claim
+   that off-screen or intentionally covered controls are broken. */
+type Kind = "TAP" | "COVERED" | "CLIPPED" | "OVERFLOW";
+type Issue = { id: number; kind: Kind; severity: "high" | "warning"; label: string; detail: string; el: HTMLElement | null; x: number; y: number };
+type Scan = { issues: Issue[]; width: number; height: number; checked: number; time: string };
+const KEY = "sb-doctor";
+const initiallyEnabled = () => {
+  try { const stored = localStorage.getItem(KEY); return stored === "1" || (stored !== "0" && new URLSearchParams(location.search).get("doctor") === "1"); }
+  catch { return new URLSearchParams(location.search).get("doctor") === "1"; }
+};
+const labelFor = (el: HTMLElement) => (el.getAttribute("aria-label") || el.getAttribute("title") || el.textContent || el.tagName)
+  .trim().replace(/\s+/g, " ").slice(0, 60);
+const selectorFor = (el: Element) => {
+  const classes = Array.from(el.classList).slice(0, 2).map(c => `.${c}`).join("");
+  return `${el.tagName.toLowerCase()}${classes}`;
+};
 
-   Toggle from SETTINGS → UI DOCTOR, or open any screen with ?doctor=1.
-   The AUDIT scan is plain DOM — it measures what actually rendered,
-   so it works identically on title, prep, battle, and modals. */
-
-const LS_KEY = "sb-doctor";
-
-interface Issue {
-  n: number;
-  kind: "TAP" | "COVERED" | "CLIPPED";
-  hard: boolean;
-  el: HTMLElement;
-  label: string;
-  detail: string;
-  mx: number; // marker chip position (viewport px, clamped)
-  my: number;
+function audit(): Scan {
+  const width = window.innerWidth, height = window.innerHeight;
+  const issues: Issue[] = [];
+  let checked = 0;
+  const add = (kind: Kind, severity: Issue["severity"], label: string, detail: string, el: HTMLElement | null, x = 4, y = 4) => {
+    issues.push({ id: issues.length + 1, kind, severity, label, detail, el, x: Math.min(width - 24, Math.max(2, x)), y: Math.min(height - 24, Math.max(2, y)) });
+  };
+  const docWidth = Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth || 0);
+  if (docWidth > width + 1) add("OVERFLOW", "high", "Page extends horizontally", `${docWidth}px content in a ${width}px viewport`, document.documentElement);
+  const activeModal = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]'))
+    .filter(el => !el.closest('[data-ui-doctor]') && el.getClientRects().length > 0 && getComputedStyle(el).visibility === "visible").at(-1);
+  const elements = document.querySelectorAll<HTMLElement>("button, [role='button'], a[href], input:not([type='hidden']), select, textarea");
+  for (const el of elements) {
+    if ((activeModal && !activeModal.contains(el)) || el.closest("[data-ui-doctor], [inert], [aria-hidden='true']") || el.matches(":disabled, [aria-disabled='true']")) continue;
+    const cs = getComputedStyle(el), r = el.getBoundingClientRect();
+    if (cs.display === "none" || cs.visibility !== "visible" || Number(cs.opacity) === 0 || r.width < 2 || r.height < 2) continue;
+    // Only inspect controls with a center in view; scrolling to other controls is expected.
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    if (cx < 0 || cy < 0 || cx >= width || cy >= height) continue;
+    // A control outside a scrollable ancestor's visible box is not currently visible.
+    let clippedByScroll = false;
+    for (let parent = el.parentElement; parent; parent = parent.parentElement) {
+      const p = getComputedStyle(parent), pr = parent.getBoundingClientRect();
+      if ((/(auto|scroll|hidden|clip)/.test(p.overflowX) && (cx < pr.left || cx >= pr.right)) ||
+          (/(auto|scroll|hidden|clip)/.test(p.overflowY) && (cy < pr.top || cy >= pr.bottom))) { clippedByScroll = true; break; }
+    }
+    if (clippedByScroll) continue;
+    checked++;
+    const label = labelFor(el), selector = selectorFor(el);
+    const hit = document.elementsFromPoint(cx, cy).find(node => !node.closest("[data-ui-doctor]"));
+    if (hit && hit !== el && !el.contains(hit) && !hit.contains(el)) {
+      add("COVERED", "high", label, `${selector}: center receives ${selectorFor(hit)}`, el, r.left, r.top);
+      continue;
+    }
+    // Credit actual visible ::after hit expansion only, not class names alone.
+    const pseudo = getComputedStyle(el, "::after");
+    let extraX = 0, extraY = 0;
+    if (pseudo.content !== "none" && pseudo.content !== "normal" && pseudo.display !== "none" && pseudo.position === "absolute" && pseudo.pointerEvents !== "none") {
+      extraX = Math.max(0, -parseFloat(pseudo.left) || 0) + Math.max(0, -parseFloat(pseudo.right) || 0);
+      extraY = Math.max(0, -parseFloat(pseudo.top) || 0) + Math.max(0, -parseFloat(pseudo.bottom) || 0);
+    }
+    const touchW = r.width + extraX, touchH = r.height + extraY;
+    if (Math.min(touchW, touchH) < 40) add("TAP", Math.min(touchW, touchH) < 32 ? "high" : "warning", label, `${selector}: ${Math.round(touchW)}×${Math.round(touchH)}px touch target (recommended 40×40)`, el, r.left, r.top);
+    if (r.left < -1 || r.right > width + 1) add("CLIPPED", "warning", label, `${selector}: extends beyond the horizontal viewport; may be in a scrollable strip`, el, r.left, r.top);
+  }
+  return { issues, width, height, checked, time: new Date().toLocaleTimeString() };
 }
 
-const readEnabled = () =>
-  new URLSearchParams(window.location.search).get("doctor") === "1" ||
-  localStorage.getItem(LS_KEY) === "1";
-
 export function UiDoctor() {
-  const [on, setOn] = useState(readEnabled);
-  const [pos0] = useState<{ x: number; y: number } | null>(() => {
-    try {
-      const raw = localStorage.getItem("sb-doctor-xy");
-      return raw ? (JSON.parse(raw) as { x: number; y: number }) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [enabled, setEnabled] = useState(initiallyEnabled);
   const [open, setOpen] = useState(false);
-  const [issues, setIssues] = useState<Issue[]>([]);
+  const [scan, setScan] = useState<Scan | null>(null);
+  const [showMarkers, setShowMarkers] = useState(false);
+  const [copyStatus, setCopyStatus] = useState("");
+  const [selected, setSelected] = useState<Issue | null>(null);
   const [perf, setPerf] = useState({ fps: 0, worst: 0, janks: 0 });
-  const [copied, setCopied] = useState(false);
-  const [report, setReport] = useState("");
-  const [flash, setFlash] = useState<{ x: number; y: number; w: number; h: number; k: number } | null>(null);
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(pos0);
-  const [expanded, setExpanded] = useState(false);
-  const drag = useRef<{ dx: number; dy: number } | null>(null);
-  const seq = useRef(0);
-  const raf = useRef(0);
-  const lastT = useRef(0);
-  const worstMs = useRef(0);
-  const janks = useRef(0);
-  const frames = useRef(0);
-  const fpsWin = useRef(0);
-
-  /* settings-modal toggle (custom event, same pattern as sb-potato) */
+  const [position, setPosition] = useState(() => {
+    try { const p = JSON.parse(localStorage.getItem("sb-doctor-xy") || "null"); return typeof p?.x === "number" && typeof p?.y === "number" ? p as { x: number; y: number } : null; } catch { return null; }
+  });
+  const drag = useRef<{ x: number; y: number; left: number; top: number; moved: boolean } | null>(null);
+  const perfRef = useRef({ last: 0, elapsed: 0, frames: 0, worst: 0, janks: 0 });
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    const h = (e: Event) => setOn((e as CustomEvent<boolean>).detail);
-    window.addEventListener("sb-doctor", h);
-    return () => window.removeEventListener("sb-doctor", h);
+    const toggle = (e: Event) => { setEnabled((e as CustomEvent<boolean>).detail); setOpen(false); setScan(null); setShowMarkers(false); };
+    window.addEventListener("sb-doctor", toggle);
+    return () => window.removeEventListener("sb-doctor", toggle);
   }, []);
-
-  /* FPS / jank meter — plain rAF deltas, works on every mobile browser */
   useEffect(() => {
-    if (!on) return;
-    lastT.current = performance.now();
+    if (!enabled) return;
+    let raf = 0;
+    const stats = perfRef.current;
+    stats.last = 0; stats.elapsed = 0; stats.frames = 0;
     const loop = (now: number) => {
-      const dt = now - lastT.current;
-      lastT.current = now;
-      frames.current += 1;
-      fpsWin.current += dt;
-      if (dt > worstMs.current && dt < 5000) worstMs.current = dt;
-      if (dt > 100) janks.current += 1;
-      if (fpsWin.current >= 1000) {
-        setPerf({ fps: Math.round((frames.current * 1000) / fpsWin.current), worst: Math.round(worstMs.current), janks: janks.current });
-        frames.current = 0;
-        fpsWin.current = 0;
-        if (worstMs.current > 400) worstMs.current = 0; // decay: one tab-switch shouldn't stick forever
-      }
-      raf.current = requestAnimationFrame(loop);
-    };
-    raf.current = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf.current);
-  }, [on]);
-
-  const runAudit = useCallback(() => {
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const found: Issue[] = [];
-    const els = Array.from(
-      document.querySelectorAll<HTMLElement>("button, [role='button'], a[href], input, select, textarea"),
-    );
-    seq.current += 1;
-    let n = 1;
-    for (const el of els) {
-      const cs = getComputedStyle(el);
-      if (cs.display === "none" || cs.visibility === "hidden" || Number(cs.opacity) === 0) continue;
-      if (el.closest("[data-ui-doctor]")) continue;
-      const r = el.getBoundingClientRect();
-      if (r.width < 2 || r.height < 2) continue;
-      if (r.right < 0 || r.bottom < 0 || r.left > vw || r.top > vh) continue;
-      const cx = r.left + r.width / 2;
-      const cy = r.top + r.height / 2;
-      const name =
-        (el.getAttribute("aria-label") || el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 34) ||
-        el.tagName.toLowerCase();
-      const cls = `.${String(el.className).trim().split(/\s+/).slice(0, 2).join(".")}`;
-      const at = ` @ (${Math.round(Math.max(0, r.left))},${Math.round(Math.max(0, r.top))})`;
-      const mx = Math.min(vw - 30, Math.max(2, r.left));
-      const my = Math.min(vh - 30, Math.max(2, r.top));
-
-      // 1) COVERED — the tap point is captured by a different element.
-      //    Full-width coverers are annotated as sticky bars (intentional
-      //    overlays like the bottom CTA still get reported, just softer).
-      const hit = document.elementFromPoint(cx, cy);
-      if (hit && hit !== el && !el.contains(hit) && !hit.contains(el) && !hit.closest("[data-ui-doctor]")) {
-        const hr = hit.getBoundingClientRect();
-        const sticky = hr.width >= vw * 0.9 && hr.height < vh * 0.3;
-        const hc = `.${String(hit.className).trim().split(/\s+/)[0] ?? ""}`;
-        found.push({
-          n: n++,
-          kind: "COVERED",
-          hard: !sticky,
-          el,
-          label: name,
-          detail: `${cls} — center stolen by ${hit.tagName.toLowerCase()}${hc}${sticky ? " (full-width bar — sticky CTA?)" : ""}${at}`,
-          mx,
-          my,
-        });
-        continue;
-      }
-      // 2) TAP — smaller than a comfortable fingertip. Controls wearing the
-      //    hit-expansion classes (.hit-y / .hit-24) get their invisible
-      //    ::after padding credited — their TOUCH zone is what matters.
-      const ex = el.classList.contains("hit-24") ? 16 : el.classList.contains("hit-y") ? 14 : 0;
-      const m = Math.min(r.width, r.height) + ex;
-      if (m < 40) {
-        found.push({ n: n++, kind: "TAP", hard: m < 32, el, label: name, detail: `${cls} — ${Math.round(r.width)}×${Math.round(r.height)}${ex ? ` (+${ex} hit)` : ""}${at}`, mx, my });
-        continue;
-      }
-      // 3) CLIPPED — hangs past the viewport edge. Vertical overhang on a
-      //    normally-scrolling page is NOT a cut (the title screen scrolls);
-      //    only flag it when the page is locked (100dvh game screens).
-      const hOver = r.right > vw + 1 || r.left < -1;
-      const vOver = r.bottom > vh + 1 || r.top < -1;
-      // a vertical overhang is only a real cut when NO ancestor can scroll
-      // the element into view (scrollable panels make bottom-overhang normal)
-      const rootScrolls = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight) > vh + 2;
-      const revealable = rootScrolls || (() => {
-        let node: HTMLElement | null = el.parentElement;
-        for (let i = 0; node && i < 14; i++) {
-          const oy = getComputedStyle(node).overflowY;
-          if ((oy === "auto" || oy === "scroll") && node.scrollHeight > node.clientHeight + 2) return true;
-          node = node.parentElement;
+      if (document.hidden) { stats.last = 0; }
+      else if (!stats.last) stats.last = now;
+      else {
+        const dt = now - stats.last; stats.last = now; stats.elapsed += dt; stats.frames++;
+        stats.worst = Math.max(stats.worst, dt); if (dt > 100) stats.janks++;
+        if (stats.elapsed >= 1000) {
+          setPerf({ fps: Math.round(stats.frames * 1000 / stats.elapsed), worst: Math.round(stats.worst), janks: stats.janks });
+          stats.elapsed = 0; stats.frames = 0; stats.worst = 0;
         }
-        return false;
-      })();
-      if (hOver || (vOver && !revealable)) {
-        found.push({ n: n++, kind: "CLIPPED", hard: false, el, label: name, detail: `${cls} — ${Math.round(r.width)}×${Math.round(r.height)} past edge${at}`, mx, my });
       }
-    }
-    found.sort((a, b) => Number(b.hard) - Number(a.hard) || a.kind.localeCompare(b.kind));
-    setIssues(found);
-    setCopied(false);
-    const dpr = Math.round((window.devicePixelRatio || 1) * 100) / 100;
-    const pageOver = document.documentElement.scrollWidth > vw + 1;
-    const head = `UI DOCTOR ${vw}×${vh} @dpr${dpr} · ${perf.fps}fps · worst frame ${perf.worst}ms · ${janks.current} janks · ${found.length} issues${pageOver ? " · PAGE OVERFLOW (sideways scroll!)" : ""}`;
-    const body = found
-      .map((f) => `[${f.hard ? "RED" : "AMBER"}] ${f.kind} ${f.label} — ${f.detail}`)
-      .join("\n");
-    setReport(`${head}\n${body || "no issues"}`);
-  }, [perf.fps, perf.worst]);
-
-  /* drag handler for the HUD pill — it floats over the game, so the player
-     must be able to move it off any control it covers (position persists) */
+      raf = requestAnimationFrame(loop);
+    };
+    const visibility = () => { stats.last = 0; stats.elapsed = 0; stats.frames = 0; };
+    document.addEventListener("visibilitychange", visibility);
+    raf = requestAnimationFrame(loop);
+    return () => { cancelAnimationFrame(raf); document.removeEventListener("visibilitychange", visibility); };
+  }, [enabled]);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
   useEffect(() => {
-    if (!on) return;
-    const move = (e: PointerEvent) => {
-      if (!drag.current) return;
-      const x = Math.min(window.innerWidth - 60, Math.max(2, e.clientX - drag.current.dx));
-      const y = Math.min(window.innerHeight - 30, Math.max(2, e.clientY - drag.current.dy));
-      setPos({ x, y });
-    };
-    const up = () => {
-      if (!drag.current) return;
-      drag.current = null;
-      setPos((p) => {
-        if (p) { try { localStorage.setItem("sb-doctor-xy", JSON.stringify(p)); } catch { /* ignore */ } }
-        return p;
-      });
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-    return () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-    };
-  }, [on]);
-
-  const flashEl = useCallback((el: HTMLElement) => {
-    const r = el.getBoundingClientRect();
-    setFlash({ x: r.left, y: r.top, w: r.width, h: r.height, k: seq.current * 1000 + Math.floor(Math.random() * 999) });
-    el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
-  }, []);
-
-  const copyReport = useCallback(() => {
-    const done = () => {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
-    };
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(report).then(done).catch(done);
-    } else {
-      const ta = document.createElement("textarea");
-      ta.value = report;
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand("copy"); } catch { /* clipboard blocked */ }
-      ta.remove();
-      done();
-    }
-  }, [report]);
-
-  if (!on) return null;
-
-  const reds = issues.filter((f) => f.hard).length;
-  const ambers = issues.length - reds;
-
-  return (
-    <div data-ui-doctor className="pointer-events-none fixed inset-0 z-[300]">
-      {/* element markers */}
-      {issues.map((f) => (
-        <button
-          key={f.n}
-          onPointerDown={(e) => {
-            e.preventDefault();
-            flashEl(f.el);
-          }}
-          className="pointer-events-auto absolute grid h-[22px] w-[22px] place-items-center rounded-full border font-mono text-[10px] font-bold shadow-[0_2px_6px_rgba(0,0,0,.7)]"
-          style={{
-            left: f.mx,
-            top: f.my,
-            background: f.hard ? "#C2271A" : "#C9812A",
-            borderColor: "#FFE2D6",
-            color: "#FFF3DC",
-          }}
-          aria-label={`Issue ${f.n}: ${f.kind} ${f.label}`}
-        >
-          {f.n}
-        </button>
-      ))}
-      {flash && (
-        <span
-          key={flash.k}
-          className="pointer-events-none absolute border-2 border-[#75D9E8] bg-[#75D9E8]/20"
-          style={{ left: flash.x, top: flash.y, width: flash.w, height: flash.h, animation: "uiDocFlash 1.2ms 3 alternate" }}
-        />
-      )}
-
-      {/* Collapsed badge: a tiny draggable dot parked mid-left where it can
-          never cover a full-width CTA. Tap to expand the full HUD. */}
-      {!expanded && (
-        <button
-          aria-label="UI Doctor — tap to open"
-          className="pointer-events-auto absolute grid h-[34px] w-[34px] touch-none place-items-center rounded-full border-2 font-mono text-[10px] font-bold shadow-[0_4px_14px_rgba(0,0,0,.8)]"
-          style={{
-            left: pos ? pos.x : 4,
-            top: pos ? pos.y : "46%",
-            background: reds ? "#C2271A" : ambers ? "#C9812A" : "#124D38",
-            borderColor: "#FFE2D6",
-            color: "#FFF3DC",
-          }}
-          onPointerDown={(e) => {
-            const badgeEl = e.currentTarget as HTMLElement;
-            const startY = typeof pos?.y === "number" ? pos.y : badgeEl.getBoundingClientRect().top;
-            drag.current = { dx: e.clientX - (pos ? pos.x : 4), dy: e.clientY - startY };
-            const startX = e.clientX;
-            let moved = false;
-            const move = (ev: PointerEvent) => {
-              if (Math.abs(ev.clientX - startX) > 6 || Math.abs(ev.clientY - startY) > 6) moved = true;
-              if (!drag.current) return;
-              const x = Math.min(window.innerWidth - 38, Math.max(2, ev.clientX - drag.current.dx));
-              const y = Math.min(window.innerHeight - 38, Math.max(2, ev.clientY - drag.current.dy));
-              setPos({ x, y });
-            };
-            const up = () => {
-              window.removeEventListener("pointermove", move);
-              window.removeEventListener("pointerup", up);
-              if (!moved) setExpanded(true);
-              setPos((p) => {
-                if (p) { try { localStorage.setItem("sb-doctor-xy", JSON.stringify(p)); } catch { /* ignore */ } }
-                return p;
-              });
-            };
-            window.addEventListener("pointermove", move);
-            window.addEventListener("pointerup", up);
-          }}
-        >
-          {issues.length}
-        </button>
-      )}
-
-      {/* HUD pill + panel (draggable — grab the pill bar and move it) */}
-      <div
-        hidden={!expanded}
-        className="pointer-events-auto absolute left-2 max-w-[min(94vw,360px)]"
-        style={pos ? { left: pos.x, top: pos.y, bottom: "auto" } : { bottom: "max(88px, calc(env(safe-area-inset-bottom) + 84px))" }}
-      >
-        {open && (
-          <div className="mb-1.5 max-h-[42dvh] overflow-y-auto border-2 border-[#4A3828] bg-[#0D0A08]/97 p-2 font-mono text-[9.5px] leading-snug text-[#EDE2CB] shadow-[0_10px_30px_rgba(0,0,0,.85)] backdrop-blur-[2px]">
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <span className="label text-[7.5px] text-[#75D9E8]">UI DOCTOR REPORT</span>
-              <span className="flex gap-1">
-                <button onClick={copyReport} className="border border-[#4A3828] bg-[#17110C] px-1.5 py-0.5 label text-[7px] text-[#F0A93B] min-h-[26px]">
-                  {copied ? "COPIED" : "COPY"}
-                </button>
-                <button onClick={() => setOpen(false)} className="border border-[#4A3828] bg-[#17110C] px-1.5 py-0.5 label text-[7px] min-h-[26px]">
-                  ✕
-                </button>
-                <button
-                  onClick={() => setExpanded(false)}
-                  title="Minimize to the corner badge"
-                  className="border border-[#4A3828] bg-[#17110C] px-1.5 py-0.5 label text-[7px] min-h-[26px]"
-                >
-                  —
-                </button>
-              </span>
-            </div>
-            <pre className="whitespace-pre-wrap break-words text-[9px] text-[#C9BCA6]">{report || "tap SCAN to audit this screen"}</pre>
-          </div>
-        )}
-        <div
-          className="flex touch-none items-center gap-1 border border-[#4A3828] bg-[#0D0A08]/95 px-1.5 py-1 shadow-[0_6px_18px_rgba(0,0,0,.8)] backdrop-blur-[2px]"
-          onPointerDown={(e) => {
-            const r = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
-            drag.current = { dx: e.clientX - r.left, dy: e.clientY - r.top };
-          }}
-          title="Drag to move the doctor HUD"
-        >
-          <span className="font-mono text-[10px] font-bold" style={{ color: perf.fps >= 50 ? "#56DCA8" : perf.fps >= 30 ? "#F0A93B" : "#F05A36" }}>
-            {perf.fps}
-            <span className="text-[7px] text-[#8C7E6E]">fps</span>
-          </span>
-          <span className="font-mono text-[9px] text-[#8C7E6E]" title="worst frame this second / total jank frames">
-            {perf.worst}ms · {perf.janks}🌀
-          </span>
-          <span
-            className="rounded-full px-1.5 font-mono text-[9.5px] font-bold"
-            style={{ background: reds ? "#C2271A" : ambers ? "#C9812A" : "#1F7A5A", color: "#FFF3DC" }}
-          >
-            {issues.length}
-          </span>
-          <button onClick={runAudit} className="border border-[#F0A93B] bg-[#241B14] px-2 py-1 label text-[7.5px] text-[#F0A93B] min-h-[30px]" title="Scan every tappable control on this screen">
-            SCAN
-          </button>
-          <button
-            onClick={() => {
-              setOpen((v) => !v);
-              if (!open && !issues.length) runAudit();
-            }}
-            className="border border-[#4A3828] bg-[#17110C] px-1.5 py-1 label text-[7.5px] text-[#EDE2CB] min-h-[30px]"
-            title="Issue list + report"
-          >
-            ≡
-          </button>
-        </div>
+    if (!enabled) return;
+    const resize = () => { setPosition(p => p ? { x: Math.max(2, Math.min(p.x, innerWidth - 46)), y: Math.max(2, Math.min(p.y, innerHeight - 46)) } : null); setShowMarkers(false); };
+    const scroll = () => setShowMarkers(false); // snapshot markers no longer match after scrolling
+    window.addEventListener("resize", resize); window.addEventListener("scroll", scroll, true);
+    return () => { window.removeEventListener("resize", resize); window.removeEventListener("scroll", scroll, true); };
+  }, [enabled]);
+  const run = useCallback(() => { setScan(audit()); setShowMarkers(true); setCopyStatus(""); }, []);
+  const report = scan ? [`UI Doctor · ${scan.width}×${scan.height} · DPR ${devicePixelRatio || 1} · ${scan.time}`,
+    `${scan.checked} visible controls checked · ${scan.issues.length} findings`,
+    `FPS ${perf.fps} · worst frame (last second) ${perf.worst}ms · frames over 100ms ${perf.janks}`,
+    "Snapshot only. Covered controls may be intentionally behind a dialog; scrolling can reveal clipped controls.",
+    ...scan.issues.map(i => `[${i.severity.toUpperCase()}] ${i.kind} ${i.label}: ${i.detail}`)].join("\n") : "";
+  const copy = async () => {
+    try { if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable"); await navigator.clipboard.writeText(report); setCopyStatus("Copied"); }
+    catch { setCopyStatus("Copy unavailable — select the report below"); }
+  };
+  const locate = (issue: Issue) => {
+    if (!issue.el?.isConnected) { setCopyStatus("This control is no longer on screen. Scan again."); return; }
+    setOpen(false); setShowMarkers(false);
+    issue.el.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+    setSelected(issue);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setSelected(null), 2000);
+  };
+  if (!enabled) return null;
+  const high = scan?.issues.filter(i => i.severity === "high").length || 0;
+  const selectedRect = selected?.el?.isConnected ? selected.el.getBoundingClientRect() : null;
+  return <div data-ui-doctor className="ui-doctor">
+    {showMarkers && !open && scan?.issues.filter(i => i.kind !== "OVERFLOW" && i.el?.isConnected).map(i => <span key={i.id} className="ui-doctor__marker" data-severity={i.severity} style={{ left: i.x, top: i.y }}>{i.id}</span>)}
+    {selectedRect && <span className="ui-doctor__highlight" style={{ left: selectedRect.left, top: selectedRect.top, width: selectedRect.width, height: selectedRect.height }} />}
+    {!open && <button className="ui-doctor__badge" aria-label="Open UI Doctor" style={position ? { left: position.x, top: position.y } : undefined}
+      onPointerDown={e => { const r = e.currentTarget.getBoundingClientRect(); drag.current = { x: e.clientX, y: e.clientY, left: r.left, top: r.top, moved: false }; e.currentTarget.setPointerCapture(e.pointerId); }}
+      onPointerMove={e => { const d = drag.current; if (!d) return; if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6) d.moved = true; if (d.moved) setPosition({ x: Math.max(2, Math.min(innerWidth - 46, d.left + e.clientX - d.x)), y: Math.max(2, Math.min(innerHeight - 46, d.top + e.clientY - d.y)) }); }}
+      onPointerUp={e => { const d = drag.current; drag.current = null; if (!d) return; if (!d.moved) setOpen(true); else { const r = e.currentTarget.getBoundingClientRect(); try { localStorage.setItem("sb-doctor-xy", JSON.stringify({ x: r.left, y: r.top })); } catch { /* storage blocked */ } } }}
+      onPointerCancel={() => { drag.current = null; }} onClick={e => { if (e.detail === 0) setOpen(true); }}>
+      <span>UI</span><b>{scan ? scan.issues.length : "•"}</b>
+    </button>}
+    {open && <section className="ui-doctor__panel" role="dialog" aria-label="UI Doctor" aria-modal="false">
+      <header className="ui-doctor__header"><div><strong>UI DOCTOR</strong><small>Viewport diagnostics</small></div><button onClick={() => setOpen(false)} aria-label="Minimize UI Doctor">×</button></header>
+      <div className="ui-doctor__metrics"><span><b>{perf.fps || "—"}</b> FPS</span><span><b>{perf.worst || "—"}</b> ms worst / sec</span><span><b>{perf.janks}</b> slow frames</span><button onClick={() => { perfRef.current.janks = 0; setPerf(p => ({ ...p, janks: 0 })); }}>RESET</button></div>
+      <div className="ui-doctor__actions"><button onClick={run}>SCAN SCREEN</button><button onClick={copy} disabled={!scan}>COPY REPORT</button></div>
+      <div className="ui-doctor__body">
+        {!scan ? <p>Scan visible controls for small tap targets, blocked taps and overflow. Drag the badge to move it.</p> : <>
+          <div className="ui-doctor__summary"><strong>{scan.issues.length} findings</strong><span>{high} high · {scan.issues.length - high} warnings</span></div>
+          <p>{scan.checked} visible controls checked at {scan.width}×{scan.height} · {scan.time}. Snapshot only; rescan after changing screens.</p>
+          {scan.issues.length === 0 ? <p>No issues found in the visible area.</p> : <ol className="ui-doctor__list">{scan.issues.map(i => <li key={i.id}><button onClick={() => locate(i)}><span data-severity={i.severity}>{i.id} · {i.kind}</span><strong>{i.label}</strong><small>{i.detail}</small></button></li>)}</ol>}
+          <details><summary>Full report</summary><pre>{report}</pre></details>
+        </>}
+        {copyStatus && <p role="status">{copyStatus}</p>}
       </div>
-      <style>{`@keyframes uiDocFlash { from { opacity: 1; } to { opacity: .1; } }`}</style>
-    </div>
-  );
+    </section>}
+  </div>;
 }

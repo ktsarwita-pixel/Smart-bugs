@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-/* Opt-in, viewport-only diagnostics. Findings are a snapshot, not a claim
-   that off-screen or intentionally covered controls are broken. */
-type Kind = "TAP" | "COVERED" | "CLIPPED" | "OVERFLOW";
+/* Opt-in, non-destructive diagnostics: never click the game's controls.
+   Scroll findings describe navigation, not necessarily a defect. */
+type Kind = "TAP" | "COVERED" | "INTERACTION" | "CLIPPED" | "OVERFLOW" | "SCROLL";
 type Issue = { id: number; kind: Kind; severity: "high" | "warning"; label: string; detail: string; el: HTMLElement | null; x: number; y: number };
 type Scan = { issues: Issue[]; width: number; height: number; checked: number; time: string };
 const KEY = "sb-doctor";
@@ -29,28 +29,79 @@ function audit(): Scan {
   const activeModal = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]'))
     .filter(el => !el.closest('[data-ui-doctor]') && el.getClientRects().length > 0 && getComputedStyle(el).visibility === "visible").at(-1);
   const elements = document.querySelectorAll<HTMLElement>("button, [role='button'], a[href], input:not([type='hidden']), select, textarea");
-  for (const el of elements) {
-    if ((activeModal && !activeModal.contains(el)) || el.closest("[data-ui-doctor], [inert], [aria-hidden='true']") || el.matches(":disabled, [aria-disabled='true']")) continue;
+  const activeElements = Array.from(elements).filter(el => (!activeModal || activeModal.contains(el)) && !el.closest("[data-ui-doctor], [inert], [aria-hidden='true']") && !el.matches(":disabled, [aria-disabled='true']"));
+  // Report real scroll ranges separately from faults. Many small screens
+  // intentionally scroll; the report says how far, rather than calling every
+  // off-screen button broken. Respect active dialogs and exclude the Doctor.
+  const root = document.scrollingElement as HTMLElement | null;
+  const docHeight = Math.max(root?.scrollHeight || 0, document.body?.scrollHeight || 0);
+  if (!activeModal && docHeight > height + 2) {
+    const below = activeElements.filter(el => {
+      const style = getComputedStyle(el), r = el.getBoundingClientRect();
+      return style.display !== "none" && style.visibility === "visible" && r.width >= 2 && r.height >= 2 && r.top >= height;
+    }).length;
+    add("SCROLL", "warning", "Page requires vertical scrolling", `${Math.round(docHeight - height)}px scroll range; ${below} enabled controls below the viewport. Scrolling may be intentional.`, root);
+  }
+  const scope = activeModal ?? document.body;
+  const scrollables = [scope, ...Array.from(scope.querySelectorAll<HTMLElement>("*"))];
+  let scrollCount = 0;
+  for (const el of scrollables) {
+    if (el === root || el === document.body || el.closest("[data-ui-doctor], [inert], [aria-hidden='true']")) continue;
+    const style = getComputedStyle(el), r = el.getBoundingClientRect();
+    if (style.display === "none" || style.visibility !== "visible" || r.width < 2 || r.height < 2 || r.bottom <= 0 || r.right <= 0 || r.top >= height || r.left >= width) continue;
+    const x = /(auto|scroll)/.test(style.overflowX) ? Math.max(0, el.scrollWidth - el.clientWidth) : 0;
+    const y = /(auto|scroll)/.test(style.overflowY) ? Math.max(0, el.scrollHeight - el.clientHeight) : 0;
+    if (x <= 2 && y <= 2) continue;
+    if (++scrollCount > 12) continue;
+    const directions = [x > 2 ? `horizontal ${Math.round(x)}px` : "", y > 2 ? `vertical ${Math.round(y)}px` : ""].filter(Boolean).join(" · ");
+    const controls = activeElements.filter(control => el.contains(control)).length;
+    add("SCROLL", "warning", `${el.getAttribute("aria-label") || el.getAttribute("title") || selectorFor(el)} scroll area`, `${selectorFor(el)}: ${directions} scroll range; ${controls} enabled controls inside. Scrolling may be intentional.`, el, r.left, r.top);
+  }
+  if (scrollCount > 12) add("SCROLL", "warning", "Additional scroll areas", `${scrollCount - 12} more visible scroll areas omitted.`, null);
+  for (const el of activeElements) {
     const cs = getComputedStyle(el), r = el.getBoundingClientRect();
     if (cs.display === "none" || cs.visibility !== "visible" || Number(cs.opacity) === 0 || r.width < 2 || r.height < 2) continue;
     // Only inspect controls with a center in view; scrolling to other controls is expected.
     const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
     if (cx < 0 || cy < 0 || cx >= width || cy >= height) continue;
-    // A control outside a scrollable ancestor's visible box is not currently visible.
-    let clippedByScroll = false;
+    // Scrollable off-screen controls are covered by SCROLL findings. Controls
+    // cut off by a non-scrollable ancestor cannot be reached that way.
+    let clipped = false;
     for (let parent = el.parentElement; parent; parent = parent.parentElement) {
       const p = getComputedStyle(parent), pr = parent.getBoundingClientRect();
-      if ((/(auto|scroll|hidden|clip)/.test(p.overflowX) && (cx < pr.left || cx >= pr.right)) ||
-          (/(auto|scroll|hidden|clip)/.test(p.overflowY) && (cy < pr.top || cy >= pr.bottom))) { clippedByScroll = true; break; }
+      const clipX = /(auto|scroll|hidden|clip)/.test(p.overflowX) && (cx < pr.left || cx >= pr.right);
+      const clipY = /(auto|scroll|hidden|clip)/.test(p.overflowY) && (cy < pr.top || cy >= pr.bottom);
+      if (clipX || clipY) {
+        const canScrollX = clipX && /(auto|scroll)/.test(p.overflowX) && parent.scrollWidth > parent.clientWidth + 2;
+        const canScrollY = clipY && /(auto|scroll)/.test(p.overflowY) && parent.scrollHeight > parent.clientHeight + 2;
+        if ((clipX && !canScrollX) || (clipY && !canScrollY)) {
+          add("CLIPPED", "high", labelFor(el), `${selectorFor(el)}: center clipped by ${selectorFor(parent)}; the clipping axis is not user-scrollable`, el, r.left, r.top);
+        }
+        clipped = true;
+        break;
+      }
     }
-    if (clippedByScroll) continue;
+    if (clipped) continue;
     checked++;
     const label = labelFor(el), selector = selectorFor(el);
-    const hit = document.elementsFromPoint(cx, cy).find(node => !node.closest("[data-ui-doctor]"));
-    if (hit && hit !== el && !el.contains(hit) && !hit.contains(el)) {
-      add("COVERED", "high", label, `${selector}: center receives ${selectorFor(hit)}`, el, r.left, r.top);
+    if (cs.pointerEvents === "none") {
+      add("INTERACTION", "high", label, `${selector}: pointer-events is none; pointer taps cannot reach this control`, el, r.left, r.top);
       continue;
     }
+    // Probe center and four inset points without triggering any actions.
+    const probes = [[.5,.5],[.2,.2],[.8,.2],[.2,.8],[.8,.8]] as const;
+    const hits = probes.map(([x,y]) => {
+      const px = r.left + r.width*x, py = r.top + r.height*y;
+      if (px < 0 || py < 0 || px >= width || py >= height) return null;
+      return document.elementsFromPoint(px, py).find(node => !node.closest("[data-ui-doctor]")) ?? null;
+    });
+    const reachable = hits.filter(hit => hit === el || (hit && el.contains(hit))).length;
+    const center = hits[0];
+    if (!reachable) {
+      add("COVERED", "high", label, `${selector}: no sampled point receives a tap${center ? ` (center receives ${selectorFor(center)})` : ""}`, el, r.left, r.top);
+      continue;
+    }
+    if (center && center !== el && !el.contains(center)) add("COVERED", "warning", label, `${selector}: center receives ${selectorFor(center)}; ${reachable}/5 sampled points reachable`, el, r.left, r.top);
     // Credit actual visible ::after hit expansion only, not class names alone.
     const pseudo = getComputedStyle(el, "::after");
     let extraX = 0, extraY = 0;
@@ -119,7 +170,7 @@ export function UiDoctor() {
   const report = scan ? [`UI Doctor · ${scan.width}×${scan.height} · DPR ${devicePixelRatio || 1} · ${scan.time}`,
     `${scan.checked} visible controls checked · ${scan.issues.length} findings`,
     `FPS ${perf.fps} · worst frame (last second) ${perf.worst}ms · frames over 100ms ${perf.janks}`,
-    "Snapshot only. Covered controls may be intentionally behind a dialog; scrolling can reveal clipped controls.",
+    "Non-destructive snapshot: pointer blockers and scroll ranges are detected, but button actions are not tested. Scrolling can be intentional.",
     ...scan.issues.map(i => `[${i.severity.toUpperCase()}] ${i.kind} ${i.label}: ${i.detail}`)].join("\n") : "";
   const copy = async () => {
     try { if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable"); await navigator.clipboard.writeText(report); setCopyStatus("Copied"); }
@@ -135,9 +186,10 @@ export function UiDoctor() {
   };
   if (!enabled) return null;
   const high = scan?.issues.filter(i => i.severity === "high").length || 0;
+  const scrollAreas = scan?.issues.filter(i => i.kind === "SCROLL").length || 0;
   const selectedRect = selected?.el?.isConnected ? selected.el.getBoundingClientRect() : null;
   return <div data-ui-doctor className="ui-doctor">
-    {showMarkers && !open && scan?.issues.filter(i => i.kind !== "OVERFLOW" && i.el?.isConnected).map(i => <span key={i.id} className="ui-doctor__marker" data-severity={i.severity} style={{ left: i.x, top: i.y }}>{i.id}</span>)}
+    {showMarkers && !open && scan?.issues.filter(i => i.kind !== "OVERFLOW" && i.kind !== "SCROLL" && i.el?.isConnected).map(i => <span key={i.id} className="ui-doctor__marker" data-severity={i.severity} style={{ left: i.x, top: i.y }}>{i.id}</span>)}
     {selectedRect && <span className="ui-doctor__highlight" style={{ left: selectedRect.left, top: selectedRect.top, width: selectedRect.width, height: selectedRect.height }} />}
     {!open && <button className="ui-doctor__badge" aria-label="Open UI Doctor" style={position ? { left: position.x, top: position.y } : undefined}
       onPointerDown={e => { const r = e.currentTarget.getBoundingClientRect(); drag.current = { x: e.clientX, y: e.clientY, left: r.left, top: r.top, moved: false }; e.currentTarget.setPointerCapture(e.pointerId); }}
@@ -147,14 +199,14 @@ export function UiDoctor() {
       <span>UI</span><b>{scan ? scan.issues.length : "•"}</b>
     </button>}
     {open && <section className="ui-doctor__panel" role="dialog" aria-label="UI Doctor" aria-modal="false">
-      <header className="ui-doctor__header"><div><strong>UI DOCTOR</strong><small>Viewport diagnostics</small></div><button onClick={() => setOpen(false)} aria-label="Minimize UI Doctor">×</button></header>
+      <header className="ui-doctor__header"><div><strong>UI DOCTOR</strong><small>Touch &amp; scroll diagnostics</small></div><button onClick={() => setOpen(false)} aria-label="Minimize UI Doctor">×</button></header>
       <div className="ui-doctor__metrics"><span><b>{perf.fps || "—"}</b> FPS</span><span><b>{perf.worst || "—"}</b> ms worst / sec</span><span><b>{perf.janks}</b> slow frames</span><button onClick={() => { perfRef.current.janks = 0; setPerf(p => ({ ...p, janks: 0 })); }}>RESET</button></div>
       <div className="ui-doctor__actions"><button onClick={run}>SCAN SCREEN</button><button onClick={copy} disabled={!scan}>COPY REPORT</button></div>
       <div className="ui-doctor__body">
-        {!scan ? <p>Scan visible controls for small tap targets, blocked taps and overflow. Drag the badge to move it.</p> : <>
-          <div className="ui-doctor__summary"><strong>{scan.issues.length} findings</strong><span>{high} high · {scan.issues.length - high} warnings</span></div>
-          <p>{scan.checked} visible controls checked at {scan.width}×{scan.height} · {scan.time}. Snapshot only; rescan after changing screens.</p>
-          {scan.issues.length === 0 ? <p>No issues found in the visible area.</p> : <ol className="ui-doctor__list">{scan.issues.map(i => <li key={i.id}><button onClick={() => locate(i)}><span data-severity={i.severity}>{i.id} · {i.kind}</span><strong>{i.label}</strong><small>{i.detail}</small></button></li>)}</ol>}
+        {!scan ? <p>Scan for blocked or small touch targets, overflow and scrollable areas. The scan never presses game controls and cannot verify button actions. Drag the badge to move it.</p> : <>
+          <div className="ui-doctor__summary"><strong>{scan.issues.length} findings</strong><span>{high} high · {scan.issues.length - high} warnings · {scrollAreas} scroll</span></div>
+          <p>{scan.checked} visible controls checked at {scan.width}×{scan.height} · {scan.time}. Non-destructive snapshot; scroll areas may be intentional. Rescan after changing screens.</p>
+          {scan.issues.length === 0 ? <p>No issues found in the visible area.</p> : <ol className="ui-doctor__list">{scan.issues.map(i => <li key={i.id}><button onClick={() => locate(i)}><span data-severity={i.severity} data-kind={i.kind}>{i.id} · {i.kind}</span><strong>{i.label}</strong><small>{i.detail}</small></button></li>)}</ol>}
           <details><summary>Full report</summary><pre>{report}</pre></details>
         </>}
         {copyStatus && <p role="status">{copyStatus}</p>}

@@ -1,5 +1,5 @@
 /** Presentation-only reveal; combat coverage remains immediate on impact. */
-export const GRAND_WEB_GROW_SECONDS = 2.2;
+export const GRAND_WEB_GROW_SECONDS = 2.8;
 export function grandWebGrowth(age: number, motion: boolean): number {
   if (!motion) return 1;
   const progress = Math.max(0, Math.min(1, age / GRAND_WEB_GROW_SECONDS));

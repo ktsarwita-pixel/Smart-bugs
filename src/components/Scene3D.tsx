@@ -1565,7 +1565,7 @@ export function Scene3D({
         // toward the board center, so nothing ever crosses the frame plane.
         // They rise only after the floor cloth has spread (nest-style).
         if (grand) {
-          const wk = Math.min(1, Math.max(0, (age - 1.45) / 0.65));
+          const wk = Math.min(1, Math.max(0, (k - 0.76) / 0.24));
           const wBack = 1 + 2.70158 * Math.pow(wk - 1, 3) + 1.70158 * Math.pow(wk - 1, 2);
           const wallH = Math.max(0.02, 0.95 * (motionEnabled ? wBack : 1));
           const lean = 0.16; // tops tip INWARD, against the drawer
@@ -1601,7 +1601,7 @@ export function Scene3D({
         // dome above the grand web. Every point remains within the board.
         if (grand && !potatoOn && canopyCount < MAX_CANOPIES) {
           canopyCount++;
-          const rise = motionEnabled ? Math.min(1, Math.max(0, (age - 0.20) / 1.8)) : 1;
+          const rise = motionEnabled ? k : 1;
           const fade = (motionEnabled ? Math.min(1, age / 0.3) : 1) * dissolve;
           const phase = silkTime;
           const vertex = (ray: number, radius: number) => {
@@ -1641,7 +1641,7 @@ export function Scene3D({
         // EGG SACS: small flattened ivory sacs CLUSTERED around the center
         // web (the nest's heart) — tucked low, half-sunk into the cloth,
         // popping in only after the floor has spread.
-        const sacPop = motionEnabled ? Math.min(1, Math.max(0, (age - (grand ? 1.05 : 0.2)) / 0.45)) : 1;
+        const sacPop = motionEnabled ? (grand ? Math.min(1, Math.max(0, (k - 0.68) / 0.22)) : Math.min(1, Math.max(0, (age - 0.2) / 0.45))) : 1;
         const sacBack = Math.max(0, 1 + 2.70158 * Math.pow(sacPop - 1, 3) + 1.70158 * Math.pow(sacPop - 1, 2));
         const sacCount = grand ? 5 : 2;
         const sacBase = grand ? 0.115 : 0.09;
@@ -1653,8 +1653,8 @@ export function Scene3D({
           // tight deterministic jitter — a clutch, not scattered balls
           const jx = Math.sin(w.id * 3.1 + si * 7.7) * 0.16;
           const jz = Math.cos(w.id * 1.7 + si * 5.3) * 0.16;
-          const ex = Math.min(COLS - 0.25, Math.max(0.25, (grand ? COLS / 2 + ox : cx + ox) + jx));
-          const ez = Math.min(ROWS - 0.25, Math.max(0.25, (grand ? ROWS / 2 + oz : cz + oz) + jz));
+          const ex = Math.min(COLS - 0.25, Math.max(0.25, cx + (ox + jx) * (grand ? grow : 1)));
+          const ez = Math.min(ROWS - 0.25, Math.max(0.25, cz + (oz + jz) * (grand ? grow : 1)));
           const pulse = 1 + Math.sin(silkTime * 2.2 + w.id + si * 1.9) * 0.045;
           const sc = sacBase * (0.8 + ((si * 29 + w.id) % 10) / 30) * pulse * sacBack;
           eggS.set(sc, sc * 0.6, sc * 0.88); // squashed: silk-wrapped sac

@@ -2117,3 +2117,8 @@ html[data-motion="reduced"] .pixel-treasure--open .pixel-treasure__loot { animat
 @media (prefers-reduced-motion: reduce) { .pixel-treasure--open .pixel-treasure__lid-closed { animation:none; opacity:0; } .pixel-treasure--open .pixel-treasure__lid-open, .pixel-treasure--open .pixel-treasure__inside { animation:none; opacity:1; transform:none; } }
 html[data-motion="reduced"] .pixel-treasure--open .pixel-treasure__lid-closed { animation:none; opacity:0; }
 html[data-motion="reduced"] .pixel-treasure--open .pixel-treasure__lid-open, html[data-motion="reduced"] .pixel-treasure--open .pixel-treasure__inside { animation:none; opacity:1; transform:none; }
+
+/* Separate navigation information from blocked-control findings. */
+.ui-doctor__list span[data-kind="SCROLL"] { color:#81d7df; }
+.ui-doctor__summary { flex-wrap:wrap; }
+.ui-doctor__summary span { overflow-wrap:anywhere; }

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright-core';
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH,headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--single-process','--no-zygote','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
-const reduced=false, potato=false;
+const reduced=false, potato=process.env.POTATO==='1';
 const page=await browser.newPage({viewport:{width:384,height:725},isMobile:true,hasTouch:true}); const errors=[];page.on('pageerror',e=>errors.push(e.message));
 try {
  await page.goto((process.env.BASE_URL||'http://127.0.0.1:5191')+'/?advenced');
@@ -46,6 +46,6 @@ try {
  assert.ok(pixels[1].count>200,`full web must be visibly rendered on the board: ${JSON.stringify(pixels)}`);
  assert.ok(pixels[1].span>150,`full web must span the drawer: ${JSON.stringify(pixels)}`);
  assert.ok(pixels[1].count>pixels[0].count*1.5,`the visible web must expand, not just a state value: ${JSON.stringify(pixels)}`);
- assert.deepEqual(errors,[]);console.log('PASS actual rendered web expands before results:',pixels);
+ assert.deepEqual(errors,[]);console.log(`PASS actual rendered web expands before results (potato=${potato}):`,pixels);
 
 } finally { await browser.close(); }

@@ -193,6 +193,9 @@ export interface BattleState {
   webs: Web[];
   /** Renderer-only deadline, in performance.now() milliseconds. */
   visualWebUntil?: number;
+  /** Seconds of renderer-only growth left, advanced once per visible frame. */
+  visualWebRemaining?: number;
+  visualWebFinished?: boolean;
 }
 
 let UID = 1;

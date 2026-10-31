@@ -1324,6 +1324,54 @@ export function Scene3D({
     webMesh.renderOrder = 2;
     if (!showcase) scene.add(webMesh);
 
+    // A real, high-contrast spider-web silhouette, not just a nearly invisible
+    // one-pixel lattice or a cloth texture. The whole sheet grows from a tiny
+    // center to the drawer edges. Its scalable threads remain legible on phones.
+    function makeGrandWebTexture() {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 512;
+      const ctx = canvas.getContext("2d")!;
+      const center = 256, extent = 245, rays = 20, rings = 8;
+      const at = (i: number, r: number) => {
+        const a = i * Math.PI * 2 / rays - Math.PI / 2;
+        const x = Math.cos(a), y = Math.sin(a), edge = Math.max(Math.abs(x), Math.abs(y));
+        return [center + x / edge * extent * r, center + y / edge * extent * r] as const;
+      };
+      ctx.lineCap = "round"; ctx.lineJoin = "round";
+      ctx.shadowColor = "rgba(196,153,255,.8)"; ctx.shadowBlur = 7;
+      ctx.strokeStyle = "rgba(242,231,255,.95)"; ctx.lineWidth = 2.7;
+      for (let i = 0; i < rays; i++) {
+        const [x, y] = at(i, 1);
+        ctx.beginPath(); ctx.moveTo(center, center); ctx.lineTo(x, y); ctx.stroke();
+      }
+      // Curved cross-threads sag toward the hub, the familiar spider-web
+      // shape. Build all paths in texture space and scale the same mesh.
+      for (let ring = 1; ring <= rings; ring++) {
+        const r = ring / rings;
+        ctx.beginPath();
+        const [x0, y0] = at(0, r); ctx.moveTo(x0, y0);
+        for (let i = 0; i < rays; i++) {
+          const [x1, y1] = at(i, r), [x2, y2] = at(i + 1, r);
+          ctx.quadraticCurveTo(center + ((x1 + x2) / 2 - center) * .88, center + ((y1 + y2) / 2 - center) * .88, x2, y2);
+        }
+        ctx.closePath(); ctx.stroke();
+      }
+      ctx.shadowBlur = 11; ctx.fillStyle = "rgba(255,250,255,.98)";
+      ctx.beginPath(); ctx.arc(center, center, 7, 0, Math.PI * 2); ctx.fill();
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+      return texture;
+    }
+    const grandSilkTex = showcase ? null : makeGrandWebTexture();
+    if (grandSilkTex) disposables.push(grandSilkTex);
+    const grandSilkGeo = new THREE.PlaneGeometry(1, 1);
+    const grandSilkMat = new THREE.MeshBasicMaterial({ map: grandSilkTex ?? undefined, transparent: true, opacity: .9, depthWrite: false, side: THREE.DoubleSide });
+    const grandSilk = new THREE.InstancedMesh(grandSilkGeo, grandSilkMat, 2);
+    grandSilk.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    grandSilk.frustumCulled = false; grandSilk.count = 0; grandSilk.renderOrder = 4;
+    if (!showcase) scene.add(grandSilk);
+
     // One pooled, softly glowing rim makes the 3×3 After-Web readable without
     // spawning a second net or adding per-web draw calls.
     const snareRimGeo = new THREE.RingGeometry(0.91, 0.96, 48);
@@ -1345,21 +1393,6 @@ export function Scene3D({
     growthMesh.count = 0;
     growthMesh.renderOrder = 4;
     if (!showcase) scene.add(growthMesh);
-
-    // A bright growing lattice is drawn above the textured silk. Unlike a
-    // fading decal, its leading ends and cross-threads visibly move outward.
-    // One fixed buffer serves both teams, including low-detail devices.
-    const WEAVE_RAYS = 24, WEAVE_RINGS = 8, WEAVE_MAX = 2;
-    const weavePositions = new Float32Array(WEAVE_MAX * (WEAVE_RAYS + WEAVE_RAYS * WEAVE_RINGS) * 2 * 3);
-    const weaveColors = new Float32Array(weavePositions.length);
-    const weaveGeo = new THREE.BufferGeometry();
-    weaveGeo.setAttribute("position", new THREE.BufferAttribute(weavePositions, 3).setUsage(THREE.DynamicDrawUsage));
-    weaveGeo.setAttribute("color", new THREE.BufferAttribute(weaveColors, 3).setUsage(THREE.DynamicDrawUsage));
-    weaveGeo.setDrawRange(0, 0);
-    const weaveMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
-    const weaveLines = new THREE.LineSegments(weaveGeo, weaveMat);
-    weaveLines.frustumCulled = false; weaveLines.renderOrder = 4;
-    if (!showcase) scene.add(weaveLines);
 
     const webQ = new THREE.Quaternion();
     const webE = new THREE.Euler();
@@ -1439,7 +1472,7 @@ export function Scene3D({
     canopyGeo.setAttribute("position", new THREE.BufferAttribute(canopyPositions, 3).setUsage(THREE.DynamicDrawUsage));
     canopyGeo.setAttribute("color", new THREE.BufferAttribute(canopyColors, 3).setUsage(THREE.DynamicDrawUsage));
     canopyGeo.setDrawRange(0, 0);
-    const canopyMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.64, blending: THREE.AdditiveBlending, depthWrite: false });
+    const canopyMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.26, blending: THREE.AdditiveBlending, depthWrite: false });
     const canopy = new THREE.LineSegments(canopyGeo, canopyMat);
     canopy.frustumCulled = false;
     canopy.renderOrder = 3;
@@ -1467,8 +1500,9 @@ export function Scene3D({
     const colB = new THREE.Color();
     const reducedMotionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
 
-    function updateWebs(b: BattleState | null, time: number) {
+    function updateWebs(b: BattleState | null, time: number, dt: number) {
       if (showcase) return;
+      if (b) b.visualWebRemaining = undefined;
       // If combat finishes while an already-fired ultimate is in flight,
       // complete its visual reveal without creating a gameplay web or damage.
       const pendingGrand = b?.over ? b.pending.filter(hit => hit.kind === "webgrand") : [];
@@ -1482,11 +1516,11 @@ export function Scene3D({
         if (webMesh.count !== 0) webMesh.count = 0;
         if (snareRim.count !== 0) snareRim.count = 0;
         if (growthMesh.count !== 0) growthMesh.count = 0;
+        if (grandSilk.count !== 0) grandSilk.count = 0;
         if (eggMesh.count !== 0) eggMesh.count = 0;
         if (glintMesh.count !== 0) glintMesh.count = 0;
         glintMat.opacity = 0;
         canopyGeo.setDrawRange(0, 0);
-        weaveGeo.setDrawRange(0, 0);
         if (host) delete host.dataset.webGrowth;
         webAge.clear();
         return;
@@ -1496,28 +1530,22 @@ export function Scene3D({
       let n = 0;
       let rimN = 0;
       let growthN = 0;
+      let grandSilkN = 0;
       let en = 0;
       let glintN = 0;
       let canopyVertices = 0;
-      let weaveVertices = 0;
-      let weaveCount = 0;
       const motionEnabled = document.documentElement.dataset.motion !== "reduced" && !reducedMotionMedia.matches;
       const silkTime = motionEnabled ? time : 0;
       let canopyCount = 0;
       for (const w of visualWebs) {
         const grand = w.kind === "grand";
-        // Use elapsed wall time rather than frame-counted dt: on slow mobile
-        // GPUs dt is capped, which previously made the reveal crawl or be
-        // hidden by the result dialog before it could reach the drawer edges.
-        const now = performance.now() / 1000;
-        const started = webAge.get(w.id) ?? now;
-        if (!webAge.has(w.id)) {
-          webAge.set(w.id, started);
-          if (grand && motionEnabled && b) b.visualWebUntil = Math.max(b.visualWebUntil ?? 0, (started + GRAND_WEB_GROW_SECONDS) * 1000);
-        }
-        const age = Math.max(0, now - started);
-        // The projectile has already landed. Reveal one anchored sheet once,
-        // with a monotonic ease-out instead of a second drop or elastic pop.
+        // Advance only on rendered frames, with a cap on slow frames. A wall
+        // clock lets shader compilation or a stalled GPU skip the whole reveal
+        // before the player sees even one frame.
+        const age = webAge.has(w.id) ? Math.min(GRAND_WEB_GROW_SECONDS + 2, webAge.get(w.id)! + dt) : 0;
+        webAge.set(w.id, age);
+        if (grand && b) b.visualWebRemaining = motionEnabled ? Math.max(b.visualWebRemaining ?? 0, GRAND_WEB_GROW_SECONDS - age) : 0;
+        // Reveal one anchored sheet from its center to all drawer edges.
         const k = motionEnabled ? Math.min(1, age / (grand ? GRAND_WEB_GROW_SECONDS : 0.48)) : 1;
         const grow = grand ? grandWebGrowth(age, motionEnabled) : 0.06 + 0.94 * (1 - Math.pow(1 - k, 3));
         if (grand) {
@@ -1579,6 +1607,12 @@ export function Scene3D({
         webMesh.setMatrixAt(n, m4);
         webMesh.setColorAt(n, projCol.setHex(tint));
         n++;
+        if (grand && grandSilkN < 2) {
+          webS.set(sw, sh2, 1);
+          projTmp.set(cx, 0.14, cz);
+          m4.compose(projTmp, webQ, webS);
+          grandSilk.setMatrixAt(grandSilkN++, m4);
+        }
         if (grand && motionEnabled && k < 1 && growthN < 2) {
           // The glowing leading edge rides the growing sheet and fades out.
           webS.set(sw * 0.49, sh2 * 0.49, 1);
@@ -1588,28 +1622,6 @@ export function Scene3D({
           const brightness = Math.sin(Math.PI * k) * 0.8;
           growthMesh.setColorAt(growthN, projCol.setRGB(brightness, brightness, brightness));
           growthN++;
-        }
-        if (grand && motionEnabled && k < 1 && weaveCount < WEAVE_MAX) {
-          weaveCount++;
-          const intensity = Math.min(1, k * 5) * Math.min(1, (1 - k) * 5);
-          const point = (ray: number, radius: number) => {
-            const a = ray * Math.PI * 2 / WEAVE_RAYS;
-            const c = Math.cos(a), sn = Math.sin(a);
-            // Map to a rectangle, so the threads actually reach all four
-            // corners of the drawer rather than stopping at an ellipse.
-            const edge = Math.max(Math.abs(c), Math.abs(sn));
-            weavePositions[weaveVertices * 3] = cx + c / edge * sw * 0.495 * radius;
-            weavePositions[weaveVertices * 3 + 1] = 0.08;
-            weavePositions[weaveVertices * 3 + 2] = cz + sn / edge * sh2 * 0.495 * radius;
-            weaveColors[weaveVertices * 3] = 0.9 * intensity;
-            weaveColors[weaveVertices * 3 + 1] = 0.72 * intensity;
-            weaveColors[weaveVertices * 3 + 2] = intensity;
-            weaveVertices++;
-          };
-          for (let ray = 0; ray < WEAVE_RAYS; ray++) { point(ray, 0); point(ray, 1); }
-          for (let ring = 1; ring <= WEAVE_RINGS; ring++) for (let ray = 0; ray < WEAVE_RAYS; ray++) {
-            point(ray, ring / WEAVE_RINGS); point(ray + 1, ring / WEAVE_RINGS);
-          }
         }
         if (!grand && !potatoOn && rimN < WEB_POOL_N) {
           webS.set(sw * 0.5, sh2 * 0.5, 1);
@@ -1744,14 +1756,14 @@ export function Scene3D({
           glintN++;
         }
       }
-      weaveGeo.setDrawRange(0, weaveVertices);
-      if (weaveVertices) { weaveGeo.attributes.position.needsUpdate = true; weaveGeo.attributes.color.needsUpdate = true; }
       canopyGeo.setDrawRange(0, canopyVertices);
       if (canopyVertices) {
         canopyGeo.attributes.position.needsUpdate = true;
         canopyGeo.attributes.color.needsUpdate = true;
       }
       webMesh.count = n;
+      grandSilk.count = grandSilkN;
+      grandSilk.instanceMatrix.needsUpdate = true;
       growthMesh.count = growthN;
       growthMesh.instanceMatrix.needsUpdate = true;
       if (growthMesh.instanceColor) growthMesh.instanceColor.needsUpdate = true;
@@ -2088,6 +2100,7 @@ export function Scene3D({
     // when the prep dock hands over to the battle dock.
     let sceneReady = false;
 
+    let cameraInitialized = false;
     function frame() {
       W = hostEl.clientWidth || 360;
       H = hostEl.clientHeight || 280;
@@ -2097,6 +2110,14 @@ export function Scene3D({
       const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
       camDistTarget = Math.max(fitH / 2 / Math.tan(vFov / 2), fitW / 2 / Math.tan(hFov / 2));
       camera.updateProjectionMatrix();
+      if (!cameraInitialized) {
+        // ResizeObserver may repaint before the first animation frame. Never
+        // render from Three's default origin (inside the board) in that gap.
+        camDist = camDistTarget;
+        camera.position.set(target.x, target.y + Math.sin(elev) * camDist, target.z + Math.cos(elev) * camDist);
+        camera.lookAt(target);
+        cameraInitialized = true;
+      }
       if (sceneReady) renderer.render(scene, camera);
     }
     // pre-warm every shader program in the scene so the first battle
@@ -3265,7 +3286,7 @@ export function Scene3D({
         ));
       }
       updateProjectiles(activeBattle, t);
-      updateWebs(activeBattle, t);
+      updateWebs(activeBattle, t, dt);
       updateHoles(activeBattle);
       updateZones(activeBattle, t, visualBattleTime);
 
@@ -3535,6 +3556,17 @@ export function Scene3D({
       }
 
       renderer.render(scene, camera);
+      // Anchor the result deadline after WebGL returns, not before expensive
+      // driver work. A slow frame must not consume unseen animation time.
+      if (activeBattle && activeBattle.visualWebRemaining != null) {
+        if (activeBattle.visualWebRemaining > 0) {
+          activeBattle.visualWebFinished = false;
+          activeBattle.visualWebUntil = performance.now() + activeBattle.visualWebRemaining * 1000;
+        } else if (!activeBattle.visualWebFinished) {
+          activeBattle.visualWebUntil = performance.now();
+          activeBattle.visualWebFinished = true;
+        }
+      }
     }
 
     // Stop GPU work when the board is scrolled off screen as well as when
@@ -3592,7 +3624,7 @@ export function Scene3D({
       webMesh.dispose();
       snareRim.dispose(); snareRimGeo.dispose(); snareRimMat.dispose();
       growthMesh.dispose(); growthGeo.dispose(); growthMat.dispose();
-      weaveGeo.dispose(); weaveMat.dispose();
+      grandSilk.dispose(); grandSilkGeo.dispose(); grandSilkMat.dispose();
       eggMesh.dispose();
       glintMesh.dispose();
       webGeo.dispose(); webMat.dispose();

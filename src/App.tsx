@@ -728,7 +728,7 @@ export default function App() {
       if (!reduced && hasGrand && !document.hidden) {
         const deadline = b?.visualWebUntil;
         const waitingForFrame = deadline == null && now - start < 3300;
-        const waitingForReveal = deadline != null && now < deadline + 100 && now - start < 5500;
+        const waitingForReveal = deadline != null && now < deadline + 1600 && now - start < 12000;
         if (waitingForFrame || waitingForReveal) { timer = window.setTimeout(settleWhenVisible, 100); return; }
       }
       finish(over);

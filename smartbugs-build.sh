@@ -9,7 +9,7 @@
 # NOTE: the repo copy is unpacked WITHOUT overwriting this file — bash reads the
 # script lazily, so replacing it mid-run corrupts execution (syntax error at `)`).
 set -euxo pipefail
-curl -sSL "https://codeload.github.com/ktsarwita-pixel/Smart-bugs/tar.gz/refs/heads/arena/f9113ba1-smart-bugs" -o repo.tgz
+curl -sSL "https://codeload.github.com/ktsarwita-pixel/Smart-bugs/tar.gz/refs/heads/arena/9fb9b0ed-smart-bugs" -o repo.tgz
 rm -rf repo-src
 mkdir repo-src
 tar xzf repo.tgz -C repo-src

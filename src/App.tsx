@@ -1094,8 +1094,8 @@ export default function App() {
         <Ambience />
         <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[1080px] flex-col justify-between px-3.5 py-3 sm:px-6 sm:py-5">
           {/* Top Cabinet Bar */}
-          <header className="flex items-center justify-between border-b border-[#3B322A] pb-2.5">
-            <div className="flex items-center gap-2.5">
+          <header className="title-header flex items-center justify-between border-b border-[#3B322A] pb-2.5">
+            <div className="title-brand flex items-center gap-2.5">
               <div className="grid h-8 w-8 place-items-center border border-[#4A3828] bg-[#16110D]">
                 <SpecimenIcon id="stag" size={26} badge="none" />
               </div>
@@ -1123,7 +1123,7 @@ export default function App() {
           </header>
 
           {/* Main Split Grid: Hero Brand + 3D Interactive Specimen Turntable */}
-          <main className="my-auto grid grid-cols-1 items-center gap-4 py-3 lg:grid-cols-[1.02fr_1.15fr] lg:gap-8 lg:py-6">
+          <main className="title-layout my-auto grid grid-cols-1 items-center gap-4 py-3 lg:grid-cols-[1.02fr_1.15fr] lg:gap-8 lg:py-6">
             {/* Right on Desktop / Below the fold on Mobile (title+CTA first) */}
             <div className="order-2 lg:order-2">
               <div className="relative border-2 border-[#3B322A] bg-[#120D09] shadow-[0_12px_36px_rgba(0,0,0,.75)]">
@@ -1168,7 +1168,7 @@ export default function App() {
                 </div>
 
                 {/* The selector follows the live unit and commander roster. */}
-                <div className="grid border-t border-[#3B322A] bg-[#16110D]" style={{ gridTemplateColumns: `repeat(${SHOWCASE_IDS.length}, minmax(0, 1fr))` }}>
+                <div className="showcase-selector grid border-t border-[#3B322A] bg-[#16110D]" style={{ gridTemplateColumns: `repeat(${SHOWCASE_IDS.length}, minmax(48px, 1fr))` }}>
                   {SHOWCASE_IDS.map((id) => {
                     const active = focusId === id;
                     const isBug = id in BUGS;
@@ -1315,9 +1315,9 @@ export default function App() {
     return (
       <div className="cabinet-bg safe-t safe-b relative min-h-[100dvh] w-full overflow-x-hidden">
         <Ambience />
-        <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[780px] flex-col justify-between px-4 py-4 pb-28 sm:px-6 sm:py-7 md:pb-7">
+        <div className="commander-layout relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[780px] flex-col justify-between px-4 py-4 pb-28 sm:px-6 sm:py-7 md:pb-7">
           <div>
-            <div className="flex items-center justify-between border-b border-[#3B322A] pb-3">
+            <div className="commander-header flex items-center justify-between border-b border-[#3B322A] pb-3">
               <button
                 onClick={() => setPhase("title")}
                 className="lift flex min-h-[44px] items-center gap-1.5 border border-[#3B322A] bg-[#16110D] px-2.5 py-1.5 label text-[8px] text-[#B3A594] hover:border-[#F0A93B] hover:text-[#EDE2CB]"
@@ -1402,7 +1402,7 @@ export default function App() {
             {/* Rival Colonies Preview */}
             <div className="mt-4 border border-[#3B322A] bg-[#16110D] p-3">
               <div className="label text-[8px] text-[#9C8F7E]">{t("RIVAL COLONIES IN THIS CASE")}</div>
-              <div className="mt-2 grid grid-cols-3 gap-2">
+              <div className="rival-grid mt-2 grid grid-cols-3 gap-2">
                 {BOTS.map((b) => (
                   <div key={b.id} className="flex items-center gap-2 border border-[#2B221B] bg-[#100C09] p-2">
                     <SpecimenIcon id={b.cmd} size={28} badge="none" />
@@ -1612,10 +1612,10 @@ export default function App() {
   const vulnerableCount = battleSnap?.units.filter((u) => !u.dead && u.vuln > 0).length ?? 0;
 
   return (
-    <div className="cabinet-bg safe-t h-[100dvh] w-full overflow-hidden">
+    <div className="battle-shell cabinet-bg safe-t w-full">
       <div className="game-grid mx-auto max-w-[1160px]">
         {/* ── LEFT / TOP STAGE: Header + Standings + 3D Drawer ── */}
-        <div className="flex min-h-0 flex-1 flex-col lg:border lg:border-[#3B322A] lg:bg-[#130E0A]">
+        <div className="battle-main flex min-h-0 flex-1 flex-col lg:border lg:border-[#3B322A] lg:bg-[#130E0A]">
           {/* ── FIELD LAB COMMAND DECK (v3): one continuous command slab ──
               Single-row vitals · VS · resources separated by hairlines instead
               of boxed chips, and a one-line colony ladder rail. On phones the
@@ -1671,7 +1671,7 @@ export default function App() {
               )}
 
               {/* Resources */}
-              <div className="deck-cluster">
+              <div className="deck-cluster deck-resources">
                 <div className="deck-stat" title={tf("Gold — +{n} interest next round", { n: interestNext })}>
                   <IconCoin size={14} />
                   <span key={goldFlash} className="gold-flash deck-num text-[#F0A93B]">{gold}</span>
@@ -1808,43 +1808,9 @@ export default function App() {
             </div>
           </div>
 
-          {/* 3D Specimen Drawer Viewport (Fills Flexible Height!) */}
-          <div className="relative min-h-[235px] flex-1 bg-[#0D0907] min-[720px]:min-h-[175px]">
-            <Scene3D
-              mode={phase === "prep" ? "prep" : "battle"}
-              prep={units}
-              battle={phase === "prep" ? null : battleSnap}
-              battleRef={phase === "prep" ? undefined : battleRef}
-              battleSpeed={speed}
-              selectedUid={selected}
-              canDeployMore={canDeployMore}
-              interactive={phase === "prep"}
-              cmdA={cmd ?? "matriarch"}
-              cmdB={foe.cmd}
-              onCell={onCell}
-              onUnit={onUnit}
-              className="h-full w-full"
-            />
-
-            {/* Compact Opponent Corner Tag — desktop staple; on phones combat
-                hides it (the deck VS plaque already carries the matchup) so
-                the stage stays clean mid-fight */}
-            {!sel && (
-              <div className={`pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-2 border border-[#3B322A]/90 bg-[#120D09]/90 px-2 py-1 ${inCombat ? "hidden min-[720px]:flex" : ""}`}>
-                <SpecimenIcon id={foe.cmd} size={30} badge="none" />
-                <RankBadge id={foe.cmd} size={14} />
-                <div className="leading-tight">
-                  <div className="label text-[7px] text-[#F0A93B]">
-                    {inCombat ? t("FIGHTING") : "VS"} {foe.name}{(phase === "result" ? report?.echo : roundFixture?.echo) ? " / ECHO" : ""}
-                  </div>
-                  <div className="latin text-[10.5px] text-[#56DCA8]">{t(cmdById(foe.cmd).perk)}</div>
-                </div>
-              </div>
-            )}
-
             {/* Mobile Floating Selected-Bug Action Bar (0 permanent vertical height!) */}
             {phase === "prep" && sel && (
-              <div className="rise absolute inset-x-2 top-2 z-20 flex items-center gap-2 border-2 border-[#F0A93B] bg-[#16110D]/96 p-2 shadow-[0_8px_20px_rgba(0,0,0,.8)] lg:hidden">
+              <div className="selected-actions rise flex items-center gap-2 border-2 border-[#F0A93B] bg-[#16110D]/96 p-2 shadow-[0_8px_20px_rgba(0,0,0,.8)] lg:hidden">
                 <SpecimenIcon id={sel.bugId} size={40} star={sel.star} selected />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
@@ -1900,9 +1866,44 @@ export default function App() {
               </div>
             )}
 
+
+          {/* 3D Specimen Drawer Viewport (Fills Flexible Height!) */}
+          <div className="battle-stage relative min-h-[235px] flex-1 bg-[#0D0907] min-[720px]:min-h-[175px]">
+            <Scene3D
+              mode={phase === "prep" ? "prep" : "battle"}
+              prep={units}
+              battle={phase === "prep" ? null : battleSnap}
+              battleRef={phase === "prep" ? undefined : battleRef}
+              battleSpeed={speed}
+              selectedUid={selected}
+              canDeployMore={canDeployMore}
+              interactive={phase === "prep"}
+              cmdA={cmd ?? "matriarch"}
+              cmdB={foe.cmd}
+              onCell={onCell}
+              onUnit={onUnit}
+              className="h-full w-full"
+            />
+
+            {/* Compact Opponent Corner Tag — desktop staple; on phones combat
+                hides it (the deck VS plaque already carries the matchup) so
+                the stage stays clean mid-fight */}
+            {!sel && (
+              <div className={`pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-2 border border-[#3B322A]/90 bg-[#120D09]/90 px-2 py-1 ${inCombat ? "hidden min-[720px]:flex" : ""}`}>
+                <SpecimenIcon id={foe.cmd} size={30} badge="none" />
+                <RankBadge id={foe.cmd} size={14} />
+                <div className="leading-tight">
+                  <div className="label text-[7px] text-[#F0A93B]">
+                    {inCombat ? t("FIGHTING") : "VS"} {foe.name}{(phase === "result" ? report?.echo : roundFixture?.echo) ? " / ECHO" : ""}
+                  </div>
+                  <div className="latin text-[10.5px] text-[#56DCA8]">{t(cmdById(foe.cmd).perk)}</div>
+                </div>
+              </div>
+            )}
+
             {/* Subtle Onboarding Prompt when Drawer is Empty */}
             {phase === "prep" && boardUnits.length === 0 && !sel && (
-              <div className="pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap border border-[#3B322A] bg-[#120D09]/92 px-2.5 py-1 label text-[7.5px] text-[#EDE2CB]">
+              <div className="stage-hint pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 border border-[#3B322A] bg-[#120D09]/92 px-2.5 py-1 label text-[7.5px] text-[#EDE2CB]">
                 {(cmd ?? "matriarch") === "worm"
                   ? t("THE WORM DIGS A HOLE BENEATH THE STRONGEST FOE — STEPPING IN STUNS & EXPOSES")
                   : benchUnits.length > 0
@@ -2216,10 +2217,10 @@ export default function App() {
             </div>
           ) : (
             /* ── PREP COMMAND DOCK: Bench + Shop + Actions ─────── */
-            <div className="dock-in flex flex-1 flex-col justify-start">
+            <div className="prep-dock dock-in flex flex-1 flex-col justify-start">
               {/* Bench Row (6 Slots) */}
-              <div className="px-2 pt-1.5 pb-1.5 sm:px-3">
-                <div className="mb-1 flex items-center justify-between">
+              <div className="bench-section px-2 pt-1.5 pb-1.5 sm:px-3">
+                <div className="section-heading mb-1 flex items-center justify-between">
                   <span className="label text-[7.5px] text-[#9C8F7E]">
                     {t("BENCH")} ({benchUnits.length}/{BENCH_SIZE})
                   </span>
@@ -2233,17 +2234,14 @@ export default function App() {
                     </button>
                   )}
                 </div>
-                <div className="grid grid-cols-6 gap-1">
+                <div className="bench-grid grid grid-cols-6 gap-1">
                   {Array.from({ length: BENCH_SIZE }).map((_, i) => {
                     const u = benchUnits.find((b) => b.slot === i);
                     const isSel = !!u && selected === u.uid;
                     return (
                       <button
                         key={i}
-                        onPointerDown={(e) => {
-                          e.preventDefault();
-                          onBench(i);
-                        }}
+                        onClick={() => onBench(i)}
                         title={u ? tf("{name} — tap to deploy instantly", { name: t(BUGS[u.bugId].name) }) : t("Empty bench slot")}
                         className={`lift bench-slot relative grid h-11 place-items-center border sm:h-12 ${
                           isSel ? "border-[#F0A93B] bg-[#241B14]" : "border-[#3B322A] bg-[#120D09]"
@@ -2268,8 +2266,7 @@ export default function App() {
                               role="button"
                               aria-label={t("INSPECT")}
                               title={t("INSPECT")}
-                              onPointerDown={(e) => {
-                                e.preventDefault();
+                              onClick={(e) => {
                                 e.stopPropagation();
                                 setSelected(u.uid);
                               }}
@@ -2288,8 +2285,8 @@ export default function App() {
               </div>
 
               {/* Shop Row (5 Pipkin Supply Cards with Moult/Pair Highlights!) */}
-              <div className="border-t border-[#2D231B] px-2 pt-1.5 pb-1.5 sm:px-3">
-                <div className="mb-1 flex items-center justify-between">
+              <div className="shop-section border-t border-[#2D231B] px-2 pt-1.5 pb-1.5 sm:px-3">
+                <div className="section-heading shop-heading mb-1 flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <span className="label text-[7.5px] text-[#9C8F7E]">{t("PIPKIN SUPPLY")}</span>
                     <span className="ml-2 hidden items-center gap-1.5 min-[480px]:ml-2 min-[480px]:flex">
@@ -2332,7 +2329,7 @@ export default function App() {
                     {adminButton("h-11 w-11 px-0")}
                   </div>
                 </div>
-                <div className="grid grid-cols-5 gap-1 min-[420px]:gap-1.5">
+                <div className="shop-grid grid grid-cols-5 gap-1 min-[420px]:gap-1.5">
                   {shop.map((id, i) => {
                     const owned1 = id ? ownedCounts[id].s1 : 0;
                     const willMoult = !!id && owned1 >= 2;
@@ -2402,7 +2399,7 @@ export default function App() {
               </div>
 
               {/* Action Controls Bar */}
-              <div className="grid grid-cols-[1fr_1fr_1.35fr] gap-1.5 border-t border-[#2D231B] px-2 pt-1.5 pb-1 sm:px-3 sm:pt-2">
+              <div className="action-bar grid grid-cols-[1fr_1fr_1.35fr] gap-1.5 border-t border-[#2D231B] px-2 pt-1.5 pb-1 sm:px-3 sm:pt-2">
                 <button
                   onClick={reroll}
                   disabled={gold < 2}

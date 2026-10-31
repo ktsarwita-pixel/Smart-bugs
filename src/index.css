@@ -2025,3 +2025,21 @@ html[data-motion="reduced"] .result-health__track > span { transition: none; }
 
 .ladder-detail { top: 18px; bottom: 5px; }
 @media (max-width: 719.98px) { .bench-section .section-heading button { min-height: 40px; } }
+
+/* Background palette only: dark controls retain contrast in both modes. */
+.background-swatch { display: inline-block; width: 18px; height: 18px; vertical-align: middle; margin-right: 8px; border: 1px solid #9caa9e; }
+.background-swatch--dark { background: #1c1d1b; }
+.background-swatch--light { background: #8b9290; }
+html[data-background="light"], html[data-background="light"] body { background: #5c6462; }
+html[data-background="light"] .cabinet-bg { background-color: #68716e; background-image: radial-gradient(95% 70% at 50% 0%, #8d9691 0%, #68726f 60%, #505a58 100%); }
+html[data-background="light"] .battle-main { background: #3c4643; }
+html[data-background="light"] .prep-dock { background: linear-gradient(180deg, #48534f, #36413e); }
+html[data-background="light"] .action-bar { background: #36413e; }
+html[data-background="light"] .title-brand .latin, html[data-background="light"] .title-layout > .order-1 > .latin, html[data-background="light"] .cabinet-bg > div > footer { color: #f1f3ed; text-shadow: 0 1px 2px #202b28; }
+html[data-background="light"] .title-brand .label, html[data-background="light"] .title-layout > .order-1 > div:first-child .label { text-shadow: 0 1px 3px #18221f; }
+@media (prefers-reduced-motion: no-preference) { .cabinet-bg, .battle-main, .action-bar { transition: background-color 220ms ease; } }
+
+html[data-motion="reduced"] .cabinet-bg, html[data-motion="reduced"] .battle-main, html[data-motion="reduced"] .action-bar { transition: none; }
+
+html[data-background="light"] .shop-heading .shop-toggle { background-color: #202a27; }
+html[data-background="light"] .shop-heading .shop-toggle[aria-pressed="true"] { background-color: #423329; }

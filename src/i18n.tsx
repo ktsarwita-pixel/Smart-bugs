@@ -5,6 +5,7 @@ export type Lang = "en" | "id";
 export interface Settings {
   lang: Lang;
   motion: "full" | "reduced";
+  background: "dark" | "light";
   /** Potato mode: minimal renderer workload for weak devices. */
   potato: boolean;
 }
@@ -13,6 +14,7 @@ interface Ctx extends Settings {
   setLang: (lang: Lang) => void;
   setMotion: (motion: Settings["motion"]) => void;
   setPotato: (potato: boolean) => void;
+  setBackground: (background: Settings["background"]) => void;
   /** Translates an English UI string; falls back to English. */
   t: (en: string) => string;
   reset: () => void;
@@ -31,6 +33,10 @@ const ID: Record<string, string> = {
   "No HP lost": "HP tidak berkurang",
   "Before round: {hp}/{max} HP": "Sebelum ronde: {hp}/{max} HP",
   "{n} HP lost": "Kehilangan {n} HP",
+  "BACKGROUND": "LATAR BELAKANG",
+  "Dark mode": "Mode gelap",
+  "Light mode": "Mode terang",
+  "A soft gray background; game controls stay dark for readability.": "Latar abu-abu lembut; kontrol tetap gelap agar mudah dibaca.",
   "FULLSCREEN": "LAYAR PENUH",
   "Enter fullscreen": "Masuk layar penuh",
   "Exit fullscreen": "Keluar layar penuh",
@@ -632,12 +638,13 @@ function load(): Settings {
         lang: stale ? "en" : parsed.lang,
         motion: parsed.motion === "reduced" ? "reduced" : "full",
         potato: parsed.potato === true,
+        background: parsed.background === "light" ? "light" : "dark",
       };
     }
   } catch {
     /* storage may be unavailable */
   }
-  return { lang: "en", motion: "full", potato: false };
+  return { lang: "en", motion: "full", potato: false, background: "dark" };
 }
 
 /** Pure lookup so translation can be tested without mounting React. */
@@ -667,9 +674,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.lang = settings.lang === "id" ? "id" : "en";
     document.documentElement.dataset.motion = settings.motion;
     document.documentElement.dataset.potato = settings.potato ? "1" : "0";
-    // Scene3D re-reads heavy renderer settings on this signal.
-    window.dispatchEvent(new CustomEvent("sb-potato"));
+    document.documentElement.dataset.background = settings.background;
   }, [settings]);
+
+  useEffect(() => {
+    // Only changing renderer quality should trigger material recompilation.
+    window.dispatchEvent(new CustomEvent("sb-potato"));
+  }, [settings.potato]);
 
   const setLang = useCallback((lang: Lang) => setSettings((s) => ({ ...s, lang })), []);
   const setMotion = useCallback(
@@ -677,7 +688,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     [],
   );
   const setPotato = useCallback((potato: boolean) => setSettings((s) => ({ ...s, potato })), []);
-  const reset = useCallback(() => setSettings({ lang: "en", motion: "full", potato: false }), []);
+  const setBackground = useCallback((background: Settings["background"]) => setSettings((s) => ({ ...s, background })), []);
+  const reset = useCallback(() => setSettings({ lang: "en", motion: "full", potato: false, background: "dark" }), []);
 
   const value = useMemo<Ctx>(() => {
     const lang = settings.lang;
@@ -686,10 +698,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       setLang,
       setMotion,
       setPotato,
+      setBackground,
       reset,
       t: (en: string) => translate(en, lang),
     };
-  }, [settings, setLang, setMotion, reset]);
+  }, [settings, setLang, setMotion, setPotato, setBackground, reset]);
 
   return <SettingsCtx.Provider value={value}>{children}</SettingsCtx.Provider>;
 }
@@ -703,9 +716,11 @@ const FALLBACK: Ctx = {
   lang: "en",
   motion: "full",
   potato: false,
+  background: "dark",
   setLang: () => {},
   setMotion: () => {},
   setPotato: () => {},
+  setBackground: () => {},
   reset: () => {},
   t: (en: string) => en,
 };

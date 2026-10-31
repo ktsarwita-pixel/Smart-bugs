@@ -17,7 +17,7 @@ const LANGS: { id: Lang; native: string; latin: string }[] = [
  * Everything here is applied immediately and persisted to localStorage.
  */
 export function SettingsModal({ open, onClose }: Props) {
-  const { lang, setLang, motion, setMotion, potato, setPotato, t } = useSettings();
+  const { lang, setLang, motion, setMotion, potato, setPotato, background, setBackground, t } = useSettings();
   const [fullscreen, setFullscreen] = useState(() => !!document.fullscreenElement);
   const [fullscreenError, setFullscreenError] = useState(false);
   const fullscreenSupported = !!document.fullscreenEnabled && !!document.documentElement.requestFullscreen;
@@ -119,6 +119,22 @@ export function SettingsModal({ open, onClose }: Props) {
               );
             })}
           </div>
+
+          <div className="mt-4 mb-2 flex items-center gap-2">
+            <IconSettings size={13} className="text-[#F0A93B]" />
+            <h3 className="label text-[8px] text-[#F0A93B]">{t("BACKGROUND")}</h3>
+          </div>
+          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t("BACKGROUND")}>
+            {(["dark", "light"] as const).map((option) => (
+              <button key={option} type="button" role="radio" aria-checked={background === option}
+                onClick={() => setBackground(option)}
+                className={`lift min-h-[48px] border px-3 py-2 text-left font-mono text-[10px] ${background === option ? "border-[#56DCA8] bg-[#0F241C] text-[#D6FFEF]" : "border-[#3B322A] bg-[#17110C] text-[#B3A594]"}`}>
+                <span className={`background-swatch background-swatch--${option}`} aria-hidden="true" />
+                {option === "dark" ? t("Dark mode") : t("Light mode")}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-[10px] leading-snug text-[#9C8F7E]">{t("A soft gray background; game controls stay dark for readability.")}</p>
 
           <div className="mt-4 mb-2 flex items-center gap-2">
             <IconSettings size={13} className="text-[#F0A93B]" />

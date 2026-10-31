@@ -1318,6 +1318,17 @@ export function Scene3D({
     webMesh.renderOrder = 2;
     if (!showcase) scene.add(webMesh);
 
+    // One pooled, softly glowing rim makes the 3×3 After-Web readable without
+    // spawning a second net or adding per-web draw calls.
+    const snareRimGeo = new THREE.RingGeometry(0.91, 0.96, 48);
+    const snareRimMat = new THREE.MeshBasicMaterial({ color: 0xbaa4f2, transparent: true, opacity: 0.34, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+    const snareRim = new THREE.InstancedMesh(snareRimGeo, snareRimMat, WEB_POOL_N);
+    snareRim.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    snareRim.frustumCulled = false;
+    snareRim.count = 0;
+    snareRim.renderOrder = 3;
+    if (!showcase) scene.add(snareRim);
+
     const webQ = new THREE.Quaternion();
     const webE = new THREE.Euler();
     const webS = new THREE.Vector3();
@@ -1422,11 +1433,13 @@ export function Scene3D({
     }
     const colA = new THREE.Color();
     const colB = new THREE.Color();
+    const reducedMotionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     function updateWebs(b: BattleState | null, time: number, dt: number) {
       if (showcase) return;
       if (!b || !b.webs.length) {
         if (webMesh.count !== 0) webMesh.count = 0;
+        if (snareRim.count !== 0) snareRim.count = 0;
         if (eggMesh.count !== 0) eggMesh.count = 0;
         if (glintMesh.count !== 0) glintMesh.count = 0;
         glintMat.opacity = 0;
@@ -1437,9 +1450,12 @@ export function Scene3D({
       const liveIds = new Set(b.webs.map((w) => w.id));
       for (const id of Array.from(webAge.keys())) if (!liveIds.has(id)) webAge.delete(id);
       let n = 0;
+      let rimN = 0;
       let en = 0;
       let glintN = 0;
       let canopyVertices = 0;
+      const motionEnabled = document.documentElement.dataset.motion !== "reduced" && !reducedMotionMedia.matches;
+      const silkTime = motionEnabled ? time : 0;
       let canopyCount = 0;
       for (const w of b.webs) {
         const grand = w.kind === "grand";
@@ -1447,7 +1463,7 @@ export function Scene3D({
         webAge.set(w.id, age);
         // The projectile has already landed. Reveal one anchored sheet once,
         // with a monotonic ease-out instead of a second drop or elastic pop.
-        const k = Math.min(1, age / 0.48);
+        const k = motionEnabled ? Math.min(1, age / 0.48) : 1;
         const grow = 0.12 + 0.88 * (1 - Math.pow(1 - k, 3));
         // end-of-life DISSOLVE: the snare shrinks and darkens in its last
         // 0.7s instead of popping out of existence
@@ -1455,9 +1471,9 @@ export function Scene3D({
         const dScale = 0.85 + 0.15 * dissolve;
         // old-cloth billow: slow anisotropic breathing + drift, with a
         // longer WIND GUST wave travelling across the silk
-        const gust = 1 + Math.sin(time * 0.31 + w.id * 0.7) * 0.016 + Math.sin(time * 0.83 + w.id * 1.9) * 0.007;
-        const billowX = (1 + Math.sin(time * 0.9 + w.id * 2.1) * 0.03) * gust;
-        const billowZ = (1 + Math.cos(time * 0.7 + w.id * 1.3) * 0.03) * gust;
+        const gust = 1 + Math.sin(silkTime * 0.31 + w.id * 0.7) * 0.016 + Math.sin(silkTime * 0.83 + w.id * 1.9) * 0.007;
+        const billowX = (1 + Math.sin(silkTime * 0.9 + w.id * 2.1) * 0.03) * gust;
+        const billowZ = (1 + Math.cos(silkTime * 0.7 + w.id * 1.3) * 0.03) * gust;
         // desired sheet rect (before containment)
         const dw = (grand ? COLS + 0.9 : w.half * 2 + 0.6) * billowX * grow;
         const dh = (grand ? ROWS + 0.9 : w.half * 2 + 0.6) * billowZ * grow;
@@ -1466,7 +1482,7 @@ export function Scene3D({
         // touches all four corners; snares use the tamed variety spin and
         // the aspect-locked rotated fit, then the center is pinned so even
         // the spun corners stay inside the drawer.
-        const rot = grand ? 0 : Math.sin(time * 0.5 + w.id * 2.4) * 0.05 + ((w.id % 5) - 2) * 0.21;
+        const rot = grand ? 0 : Math.sin(silkTime * 0.5 + w.id * 2.4) * 0.05 + ((w.id % 5) - 2) * 0.21;
         const sw = (grand ? Math.min(dw, COLS) : dw * fitSpin(dw, dh, rot, COLS, ROWS)) * dScale;
         const sh2 = (grand ? Math.min(dh, ROWS) : dh * fitSpin(dw, dh, rot, COLS, ROWS)) * dScale;
         const rc = Math.abs(Math.cos(rot));
@@ -1476,13 +1492,13 @@ export function Scene3D({
         const cx = grand ? COLS / 2 : Math.min(Math.max(w.x, hx), COLS - hx);
         const cz = grand ? ROWS / 2 : Math.min(Math.max(w.y, hz), ROWS - hz);
         // silk shimmer: two violet tones breathing through the holes
-        const shim = 0.5 + 0.5 * Math.sin(time * 1.7 + w.id * 1.9);
+        const shim = 0.5 + 0.5 * Math.sin(silkTime * 1.7 + w.id * 1.9);
         colA.setHex(grand ? 0xe3c2ff : 0xffffff);
         colB.setHex(grand ? 0xb48ae8 : 0xd9c2ff);
         let tint = colA.lerp(colB, shim).getHex();
         // iridescence: as the light walks the sheet, a pale-teal sheen
         // blooms and fades — silk reads wet and alive
-        const teal = Math.sin(time * 0.23 + w.id * 0.9);
+        const teal = Math.sin(silkTime * 0.23 + w.id * 0.9);
         if (teal > 0.82) {
           colA.setHex(tint);
           colB.setHex(0x9fd8e8);
@@ -1504,15 +1520,23 @@ export function Scene3D({
         webMesh.setMatrixAt(n, m4);
         webMesh.setColorAt(n, projCol.setHex(tint));
         n++;
+        if (!grand && !potatoOn && rimN < WEB_POOL_N) {
+          webS.set(sw * 0.5, sh2 * 0.5, 1);
+          projTmp.set(cx, 0.065, cz);
+          m4.compose(projTmp, webQ, webS);
+          snareRim.setMatrixAt(rimN, m4);
+          snareRim.setColorAt(rimN, projCol.setRGB(dissolve, dissolve, dissolve));
+          rimN++;
+        }
         // NEST WALLS: silk sheets lining the drawer's INNER faces — tops tip
         // toward the board center, so nothing ever crosses the frame plane.
         // They rise only after the floor cloth has spread (nest-style).
         if (grand) {
           const wk = Math.min(1, Math.max(0, (age - 0.3) / 0.55));
           const wBack = 1 + 2.70158 * Math.pow(wk - 1, 3) + 1.70158 * Math.pow(wk - 1, 2);
-          const wallH = Math.max(0.02, 0.95 * wBack);
+          const wallH = Math.max(0.02, 0.95 * (motionEnabled ? wBack : 1));
           const lean = 0.16; // tops tip INWARD, against the drawer
-          const sway = Math.sin(time * 1.1 + w.id) * 0.012;
+          const sway = Math.sin(silkTime * 1.1 + w.id) * 0.012;
           const wallTint = 0xa88ad8;
           for (const [wz, rx] of [[ROWS - 0.1, -lean], [0.1, lean]] as const) {
             if (n >= WEB_POOL_N) break;
@@ -1544,10 +1568,9 @@ export function Scene3D({
         // dome above the grand web. Every point remains within the board.
         if (grand && !potatoOn && canopyCount < MAX_CANOPIES) {
           canopyCount++;
-          const rise = Math.min(1, Math.max(0, (age - 0.12) / 0.8));
+          const rise = motionEnabled ? Math.min(1, Math.max(0, (age - 0.12) / 0.8)) : 1;
           const fade = Math.min(1, age / 0.3) * dissolve;
-          const motion = document.documentElement.dataset.motion !== "reduced";
-          const phase = motion ? time : 0;
+          const phase = silkTime;
           const vertex = (ray: number, radius: number) => {
             const angle = ray * Math.PI * 2 / CANOPY_RAYS;
             const dome = (1 - radius * radius) * (1.15 + 0.06 * Math.sin(phase * 1.6 + w.id));
@@ -1555,9 +1578,9 @@ export function Scene3D({
             canopyPositions[canopyVertices * 3 + 1] = 0.09 + dome * rise;
             canopyPositions[canopyVertices * 3 + 2] = cz + canopySin[ray] * sh2 * 0.46 * radius;
             const pulse = (0.55 + 0.45 * Math.max(0, Math.sin(phase * 2.2 - radius * 8 + angle * 2))) * fade;
-            canopyColors[canopyVertices * 3] = 0.55 * pulse;
-            canopyColors[canopyVertices * 3 + 1] = 0.36 * pulse;
-            canopyColors[canopyVertices * 3 + 2] = 0.9 * pulse;
+            canopyColors[canopyVertices * 3] = 0.7 * pulse;
+            canopyColors[canopyVertices * 3 + 1] = 0.54 * pulse;
+            canopyColors[canopyVertices * 3 + 2] = 0.95 * pulse;
             canopyVertices++;
           };
           for (let ray = 0; ray < CANOPY_RAYS; ray++) {
@@ -1578,7 +1601,7 @@ export function Scene3D({
         // EGG SACS: small flattened ivory sacs CLUSTERED around the center
         // web (the nest's heart) — tucked low, half-sunk into the cloth,
         // popping in only after the floor has spread.
-        const sacPop = Math.min(1, Math.max(0, (age - (grand ? 0.45 : 0.72)) / 0.45));
+        const sacPop = motionEnabled ? Math.min(1, Math.max(0, (age - (grand ? 0.25 : 0.2)) / 0.45)) : 1;
         const sacBack = Math.max(0, 1 + 2.70158 * Math.pow(sacPop - 1, 3) + 1.70158 * Math.pow(sacPop - 1, 2));
         const sacCount = grand ? 5 : 2;
         const sacBase = grand ? 0.115 : 0.09;
@@ -1592,7 +1615,7 @@ export function Scene3D({
           const jz = Math.cos(w.id * 1.7 + si * 5.3) * 0.16;
           const ex = Math.min(COLS - 0.25, Math.max(0.25, (grand ? COLS / 2 + ox : cx + ox) + jx));
           const ez = Math.min(ROWS - 0.25, Math.max(0.25, (grand ? ROWS / 2 + oz : cz + oz) + jz));
-          const pulse = 1 + Math.sin(time * 2.2 + w.id + si * 1.9) * 0.045;
+          const pulse = 1 + Math.sin(silkTime * 2.2 + w.id + si * 1.9) * 0.045;
           const sc = sacBase * (0.8 + ((si * 29 + w.id) % 10) / 30) * pulse * sacBack;
           eggS.set(sc, sc * 0.6, sc * 0.88); // squashed: silk-wrapped sac
           webE.set(0, ((si * 47 + w.id) % 6) * 1.047, 0);
@@ -1609,7 +1632,7 @@ export function Scene3D({
         const GN = potatoOn ? 0 : grand ? 10 : 5;
         for (let gi = 0; gi < GN && glintN < GLINT_N; gi++) {
           const ph = glintPhase[glintN % GLINT_N];
-          const tw = Math.max(0, Math.sin(time * 2.4 + ph * Math.PI * 2 + w.id * 1.3));
+          const tw = Math.max(0, Math.sin(silkTime * 2.4 + ph * Math.PI * 2 + w.id * 1.3));
           const lx = Math.sin(ph * 12.9898 + w.id * 7.7) * sw * 0.46;
           const lz = Math.sin(ph * 78.233 + w.id * 3.1) * sh2 * 0.46;
           const gx = cx + lx * Math.cos(rot) - lz * Math.sin(rot);
@@ -1629,6 +1652,9 @@ export function Scene3D({
         canopyGeo.attributes.color.needsUpdate = true;
       }
       webMesh.count = n;
+      snareRim.count = rimN;
+      snareRim.instanceMatrix.needsUpdate = true;
+      if (snareRim.instanceColor) snareRim.instanceColor.needsUpdate = true;
       webMesh.instanceMatrix.needsUpdate = true;
       if (webMesh.instanceColor) webMesh.instanceColor.needsUpdate = true;
       eggMesh.count = en;
@@ -3420,6 +3446,7 @@ export function Scene3D({
       projMesh.dispose();
       haloMesh.dispose();
       webMesh.dispose();
+      snareRim.dispose(); snareRimGeo.dispose(); snareRimMat.dispose();
       eggMesh.dispose();
       glintMesh.dispose();
       webGeo.dispose(); webMat.dispose();

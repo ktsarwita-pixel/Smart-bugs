@@ -1122,6 +1122,12 @@ export default function App() {
             {adminButton()}
           </header>
 
+          {new URLSearchParams(window.location.search).has("advenced") && (
+            <div role="status" className="mt-3 border border-[#2a6e52] bg-[#0E241A] px-3 py-2 label text-[8px] leading-relaxed text-[#75e8ba]">
+              {t("ADVANCED TEST BUILD — updates in testing")}
+            </div>
+          )}
+
           {/* Main Split Grid: Hero Brand + 3D Interactive Specimen Turntable */}
           <main className="title-layout my-auto grid grid-cols-1 items-center gap-4 py-3 lg:grid-cols-[1.02fr_1.15fr] lg:gap-8 lg:py-6">
             {/* Right on Desktop / Below the fold on Mobile (title+CTA first) */}

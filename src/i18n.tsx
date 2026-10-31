@@ -24,6 +24,7 @@ interface Ctx extends Settings {
  * it falls back to English, which is the safest failure mode for UI copy.
  */
 const ID: Record<string, string> = {
+  "ADVANCED TEST BUILD — updates in testing": "VERSI UJI LANJUTAN — pembaruan sedang diuji",
   "FULLSCREEN": "LAYAR PENUH",
   "Enter fullscreen": "Masuk layar penuh",
   "Exit fullscreen": "Keluar layar penuh",

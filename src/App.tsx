@@ -5,6 +5,7 @@ import { warmRoster } from "./game/voxel";
 import { SpecimenIcon, RankBadge } from "./components/SpecimenIcon";
 import { CodexModal } from "./components/CodexModal";
 import { RoundResults } from "./components/RoundResults";
+import { periodForRound } from "./game/period";
 import { AdminPanel } from "./components/AdminPanel";
 import { SettingsModal } from "./components/SettingsModal";
 import { UiDoctor } from "./components/UiDoctor";
@@ -232,6 +233,7 @@ export default function App() {
   const [battleSnap, setBattleSnap] = useState<BattleState | null>(null);
 
   const round = match.round;
+  const period = periodForRound(round);
   const playerColony = match.colonies.find((c) => c.id === PLAYER_ID)!;
   const hp = playerColony.hp;
   const activeCount = survivingColonies(match).length;
@@ -1657,8 +1659,8 @@ export default function App() {
                   <span className="deck-cap">{t("Colony HP")}</span>
                 </div>
                 <div className="deck-stat" title={tf("Round {r} — {n} colonies still alive", { r: round + 1, n: activeCount })}>
-                  <span className="deck-num text-[#F0A93B]">{round + 1}</span>
-                  <span className="deck-cap">{t("Round")}</span>
+                  <span className="deck-num text-[#F0A93B]">{period.period}-{period.round}</span>
+                  <span className="deck-cap">{t("Period / Round")}</span>
                   <span className="deck-pips" aria-label={`${activeCount} alive`}>
                     {Array.from({ length: Math.max(activeCount, 2) }).map((_, i) => (
                       <i key={i} data-on={i < activeCount ? 1 : 0} />
@@ -2496,7 +2498,7 @@ export default function App() {
       {/* Round-start FIGHT flare (rendered once the sim actually starts) */}
       {simLive && fightFlash > 0 && phase === "battle" && (
         <div key={fightFlash} className="fight-flare pointer-events-none fixed inset-0 z-30 grid place-items-center" aria-hidden="true">
-          <span className="fight-flare__round label">{tf("ROUND {n}", { n: round + 1 })}</span>
+          <span className="fight-flare__round label">{tf("PERIOD {p} · ROUND {n}/{total}", { p: period.period, n: period.round, total: period.length })}</span>
           <span className="fight-flare__word font-pixel">{t("FIGHT")}</span>
         </div>
       )}

@@ -222,6 +222,8 @@ const ID: Record<string, string> = {
   "Colony": "Koloni",
   "Colony HP": "HP Koloni",
   "Round": "Ronde",
+  "Period / Round": "Periode / Ronde",
+  "PERIOD {p} · ROUND {n}/{total}": "PERIODE {p} · RONDE {n}/{total}",
   "Gold": "Emas",
   "int": "bunga",
   "Line": "Barisan",

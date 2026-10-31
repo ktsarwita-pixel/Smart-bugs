@@ -1463,7 +1463,7 @@ export function Scene3D({
         webAge.set(w.id, age);
         // The projectile has already landed. Reveal one anchored sheet once,
         // with a monotonic ease-out instead of a second drop or elastic pop.
-        const k = motionEnabled ? Math.min(1, age / 0.48) : 1;
+        const k = motionEnabled ? Math.min(1, age / (grand ? 0.9 : 0.48)) : 1;
         const grow = 0.12 + 0.88 * (1 - Math.pow(1 - k, 3));
         // end-of-life DISSOLVE: the snare shrinks and darkens in its last
         // 0.7s instead of popping out of existence
@@ -1569,7 +1569,7 @@ export function Scene3D({
         if (grand && !potatoOn && canopyCount < MAX_CANOPIES) {
           canopyCount++;
           const rise = motionEnabled ? Math.min(1, Math.max(0, (age - 0.12) / 0.8)) : 1;
-          const fade = Math.min(1, age / 0.3) * dissolve;
+          const fade = (motionEnabled ? Math.min(1, age / 0.3) : 1) * dissolve;
           const phase = silkTime;
           const vertex = (ray: number, radius: number) => {
             const angle = ray * Math.PI * 2 / CANOPY_RAYS;
@@ -1583,14 +1583,21 @@ export function Scene3D({
             canopyColors[canopyVertices * 3 + 2] = 0.95 * pulse;
             canopyVertices++;
           };
+          // Silk spins outward from the nest before the cross-threads appear.
+          // The same fixed buffer is reused; reduced motion shows it immediately.
+          const reveal = motionEnabled ? Math.min(1, age / 0.95) : 1;
           for (let ray = 0; ray < CANOPY_RAYS; ray++) {
             for (let step = 0; step < CANOPY_STEPS; step++) {
-              vertex(ray, step / CANOPY_STEPS);
-              vertex(ray, (step + 1) / CANOPY_STEPS);
+              const start = step / CANOPY_STEPS;
+              const end = Math.min(reveal, (step + 1) / CANOPY_STEPS);
+              if (end <= start) continue;
+              vertex(ray, start);
+              vertex(ray, end);
             }
           }
           for (let ring = 1; ring <= CANOPY_RINGS; ring++) {
             const r = ring / (CANOPY_RINGS + 1);
+            if (r > reveal) continue;
             for (let ray = 0; ray < CANOPY_RAYS; ray++) {
               vertex(ray, r);
               vertex(ray + 1, r);

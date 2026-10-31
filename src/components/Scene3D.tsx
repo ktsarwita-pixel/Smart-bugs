@@ -1126,7 +1126,7 @@ export function Scene3D({
       const hub: Pt = [R + (rnd() - 0.5) * 22, R + (rnd() - 0.5) * 22];
       strand([[hub[0] - 5, hub[1]], [hub[0] + 5, hub[1]]], 2.2, 0.9);
       strand([[hub[0], hub[1] - 5], [hub[0], hub[1] + 5]], 2.2, 0.9);
-      const SPOKES = 32;
+      const SPOKES = 26;
       const spokeA: number[] = [];
       for (let i = 0; i < SPOKES; i++) {
         const a0 = (i / SPOKES) * Math.PI * 2 + (rnd() - 0.5) * 0.12;
@@ -1143,8 +1143,8 @@ export function Scene3D({
       let r = 20;
       let ring = 0;
       while (r < R * 1.04) {
-        const nextR = r * 1.12 + 4.5;
-        const breakP = 0.02 + Math.pow(r / R, 3) * 0.18; // rim wears out first
+        const nextR = r * 1.16 + 5.5;
+        const breakP = 0.05 + Math.pow(r / R, 3) * 0.55; // rim wears out first
         for (let i = 0; i < SPOKES; i++) {
           if (rnd() < breakP) continue; // missing segment — a broken strand
           const a0 = spokeA[i];
@@ -1166,7 +1166,7 @@ export function Scene3D({
       const corners: Pt[] = [[0, 0], [size, 0], [0, size], [size, size]];
       for (const [cx, cy] of corners) {
         const dir = Math.atan2(R - cy, R - cx);
-        for (let a = 0; a < 8; a++) {
+        for (let a = 0; a < 5; a++) {
           const rad = 24 + a * 24 + rnd() * 8;
           const a0 = dir - 0.78 + rnd() * 0.14;
           const a1 = dir + 0.78 - rnd() * 0.14;
@@ -1303,9 +1303,6 @@ export function Scene3D({
 
       const tex = new THREE.CanvasTexture(c);
       tex.colorSpace = THREE.SRGBColorSpace;
-      // The web lies at a grazing angle: anisotropic filtering preserves the
-      // fine threads rather than turning the silk into a blurry sheet.
-      tex.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
       return tex;
     }
     const webTex = showcase ? null : makeWebTexture();
@@ -1314,7 +1311,7 @@ export function Scene3D({
     // Ground web layer: each web is a TATTERED old-cloth drape pinned into
     // all four corners. The grand web is one huge sheet spanning the whole
     // board; each After-Web snare uses one sheet at 3×3 scale.
-    const WEB_POOL_N = 24; // pooled sheets; each grand uses one floor and four walls
+    const WEB_POOL_N = 32; // two grand webs, their original rigging and snares
     const webGeo = new THREE.PlaneGeometry(1, 1);
     const webMat = new THREE.MeshBasicMaterial({
       map: webTex ?? undefined,
@@ -1408,24 +1405,6 @@ export function Scene3D({
     const glintM = new THREE.Matrix4();
     const glintS = new THREE.Vector3();
 
-    // Grand web's suspended silk canopy. One dynamic line draw call for all
-    // active ultimates, rather than hundreds of individual meshes/materials.
-    const CANOPY_RAYS = 24, CANOPY_STEPS = 6, CANOPY_RINGS = 9, MAX_CANOPIES = 2;
-    const canopyCapacity = MAX_CANOPIES * (CANOPY_RAYS * CANOPY_STEPS + CANOPY_RINGS * CANOPY_RAYS) * 2;
-    const canopyCos = Array.from({ length: CANOPY_RAYS + 1 }, (_, i) => Math.cos(i * Math.PI * 2 / CANOPY_RAYS));
-    const canopySin = Array.from({ length: CANOPY_RAYS + 1 }, (_, i) => Math.sin(i * Math.PI * 2 / CANOPY_RAYS));
-    const canopyPositions = new Float32Array(canopyCapacity * 3);
-    const canopyColors = new Float32Array(canopyCapacity * 3);
-    const canopyGeo = new THREE.BufferGeometry();
-    canopyGeo.setAttribute("position", new THREE.BufferAttribute(canopyPositions, 3).setUsage(THREE.DynamicDrawUsage));
-    canopyGeo.setAttribute("color", new THREE.BufferAttribute(canopyColors, 3).setUsage(THREE.DynamicDrawUsage));
-    canopyGeo.setDrawRange(0, 0);
-    const canopyMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.64, blending: THREE.AdditiveBlending, depthWrite: false });
-    const canopy = new THREE.LineSegments(canopyGeo, canopyMat);
-    canopy.frustumCulled = false;
-    canopy.renderOrder = 3;
-    if (!showcase) scene.add(canopy);
-
     // ——— CONTAINMENT LAW (exact rotated-rect fitting) ———
     // A sheet of size (rw, rh) spun by θ has axis-aligned footprint
     //   W = rw·|cosθ| + rh·|sinθ|,  H = rw·|sinθ| + rh·|cosθ|.
@@ -1469,7 +1448,6 @@ export function Scene3D({
         if (eggMesh.count !== 0) eggMesh.count = 0;
         if (glintMesh.count !== 0) glintMesh.count = 0;
         glintMat.opacity = 0;
-        canopyGeo.setDrawRange(0, 0);
         if (host) delete host.dataset.webGrowth;
         webAge.clear();
         return;
@@ -1480,10 +1458,8 @@ export function Scene3D({
       let rimN = 0;
       let en = 0;
       let glintN = 0;
-      let canopyVertices = 0;
       const motionEnabled = document.documentElement.dataset.motion !== "reduced" && !reducedMotionMedia.matches;
       const silkTime = motionEnabled ? time : 0;
-      let canopyCount = 0;
       for (const w of visualWebs) {
         const grand = w.kind === "grand";
         // Advance only on rendered frames, with a cap on slow frames. A wall
@@ -1564,6 +1540,22 @@ export function Scene3D({
           snareRim.setColorAt(rimN, projCol.setRGB(dissolve, dissolve, dissolve));
           rimN++;
         }
+        // Original brief pale silk wash, scaled with the original drape.
+        if (grand && motionEnabled && age < 1.05 && n < WEB_POOL_N) {
+          const wp = Math.min(1, age / 0.9);
+          const washK = 0.22 + 0.78 * (1 - Math.pow(1 - wp, 3));
+          webS.set(sw * washK, sh2 * washK, 1);
+          webE.set(-Math.PI / 2, 0, 0);
+          webQ.setFromEuler(webE);
+          projTmp.set(cx, 0.066, cz);
+          m4.compose(projTmp, webQ, webS);
+          m4.premultiply(grandScaleMatrix);
+          webMesh.setMatrixAt(n, m4);
+          colA.setHex(0xf4e6ff);
+          colB.setHex(0x241634);
+          webMesh.setColorAt(n, colA.lerp(colB, wp * 0.92));
+          n++;
+        }
         // NEST WALLS follow the same impact-centered scale as the floor.
         // X and Z differ slightly so a single tile grows to a 7×6 drawer.
         if (grand) {
@@ -1597,50 +1589,59 @@ export function Scene3D({
             webMesh.setColorAt(n, projCol.setHex(wallTint));
             n++;
           }
-
-        }
-        // Curved radial silk and cross-threads form a luminous suspended
-        // dome above the grand web. Every point remains within the board.
-        if (grand && canopyCount < MAX_CANOPIES) {
-          canopyCount++;
-          const rise = 1;
-          const sx = grandScaleMatrix.elements[0], sy = grandScaleMatrix.elements[5], sz = grandScaleMatrix.elements[10];
-          const fade = dissolve;
-          const phase = silkTime;
-          const vertex = (ray: number, radius: number) => {
-            const angle = ray * Math.PI * 2 / CANOPY_RAYS;
-            const dome = (1 - radius * radius) * (1.15 + 0.06 * Math.sin(phase * 1.6 + w.id));
-            canopyPositions[canopyVertices * 3] = cx + canopyCos[ray] * sw * 0.46 * radius * sx;
-            canopyPositions[canopyVertices * 3 + 1] = 0.052 + (0.09 + dome * rise - 0.052) * sy;
-            canopyPositions[canopyVertices * 3 + 2] = cz + canopySin[ray] * sh2 * 0.46 * radius * sz;
-            const pulse = (0.55 + 0.45 * Math.max(0, Math.sin(phase * 2.2 - radius * 8 + angle * 2))) * fade;
-            canopyColors[canopyVertices * 3] = 0.7 * pulse;
-            canopyColors[canopyVertices * 3 + 1] = 0.54 * pulse;
-            canopyColors[canopyVertices * 3 + 2] = 0.95 * pulse;
-            canopyVertices++;
-          };
-          // Silk spins outward from the nest before the cross-threads appear.
-          // The same fixed buffer is reused; reduced motion shows it immediately.
-          const reveal = 1; // the sheet itself expands, so silk stays at its edge
-          for (let ray = 0; ray < CANOPY_RAYS; ray++) {
-            for (let step = 0; step < CANOPY_STEPS; step++) {
-              const start = step / CANOPY_STEPS;
-              const end = Math.min(reveal, (step + 1) / CANOPY_STEPS);
-              if (end <= start) continue;
-              vertex(ray, start);
-              vertex(ray, end);
-            }
+          // SILK RIGGING: four taut guy-lines from the wall tops to the
+          // drawer corners — the nest's ropes. Thin sloped ribbons with a
+          // tiny yaw sway; every endpoint stays inside the board.
+          const rig: [number, number, number, number, number][] = [
+            [COLS / 2, ROWS - 0.1, COLS - 0.15, ROWS - 0.15, 0], // N top -> NE
+            [COLS - 0.1, ROWS / 2, COLS - 0.15, 0.15, 1], //        E top -> SE
+            [COLS / 2, 0.1, 0.15, 0.15, 2], //                      S top -> SW
+            [0.1, ROWS / 2, 0.15, ROWS - 0.15, 3], //               W top -> NW
+          ];
+          // mid-edge guys: drape rim rises to the wall tops at N/S/E/W
+          const mids: [number, number, number, number][] = [
+            [COLS / 2, ROWS - 0.75, COLS / 2, ROWS - 0.1],
+            [COLS / 2, 0.75, COLS / 2, 0.1],
+            [0.75, ROWS / 2, 0.1, ROWS / 2],
+            [COLS - 0.75, ROWS / 2, COLS - 0.1, ROWS / 2],
+          ];
+          for (const [ax, az, bx, bz] of mids) {
+            if (n >= WEB_POOL_N) break;
+            const dx = bx - ax;
+            const dz = bz - az;
+            const dy = 0.05 - wallH;
+            const len = Math.hypot(dx, dy, dz);
+            const yaw = Math.atan2(dx, dz);
+            const pitch = Math.acos(Math.max(-1, Math.min(1, dy / len)));
+            webE.set(pitch, yaw, 0, "YXZ");
+            webQ.setFromEuler(webE);
+            webS.set(0.045, len, 1);
+            projTmp.set((ax + bx) / 2, (wallH + 0.05) / 2, (az + bz) / 2);
+            m4.compose(projTmp, webQ, webS);
+            m4.premultiply(grandScaleMatrix);
+            webMesh.setMatrixAt(n, m4);
+            webMesh.setColorAt(n, projCol.setHex(0xcdb6f2));
+            n++;
           }
-          for (let ring = 1; ring <= CANOPY_RINGS; ring++) {
-            const r = ring / (CANOPY_RINGS + 1);
-            if (r > reveal) continue;
-            for (let ray = 0; ray < CANOPY_RAYS; ray++) {
-              vertex(ray, r);
-              vertex(ray + 1, r);
-            }
+          for (const [ax, az, bx, bz, gi] of rig) {
+            if (n >= WEB_POOL_N) break;
+            const dx = bx - ax;
+            const dz = bz - az;
+            const dy = 0.06 - wallH;
+            const len = Math.hypot(dx, dy, dz);
+            const yaw = Math.atan2(dx, dz) + Math.sin(silkTime * 1.3 + gi * 1.9 + w.id) * 0.02;
+            const pitch = Math.acos(Math.max(-1, Math.min(1, dy / len)));
+            webE.set(pitch, yaw, 0, "YXZ");
+            webQ.setFromEuler(webE);
+            webS.set(0.06, len, 1);
+            projTmp.set((ax + bx) / 2, (wallH + 0.06) / 2, (az + bz) / 2);
+            m4.compose(projTmp, webQ, webS);
+            m4.premultiply(grandScaleMatrix);
+            webMesh.setMatrixAt(n, m4);
+            webMesh.setColorAt(n, projCol.setHex(0xc9aaf5));
+            n++;
           }
         }
-
         // EGG SACS: small flattened ivory sacs CLUSTERED around the center
         // web (the nest's heart) — tucked low, half-sunk into the cloth.
         // Only After-Web has sacs; the star-3 ultimate has none.
@@ -1685,11 +1686,6 @@ export function Scene3D({
           glintMesh.setMatrixAt(glintN, glintM);
           glintN++;
         }
-      }
-      canopyGeo.setDrawRange(0, canopyVertices);
-      if (canopyVertices) {
-        canopyGeo.attributes.position.needsUpdate = true;
-        canopyGeo.attributes.color.needsUpdate = true;
       }
       webMesh.count = n;
       snareRim.count = rimN;
@@ -3553,7 +3549,6 @@ export function Scene3D({
       webGeo.dispose(); webMat.dispose();
       eggGeo.dispose(); eggMat.dispose();
       glintGeo.dispose(); glintMat.dispose(); glintTex.dispose();
-      canopyGeo.dispose(); canopyMat.dispose();
       holePool.forEach((hp) => scene.remove(hp.root));
       zonePool.forEach((zp) => scene.remove(zp.root));
       totemState.allyModel?.dispose();

@@ -2084,8 +2084,8 @@ html[data-background="light"] .shop-heading .shop-toggle[aria-pressed="true"] { 
 }
 @media (max-width:380px) {
   .round-track:not(.round-track--compact) .round-track__cell { width:20px; height:20px; }
-  .round-track--compact .round-track__cell { width:14px; height:20px; }
-  .round-track--compact .round-track__icon { width:10px; height:10px; }
+  .round-track--compact .round-track__cell { width:16px; height:20px; }
+  .round-track--compact .round-track__icon { width:12px; height:12px; }
   .round-track--compact[data-round-count="6"] .round-track__cell,
   .round-track--compact[data-round-count="7"] .round-track__cell { width:12px; }
   .round-track--compact[data-round-count="6"] .round-track__icon,

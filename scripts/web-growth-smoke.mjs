@@ -5,11 +5,12 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 const result = await build({ stdin: { contents: `export * from './src/game/web-growth.ts'; export {createBattle,stepBattle,COLS,ROWS} from './src/game/engine.ts';`, resolveDir: process.cwd(), loader:'ts' }, bundle:true, platform:'node', format:'esm', write:false });
 const { grandWebGrowth, GRAND_WEB_GROW_SECONDS, visualGrandImpactReady, setGrandWebScale, createBattle, stepBattle, COLS, ROWS } = await import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].contents).toString('base64')}`);
-// Lock the original silk texture (baseline 5393c85); animation must not
+// Lock the original silk texture (baseline 3b9d7ed); animation must not
 // replace the design. Egg sacs are intentionally absent from the ultimate.
 const scene = readFileSync('src/components/Scene3D.tsx', 'utf8');
 const texture = scene.slice(scene.indexOf('    function makeWebTexture() {'), scene.indexOf('    const webTex ='));
-assert.equal(createHash('sha256').update(texture).digest('hex'), '320a26057939a5f548612cfe37324015892d2c7a77b19a7076e9f82fab79bbcf');
+assert.equal(createHash('sha256').update(texture).digest('hex'), '2a46bceed224220c0138057450df9c56133ae5045e9a50d172f38dba4f846dca');
+assert.doesNotMatch(scene,/const canopyGeo/, 'later domed canopy must not replace the original web');
 assert.match(scene,/for \(let si = 0; !grand && si < clutch\.length/,'ultimate must not create egg sacs');
 let last = 0;
 for (let t=0;t<=GRAND_WEB_GROW_SECONDS;t+=0.1) {

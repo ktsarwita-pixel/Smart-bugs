@@ -18,7 +18,7 @@ try {
   const entry=version.locator('..').locator('..');
   const text=await entry.innerText();
   assert.match(text,/CURRENT/); assert.match(text,/650 damage/); assert.match(text,/opposing side/); assert.match(text,/reward chest/); assert.match(text,/UI Doctor/);
-  assert.match(text,/whole interface has a fresh field-lab look/); assert.match(text,/Colony health and the round map now have dedicated space/);
+  assert.match(text,/whole interface has a fresh field-lab look/); assert.match(text,/zoom the battlefield drawer in or out/); assert.match(text,/Colony health and the round map now have dedicated space/);
   assert.match(text,/main menu feels softer and more natural/); assert.match(text,/roar cue and label are smaller/);
   assert.equal(await entry.locator('li').count(),11,'merged entry retains the gameplay and UI changes');
   for (const width of [280,320,390]) {
@@ -39,6 +39,7 @@ try {
   assert.match(await merged.innerText(),/Peti VS/,'chest update remains translated');
   assert.match(await merged.innerText(),/Menu utama terasa lebih lembut dan alami/,'compact menu update is translated');
   assert.match(await merged.innerText(),/label raungan Laba-laba kini lebih kecil/,'smaller roar cue is translated');
+  assert.match(await merged.innerText(),/memperbesar atau memperkecil laci pertempuran/,'drawer zoom note is translated');
   assert.deepEqual(errors,[]);
   console.log('PASS single v0.62 patch notes, retained changes, translations and narrow layouts');
 } finally {await browser.close();}

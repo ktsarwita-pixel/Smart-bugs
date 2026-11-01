@@ -23,6 +23,8 @@ interface Props {
   /** Live mutable battle ref for 60/120fps rendering without React re-renders */
   battleRef?: React.RefObject<BattleState | null>;
   battleSpeed?: number;
+  /** User-selected magnification of the battlefield camera (1 is fit-to-screen). */
+  drawerZoom?: number;
   /** Visual changes reserved for the opt-in playable test build. */
   advancedEffects?: boolean;
   treasure?: boolean;
@@ -124,6 +126,7 @@ export function Scene3D({
   battle = null,
   battleRef,
   battleSpeed = 1,
+  drawerZoom = 1,
   advancedEffects = false,
   treasure = false,
   selectedUid = null,
@@ -149,6 +152,7 @@ export function Scene3D({
     battle,
     battleRef,
     battleSpeed,
+    drawerZoom,
     treasure,
     selectedUid,
     canDeployMore,
@@ -166,6 +170,7 @@ export function Scene3D({
     battle,
     battleRef,
     battleSpeed,
+    drawerZoom,
     treasure,
     selectedUid,
     canDeployMore,
@@ -2025,6 +2030,7 @@ export function Scene3D({
     // and resizes the stage mid-session; tick() eases the real distance toward
     // this target so the reframing glides instead of jolting the camera.
     let camDistTarget = 11;
+    const cameraZoom = () => !showcase && advancedEffects ? Math.min(1.32, Math.max(0.74, P.current.drawerZoom || 1)) : 1;
     // ── Adaptive resolution ──
     // Sustained slow frames (EMA of frame time) step the render scale down;
     // sustained headroom steps it back up. Keeps the scene smooth on weak
@@ -2055,7 +2061,7 @@ export function Scene3D({
       if (!cameraInitialized) {
         // ResizeObserver may repaint before the first animation frame. Never
         // render from Three's default origin (inside the board) in that gap.
-        camDist = camDistTarget;
+        camDist = camDistTarget / cameraZoom();
         camera.position.set(target.x, target.y + Math.sin(elev) * camDist, target.z + Math.cos(elev) * camDist);
         camera.lookAt(target);
         cameraInitialized = true;
@@ -3414,7 +3420,11 @@ export function Scene3D({
       const el2 = elev - parallax.y * 0.07;
       impactShake = Math.max(0, impactShake - dt * 5.5);
       const shake = impactShake * impactShake;
-      camDist += (camDistTarget - camDist) * (1 - Math.exp(-dt * 4.5));
+      const zoom = cameraZoom();
+      const distanceTarget = camDistTarget / zoom;
+      if (advancedEffects && !showcase && (document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches)) camDist = distanceTarget;
+      else camDist += (distanceTarget - camDist) * (1 - Math.exp(-dt * 4.5));
+      if (advancedEffects && !showcase && renderer.domElement.dataset.drawerZoom !== zoom.toFixed(2)) renderer.domElement.dataset.drawerZoom = zoom.toFixed(2);
       camera.position.set(
         target.x + Math.sin(az) * Math.cos(el2) * camDist + Math.sin(t * 91) * shake * 0.075,
         target.y + Math.sin(el2) * camDist + Math.cos(t * 113) * shake * 0.05,
@@ -3584,6 +3594,8 @@ export function Scene3D({
       if (advancedEffects && (totemAuditClock -= dt) <= 0) {
         totemAuditClock = 0.5;
         if (document.querySelector("[data-ui-doctor]")) {
+          renderer.domElement.dataset.cameraDistance = camDist.toFixed(3);
+          renderer.domElement.dataset.cameraMagnification = (camDistTarget / camDist).toFixed(3);
           camera.updateMatrixWorld();
           const bounds: Record<string, number[]> = {};
           for (const [side, holder] of [["ally", totemState.allyHolder], ["foe", totemState.foeHolder]] as const) {

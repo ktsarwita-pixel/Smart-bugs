@@ -2483,6 +2483,21 @@ html, body, #root { max-width: 100%; overflow-x: clip; }
 .advanced-ui .ladder-cell[data-foe="1"] { border-color: #e87a54; background: #342017; }
 .advanced-ui .ladder-hp { font-variant-numeric: tabular-nums; }
 .advanced-ui .battle-stage { background: #0b100b; border-top: 1px solid #4f4532; }
+/* The zoom rail has its own strip, so its touch targets never cover tiles or
+   unit health. The selected-unit panel stays above it on short phones. */
+.advanced-ui .battle-stage__scene { width: calc(100% - 48px); }
+.drawer-zoom {
+  position: absolute; right: 4px; bottom: 4px; z-index: 30;
+  display: grid; width: 40px; gap: 2px; justify-items: center;
+}
+.drawer-zoom button {
+  display: grid; place-items: center; width: 40px; height: 40px;
+  border: 1px solid #9b8051; border-radius: 5px; background: #1b2119;
+  color: #f4d49a; font: 700 22px/1 sans-serif; touch-action: manipulation;
+}
+.drawer-zoom button:hover:not(:disabled) { background: #344634; border-color: #a6dfb2; }
+.drawer-zoom button:disabled { opacity: .4; }
+.drawer-zoom output { color: #ddd0b5; font: 700 8px/1 var(--font-mono); text-align: center; }
 .advanced-ui .stage-hint { border-color: #6b593d; background: #121a11eF; color: #f3e6cb; }
 .advanced-ui .game-dock { border-color: #60503a; background: #1b1a13; }
 .advanced-ui .prep-dock, .advanced-ui .combat-dock { background: linear-gradient(180deg, #24251a, #151710); }

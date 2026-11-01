@@ -91,6 +91,7 @@ import {
 type Phase = "title" | "cmd" | "prep" | "battle" | "result" | "spectate" | "final";
 
 const SHOWCASE_IDS = SPECIMEN_IDS;
+const DRAWER_ZOOM_LEVELS = [0.74, 0.86, 1, 1.15, 1.32] as const;
 
 const MOTES = Array.from({ length: 16 }, (_, i) => ({
   i,
@@ -313,6 +314,8 @@ export default function App() {
   const [shop, setShop] = useState<(BugId | null)[]>(rollShop);
   const [match, setMatch] = useState(createMatch);
   const [selected, setSelected] = useState<number | null>(null);
+  const [drawerZoomIndex, setDrawerZoomIndex] = useState(2);
+  const drawerZoom = DRAWER_ZOOM_LEVELS[drawerZoomIndex];
   const [benchInspectMode, setBenchInspectMode] = useState(false);
   useEffect(() => { if (phase !== "prep") setBenchInspectMode(false); }, [phase]);
   const [speed, setSpeed] = useState<1 | 2 | 3>(() => {
@@ -2068,6 +2071,7 @@ export default function App() {
               battle={phase === "prep" ? null : battleSnap}
               battleRef={phase === "prep" ? undefined : battleRef}
               battleSpeed={speed}
+              drawerZoom={drawerZoom}
               advancedEffects={advancedGame}
               selectedUid={selected}
               canDeployMore={canDeployMore}
@@ -2077,8 +2081,19 @@ export default function App() {
               treasure={!!treasure}
               onCell={onCell}
               onUnit={onUnit}
-              className="h-full w-full"
+              className={advancedGame ? "battle-stage__scene h-full" : "h-full w-full"}
             />
+            {advancedGame && (
+              <div className="drawer-zoom" role="group" aria-label={t("Drawer zoom")} data-zoom={drawerZoom}>
+                <button type="button" aria-label={t("Zoom in drawer")} title={t("Zoom in drawer")}
+                  disabled={drawerZoomIndex === DRAWER_ZOOM_LEVELS.length - 1}
+                  onClick={() => setDrawerZoomIndex(index => Math.min(DRAWER_ZOOM_LEVELS.length - 1, index + 1))}>+</button>
+                <output aria-live="polite">{Math.round(drawerZoom * 100)}%</output>
+                <button type="button" aria-label={t("Zoom out drawer")} title={t("Zoom out drawer")}
+                  disabled={drawerZoomIndex === 0}
+                  onClick={() => setDrawerZoomIndex(index => Math.max(0, index - 1))}>−</button>
+              </div>
+            )}
 
             {/* Compact Opponent Corner Tag — desktop staple; on phones combat
                 hides it (the deck VS plaque already carries the matchup) so

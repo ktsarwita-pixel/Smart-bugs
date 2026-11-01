@@ -191,7 +191,10 @@ export function auditVisuals(scope: ParentNode): VisualAudit {
         if (!Array.isArray(value) || value.length !== 4 || value.some(v => typeof v !== "number" || !Number.isFinite(v))) continue;
         checked++;
         const [left, top, right, bottom] = value as number[];
-        if (left < -.01 || top < -.01 || right > 1.01 || bottom > 1.01) {
+        // Zooming in deliberately crops the outer board; don't report that
+        // chosen view (or its glide back to fit) as a camera-framing defect.
+        const zoomed = Number(canvas.dataset.drawerZoom || 1) > 1 || Number(canvas.dataset.cameraMagnification || 1) > 1.01;
+        if (!zoomed && (left < -.01 || top < -.01 || right > 1.01 || bottom > 1.01)) {
           add("VISUAL", "warning", "Commander model clipped", `The ${side} commander's projected 3D artwork extends beyond the battlefield edge.`, canvas);
         }
       }

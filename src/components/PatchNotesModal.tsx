@@ -24,7 +24,7 @@ const VERSIONS: VersionEntry[] = [
       "The VS chest and round reward chest face you with richer details, a connected hinge and a smoother opening. Reduced motion is respected.",
       "The round map uses detailed monochrome chest and centered stag pixel art, joined by a clearer timeline.",
       "UI Doctor checks Spider facing, rotation and roar-label placement alongside chest alignment and rendering; it also checks portrait alignment and reports partly off-screen controls.",
-      "The whole interface has a fresh field-lab look: a clearer main menu, commander cards, battle deck, shop, bench and round results across phones, tablets and desktop.",
+      "The whole interface has a fresh field-lab look: a clearer main menu, commander cards, battle deck, shop, bench and round results across phones, tablets and desktop. Use + and − to zoom the battlefield drawer in or out.",
       "The main menu feels softer and more natural. Phone commander portraits stay centered in a compact row with full perks and an expandable rival roster, and battlefield commanders stay in frame. The battle layout fits when space allows; shorter screens can still scroll.",
       "The Spider's roar cue and label are smaller and simpler, with a faint ring that leaves the battlefield visible; the label moves clear of the Spider's health bar.",
       "Colony health and the round map now have dedicated space, including long periods and landscape layouts. UI Doctor checks the HUD for overlapping or clipped elements.",

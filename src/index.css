@@ -2861,7 +2861,7 @@ html, body, #root { max-width: 100%; overflow-x: clip; }
   .advanced-ui .round-track--advanced .round-track__cell:not(:last-child)::after { width: 2px; }
 }
 
-/* ── v0.63 responsive drawer ─────────────────────────────────────────────
+/* ── v0.62 responsive drawer ─────────────────────────────────────────────
    The canvas owns a real flex row instead of sharing width with an overlay
    rail. Zoom controls live in a dedicated toolbar, so no tile, commander or
    border is ever hidden behind a button. The dock keeps its action bar in

@@ -10,6 +10,13 @@ page.on('pageerror', error => errors.push(error.message));
 
 const checkDeck = async (width, height, count) => {
   await page.setViewportSize({ width, height });
+  // Viewport and container-query styles can settle a frame after a rotation.
+  // Wait for the compact icons before injecting a long-period stress fixture.
+  await page.waitForFunction(({ width, height }) => {
+    const icon = document.querySelector('.round-track--compact .round-track__icon');
+    if (!icon || innerWidth !== width || innerHeight !== height) return false;
+    return !(width >= 560 && width <= 640 && width > height && height <= 540) || parseFloat(getComputedStyle(icon).width) <= 15;
+  }, { width, height }, { timeout: 10000, polling: 100 });
   const result = await page.evaluate(count => {
     const row = document.querySelector('.deck-row');
     const track = row.querySelector('.round-track--compact');
@@ -191,7 +198,7 @@ try {
 
   // Intrinsic sizes include large balances and a streak, not only the empty
   // starting state. Long maps model the real 6- and 7-round period markup.
-  for (const [width, height] of [[280,653],[320,568],[360,740],[380,740],[390,844],[480,800],[580,800],[720,1024],[735,1024],[768,1024],[812,375],[1024,768],[1160,800],[1280,800]]) {
+  for (const [width, height] of [[280,653],[320,568],[360,740],[380,740],[390,844],[480,800],[580,800],[568,320],[600,340],[667,375],[720,1024],[735,1024],[768,1024],[812,375],[1024,768],[1160,800],[1280,800]]) {
     for (const count of [4, 6, 7]) await checkDeck(width, height, count);
     console.log(`PASS HUD and shop ${width}x${height}`);
   }
@@ -201,8 +208,10 @@ try {
   // especially after the desktop cases on a loaded runner.
   await page.waitForFunction(() => {
     const r=document.querySelector('.battle-stage')?.getBoundingClientRect();
-    return innerWidth===390 && r && r.width>=370 && r.width<=390 && r.height>=180;
-  }, null, {timeout:10000,polling:100});
+    const dock=document.querySelector('.game-dock')?.getBoundingClientRect();
+    return innerWidth===390 && r && dock && r.width>=370 && r.width<=390 && r.height>=180 &&
+      Math.abs(r.bottom-dock.top)<=1 && Math.abs(dock.bottom-innerHeight)<=2;
+  }, null, {timeout:15000,polling:100});
   const vs = page.locator('button.vs-plaque');
   const boardBeforeScout = await page.locator('.battle-stage').boundingBox();
   await vs.tap(); assert.equal(await vs.getAttribute('aria-pressed'), 'true');
@@ -215,10 +224,16 @@ try {
   await page.locator('.selected-actions').getByRole('button', { name: 'DEPLOY' }).tap();
   await page.getByRole('button', { name: /Engage battle/ }).tap();
   await page.getByText('COMBAT TELEMETRY').waitFor();
-  await page.getByRole('button', { name: '2×' }).tap();
-  assert.equal(await page.getByRole('button', { name: '2×' }).getAttribute('aria-pressed'), 'true');
-  await page.getByRole('button', { name: '1×' }).tap();
   const result = page.locator('.result-card');
+  // A real fight may end while the 2× speed is active on a slow runner.
+  // The mobile suite independently verifies speed controls at every size.
+  try {
+    await page.getByRole('button', { name: '2×' }).tap({ timeout: 3000 });
+    assert.equal(await page.getByRole('button', { name: '2×' }).getAttribute('aria-pressed'), 'true');
+    await page.getByRole('button', { name: '1×' }).tap({ timeout: 3000 });
+  } catch (error) {
+    if (!await result.isVisible()) throw error;
+  }
   // A real battle can finish before the admin tap on a slow WebGL runner.
   // Accept that result rather than trying to click behind its modal.
   if (!await result.isVisible()) {

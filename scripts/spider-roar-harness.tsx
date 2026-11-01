@@ -33,7 +33,8 @@ Object.assign(window, {
 
 function Fixture() {
   const [mode, setMode] = useState<"prep" | "battle">(params.has("prep") ? "prep" : "battle");
-  Object.assign((window as unknown as { roarHarness: object }).roarHarness, { start: () => setMode("battle") });
-  return <><Scene3D mode={mode} prep={prep} battle={battle} battleRef={battleRef} cmdA={cmdA} cmdB={cmdB} advancedEffects={!params.has("legacy")} className="h-full w-full" />{params.has("doctor") && <UiDoctor />}</>;
+  const [zoom, setZoom] = useState(Number(params.get("zoom")) || 1);
+  Object.assign((window as unknown as { roarHarness: object }).roarHarness, { start: () => setMode("battle"), zoom: setZoom });
+  return <><Scene3D mode={mode} prep={prep} battle={battle} battleRef={battleRef} cmdA={cmdA} cmdB={cmdB} drawerZoom={zoom} advancedEffects={!params.has("legacy")} className="h-full w-full" />{params.has("doctor") && <UiDoctor />}</>;
 }
 createRoot(document.getElementById("root")!).render(<SettingsProvider><Fixture /></SettingsProvider>);

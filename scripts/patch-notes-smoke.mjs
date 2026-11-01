@@ -21,7 +21,8 @@ try {
   assert.match(text,/whole interface has a fresh field-lab look/); assert.match(text,/zoom the battlefield drawer in or out/); assert.match(text,/Colony health and the round map now have dedicated space/);
   assert.match(text,/main menu feels softer and more natural/); assert.match(text,/roar cue and label are smaller/);
   assert.match(text,/Auto, Low, Medium or High 3D resolution/); assert.match(text,/UI Doctor reports the active render size/);
-  assert.equal(await entry.locator('li').count(),12,'merged entry retains the gameplay and UI changes');
+  assert.match(text,/Fixed close-zoom framing in fullscreen/); assert.match(text,/Sideways mode puts the drawer beside/);
+  assert.equal(await entry.locator('li').count(),14,'merged entry retains the gameplay and UI changes');
   for (const width of [280,320,390]) {
     await page.setViewportSize({width,height:653});
     const layout=await version.evaluate(el=>{
@@ -42,6 +43,8 @@ try {
   assert.match(await merged.innerText(),/label raungan Laba-laba kini lebih kecil/,'smaller roar cue is translated');
   assert.match(await merged.innerText(),/memperbesar atau memperkecil laci pertempuran/,'drawer zoom note is translated');
   assert.match(await merged.innerText(),/Pilih resolusi 3D Otomatis, Rendah, Sedang, atau Tinggi/,'resolution note is translated');
+  assert.match(await merged.innerText(),/Perbaikan tampilan zoom dekat di layar penuh/,'zoom fix is translated');
+  assert.match(await merged.innerText(),/Mode menyamping menempatkan laci/,'sideways mode is translated');
   assert.deepEqual(errors,[]);
   console.log('PASS single v0.62 patch notes, retained changes, translations and narrow layouts');
 } finally {await browser.close();}

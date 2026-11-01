@@ -19,6 +19,7 @@
     "test:ui-refresh": "node scripts/ui-refresh-smoke.mjs",
     "test:commander-framing": "node scripts/commander-framing-smoke.mjs",
     "test:drawer-zoom": "node scripts/drawer-zoom-smoke.mjs",
+    "test:sideways": "node scripts/fullscreen-sideways-smoke.mjs",
     "test:resolution": "node scripts/resolution-perf-smoke.mjs"
   },
   "dependencies": {

@@ -20,17 +20,37 @@ const RESOLUTIONS: { id: RenderResolution; label: string }[] = [
   { id: "high", label: "High — 100%" },
 ];
 
+// A browser orientation lock belongs to the page, not to one Settings sheet.
+// Keep its ownership across menu/game remounts, without persisting a permission
+// that must be requested again by a user gesture after a reload.
+const sidewaysSession = { locked: false, usedFullscreen: false, ownsFullscreen: false };
+type LockableOrientation = ScreenOrientation & { lock?: (orientation: "landscape") => Promise<void> };
+
 /**
  * Options sheet. Mobile-first bottom sheet, centred dialog on desktop.
- * Everything here is applied immediately and persisted to localStorage.
+ * Preferences apply immediately; browser display permissions are session-only.
  */
 export function SettingsModal({ open, onClose }: Props) {
   const { lang, setLang, motion, setMotion, potato, setPotato, resolution, setResolution, background, setBackground, t } = useSettings();
   const [fullscreen, setFullscreen] = useState(() => !!document.fullscreenElement);
   const [fullscreenError, setFullscreenError] = useState(false);
+  const [sidewaysLocked, setSidewaysLocked] = useState(() => sidewaysSession.locked);
+  const [sidewaysBusy, setSidewaysBusy] = useState(false);
+  const [sidewaysMessage, setSidewaysMessage] = useState("");
   const fullscreenSupported = !!document.fullscreenEnabled && !!document.documentElement.requestFullscreen;
   useEffect(() => {
-    const sync = () => setFullscreen(!!document.fullscreenElement);
+    const sync = () => {
+      setFullscreen(!!document.fullscreenElement);
+      // Browsers release a fullscreen orientation lock when the user exits
+      // fullscreen (including Escape). Don't leave a misleading ON state.
+      if (!document.fullscreenElement && sidewaysSession.locked && sidewaysSession.usedFullscreen) {
+        try { screen.orientation?.unlock(); } catch { /* already unlocked */ }
+        sidewaysSession.locked = sidewaysSession.usedFullscreen = sidewaysSession.ownsFullscreen = false;
+        setSidewaysLocked(false);
+        setSidewaysMessage("");
+      }
+    };
+    sync();
     document.addEventListener("fullscreenchange", sync);
     return () => document.removeEventListener("fullscreenchange", sync);
   }, []);
@@ -41,6 +61,52 @@ export function SettingsModal({ open, onClose }: Props) {
       else await document.documentElement.requestFullscreen();
     } catch {
       setFullscreenError(true);
+    }
+  };
+  const toggleSideways = async () => {
+    if (sidewaysBusy) return;
+    setSidewaysBusy(true);
+    setSidewaysMessage("");
+    try {
+      if (sidewaysSession.locked) {
+        const exitOwnedFullscreen = sidewaysSession.ownsFullscreen && !!document.fullscreenElement;
+        try { screen.orientation?.unlock(); } catch { /* fullscreen exit also releases the lock */ }
+        sidewaysSession.locked = sidewaysSession.usedFullscreen = sidewaysSession.ownsFullscreen = false;
+        setSidewaysLocked(false);
+        if (exitOwnedFullscreen) {
+          try { await document.exitFullscreen(); } catch { /* user can exit fullscreen separately */ }
+        }
+        return;
+      }
+      const orientation = screen.orientation as LockableOrientation | undefined;
+      if (typeof orientation?.lock !== "function") {
+        setSidewaysMessage("Could not lock orientation. Rotate your device sideways; the layout adjusts automatically.");
+        return;
+      }
+      let ownsFullscreen = false;
+      try {
+        // Most mobile browsers require fullscreen; installed apps may allow
+        // locking without it. Preserve fullscreen if the player entered it.
+        if (!document.fullscreenElement && fullscreenSupported) {
+          try {
+            await document.documentElement.requestFullscreen();
+            ownsFullscreen = !!document.fullscreenElement;
+          } catch { /* still try: standalone browsers may allow orientation lock */ }
+        }
+        await orientation.lock("landscape");
+        sidewaysSession.locked = true;
+        sidewaysSession.usedFullscreen = !!document.fullscreenElement;
+        sidewaysSession.ownsFullscreen = ownsFullscreen;
+        setSidewaysLocked(true);
+        setSidewaysMessage("Sideways orientation is locked. Unlock it to return to your device's normal rotation.");
+      } catch {
+        if (ownsFullscreen && document.fullscreenElement) {
+          try { await document.exitFullscreen(); } catch { /* user can exit fullscreen separately */ }
+        }
+        setSidewaysMessage("Could not lock orientation. Rotate your device sideways; the layout adjusts automatically.");
+      }
+    } finally {
+      setSidewaysBusy(false);
     }
   };
   const advancedDoctor = isAdvancedGameLocation(window.location);
@@ -135,6 +201,19 @@ export function SettingsModal({ open, onClose }: Props) {
           </div>
 
           {advancedDoctor && <>
+            <div className="mt-4 mb-2 flex items-center gap-2">
+              <IconSettings size={13} className="text-[#56DCA8]" />
+              <h3 className="label text-[8px] text-[#56DCA8]">{t("SIDEWAYS MODE")}</h3>
+            </div>
+            <button type="button" onClick={toggleSideways} disabled={sidewaysBusy}
+              aria-pressed={sidewaysLocked} aria-describedby="sideways-help"
+              className="lift min-h-[48px] w-full border border-[#4A3828] bg-[#17110C] px-3 py-2 text-left font-mono text-[11px] text-[#EDE2CB] hover:border-[#56DCA8] disabled:opacity-50">
+              {sidewaysLocked ? t("Unlock sideways orientation") : t("Lock sideways orientation")}
+            </button>
+            <p id="sideways-help" className="mt-2 text-[10px] leading-snug text-[#9C8F7E]" role="status" aria-live="polite">
+              {t(sidewaysMessage || "Turn your device sideways for a wider drawer and a side command panel. Automatic locking depends on your browser.")}
+            </p>
+
             <div className="mt-4 mb-2 flex items-center gap-2">
               <IconSettings size={13} className="text-[#F0A93B]" />
               <h3 className="label text-[8px] text-[#F0A93B]">{t("3D RESOLUTION")}</h3>

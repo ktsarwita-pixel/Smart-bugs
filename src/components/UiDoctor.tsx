@@ -104,15 +104,27 @@ function audit(): Scan {
     const outline = st.outlineStyle !== "none" ? Number.parseFloat(st.outlineWidth) || 0 : 0;
     const thick = Math.max(...widths, outline);
     if (thick <= 0) continue;
-    const visualLeft = r.left - outline, visualRight = r.right + outline;
-    const visualTop = r.top - outline, visualBottom = r.bottom + outline;
+    let visualLeft = r.left - outline, visualRight = r.right + outline;
+    let visualTop = r.top - outline, visualBottom = r.bottom + outline;
     let clippedBy: HTMLElement | null = null;
+    let outsideScrollableArea = false;
     for (let p = node.parentElement; p && p !== document.body; p = p.parentElement) {
       const ps = getComputedStyle(p), pr = p.getBoundingClientRect();
+      // The portion outside a real scrollport is intentionally offscreen, not
+      // a border clipped by some more distant overflow:hidden ancestor. Audit
+      // only the visible portion, and skip items entirely outside the port.
+      if (/(auto|scroll)/.test(ps.overflowX) && p.scrollWidth > p.clientWidth + 2) {
+        visualLeft = Math.max(visualLeft, pr.left); visualRight = Math.min(visualRight, pr.right);
+      }
+      if (/(auto|scroll)/.test(ps.overflowY) && p.scrollHeight > p.clientHeight + 2) {
+        visualTop = Math.max(visualTop, pr.top); visualBottom = Math.min(visualBottom, pr.bottom);
+      }
+      if (visualRight <= visualLeft || visualBottom <= visualTop) { outsideScrollableArea = true; break; }
       const clipsX = /(hidden|clip)/.test(ps.overflowX) && (visualLeft < pr.left - 1 || visualRight > pr.right + 1);
       const clipsY = /(hidden|clip)/.test(ps.overflowY) && (visualTop < pr.top - 1 || visualBottom > pr.bottom + 1);
       if (clipsX || clipsY) { clippedBy = p; break; }
     }
+    if (outsideScrollableArea) continue;
     const fixedVerticalMiss = (st.position === "fixed" || node.getAttribute("role") === "dialog") && (visualTop < -1 || visualBottom > height + 1);
     if (clippedBy) {
       if (borderFindings++ < 12) add("BORDER", "warning", node.getAttribute("aria-label") || labelFor(node) || selectorFor(node), `${selectorFor(node)}: border is clipped by ${selectorFor(clippedBy)}`, node, r.left, r.top);

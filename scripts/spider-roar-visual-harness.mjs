@@ -2,14 +2,14 @@ import assert from 'node:assert/strict';
 import {chromium} from 'playwright-core';
 
 const base=process.env.BASE_URL||'http://127.0.0.1:5173';
-const reduced=process.env.REDUCED==='1', edge=process.env.EDGE==='1', short=process.env.SHORT==='1', lang=process.env.GAME_LANG||'en';
+const reduced=process.env.REDUCED==='1', edge=process.env.EDGE==='1', short=process.env.SHORT==='1', lang=process.env.GAME_LANG||'en', zoom=Number(process.env.ZOOM)||1;
 const scenario=process.env.SCENARIO||'interrupt'; // interrupt, simultaneous, legacy
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH,args:['--no-sandbox','--disable-dev-shm-usage','--single-process','--no-zygote','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
 const page=await browser.newPage({viewport:{width:edge?280:384,height:560},isMobile:true,hasTouch:true});
 const errors=[];page.on('pageerror',error=>errors.push(error.message));
 try {
   await page.addInitScript(({reduced,lang})=>localStorage.setItem('smartbugs.settings',JSON.stringify({rev:2,lang,motion:reduced?'reduced':'full',potato:false,background:'dark'})),{reduced,lang});
-  const params=new URLSearchParams(); if(scenario==='legacy') params.set('legacy','1'); if(edge) params.set('edge','1'); if(short) params.set('short','1');
+  const params=new URLSearchParams(); if(scenario==='legacy') params.set('legacy','1'); if(edge) params.set('edge','1'); if(short) params.set('short','1'); if(zoom!==1) params.set('zoom',String(zoom));
   await page.goto(`${base}/scripts/spider-roar-harness.html?${params}`);
   await page.waitForFunction(()=>window.roarHarness&&document.querySelectorAll('.ov-unit[data-roaring="true"]').length===2,null,{timeout:20000});
   const cue = uid => page.locator(`.roar-cue[data-roar-unit="${uid}"]`);
@@ -99,5 +99,5 @@ try {
     if (scenario==='simultaneous') await page.waitForFunction(()=>document.querySelector('.roar-cue[data-roar-unit="3"]')?.dataset.roarCue==='impact',null,{timeout:10000});
   }
   assert.deepEqual(errors,[]);
-  console.log(`PASS roar cue ${scenario}, both sides, damage, reduced-motion=${reduced}, edge=${edge}, short-stage=${short}, lang=${lang}`);
+  console.log(`PASS roar cue ${scenario}, both sides, damage, reduced-motion=${reduced}, edge=${edge}, short-stage=${short}, zoom=${zoom}, lang=${lang}`);
 } finally {await browser.close();}

@@ -2066,6 +2066,11 @@ export function Scene3D({
     const fitW = showcase ? 4.8 : 7.85;
     const fitH = showcase ? 2.55 : advancedEffects ? 8.5 : 7.35;
     const elev = showcase ? 0.36 : 0.84;
+    // At close zoom the near commander used to slide out of the viewport.
+    // Lowering the view slightly foreshortens the drawer's depth, keeping
+    // both end plinths visible while the playable board still grows.
+    const zoomElevation = (zoom: number) => !showcase && advancedEffects ? elev - Math.max(0, zoom - 1) * 0.62 : elev;
+    let camElev = elev;
     let camDist = 11;
     // Fit distance for the current viewport. Entering a battle swaps the dock
     // and resizes the stage mid-session; tick() eases the real distance toward
@@ -2096,7 +2101,8 @@ export function Scene3D({
         // ResizeObserver may repaint before the first animation frame. Never
         // render from Three's default origin (inside the board) in that gap.
         camDist = camDistTarget / cameraZoom();
-        camera.position.set(target.x, target.y + Math.sin(elev) * camDist, target.z + Math.cos(elev) * camDist);
+        camElev = zoomElevation(cameraZoom());
+        camera.position.set(target.x, target.y + Math.sin(camElev) * camDist, target.z + Math.cos(camElev) * camDist);
         camera.lookAt(target);
         cameraInitialized = true;
       }
@@ -3453,13 +3459,23 @@ export function Scene3D({
       parallax.lerp(parallaxTarget, 1 - Math.exp(-dt * 4));
       const drift = Math.sin(t * 0.22) * 0.03;
       const az = drift + parallax.x * 0.12;
-      const el2 = elev - parallax.y * 0.07;
       impactShake = Math.max(0, impactShake - dt * 5.5);
       const shake = impactShake * impactShake;
       const zoom = cameraZoom();
       const distanceTarget = camDistTarget / zoom;
-      if (advancedEffects && !showcase && (document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches)) camDist = distanceTarget;
-      else camDist += (distanceTarget - camDist) * (1 - Math.exp(-dt * 4.5));
+      const elevationTarget = zoomElevation(zoom);
+      if (advancedEffects && !showcase && (document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches)) {
+        camDist = distanceTarget;
+        camElev = elevationTarget;
+      } else {
+        const cameraEase = 1 - Math.exp(-dt * 4.5);
+        camDist += (distanceTarget - camDist) * cameraEase;
+        camElev += (elevationTarget - camElev) * cameraEase;
+      }
+      // Mouse parallax should not push the near model back out of frame at
+      // high zoom; keep a subtle tilt, with less range as the camera closes in.
+      const tiltRange = advancedEffects && !showcase ? 0.07 * (1 - Math.max(0, zoom - 1) * 2.4) : 0.07;
+      const el2 = camElev - parallax.y * tiltRange;
       if (advancedEffects && !showcase && renderer.domElement.dataset.drawerZoom !== zoom.toFixed(2)) renderer.domElement.dataset.drawerZoom = zoom.toFixed(2);
       camera.position.set(
         target.x + Math.sin(az) * Math.cos(el2) * camDist + Math.sin(t * 91) * shake * 0.075,

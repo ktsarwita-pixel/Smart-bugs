@@ -1941,11 +1941,11 @@ export default function App() {
                 slim snap-scroll cells so all 8 colonies read in a single glance,
                 never the old two-row wall that ate the prep screen. */}
             <div className={`deck-ladder px-2 pb-1.5 pt-1 sm:px-3 ${inCombat ? "hidden min-[720px]:block" : ""}`}>
-              <div className="mb-0.5 flex items-center justify-between">
+              <div className="ladder-title mb-0.5 flex items-center justify-between">
                 <span className="label text-[6px] text-[#8C7E6E]">{t("Colony ladder")}</span>
                 <span className="label text-[6px] text-[#8C7E6E]">{t("1 survivor wins")}</span>
               </div>
-              <div className={`ladder-strip ${focusedColony ? "ladder-strip--detail" : ""}`} role="list">
+              <div className={`ladder-strip ${focusedColony ? "ladder-strip--detail" : ""}`} role="list" aria-label={t("Colony ladder")}>
                 {ladderRows.map((s, i) => (
                   <div
                     key={s.key}
@@ -1994,7 +1994,7 @@ export default function App() {
                 </div>
               )}
               {elsewhere.length > 0 && (
-                <div className="mt-0.5 flex items-center gap-x-2 overflow-hidden whitespace-nowrap">
+                <div className="ladder-elsewhere mt-0.5 flex items-center gap-x-2 overflow-hidden whitespace-nowrap">
                   <span className="label shrink-0 text-[5.5px] text-[#6E6252]">{t("ELSEWHERE THIS ROUND")}</span>
                   <span className="label truncate text-[5.5px] text-[#9C8F7E]">
                     {elsewhere.map((f, i) => (
@@ -2132,7 +2132,7 @@ export default function App() {
         <aside className="panel-wood game-dock safe-b flex min-h-0 flex-col border-t-2 border-[#3B322A] lg:border lg:border-t">
           {/* Desktop Specimen Inspector — prep only; in combat the telemetry dock gets the room */}
           {!inCombat && (
-          <div className="hidden border-b border-[#3B322A] p-3 lg:block">
+          <div className="specimen-inspector hidden border-b border-[#3B322A] p-3 lg:block">
             <div className="label mb-1.5 text-[7.5px] text-[#8C7E6E]">{t("SPECIMEN INSPECTOR")}</div>
             {sel ? (
               <div className="flex items-start gap-3">
@@ -2522,7 +2522,7 @@ export default function App() {
                 <div className="section-heading shop-heading mb-1 flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <span className="label text-[7.5px] text-[#9C8F7E]">{t("PIPKIN SUPPLY")}</span>
-                    <span className="ml-2 hidden items-center gap-1.5 min-[480px]:ml-2 min-[480px]:flex">
+                    <span className="shop-rarities ml-2 hidden items-center gap-1.5 min-[480px]:ml-2 min-[480px]:flex">
                       {RARITIES.map((r) => (
                         <span key={r} className="flex items-center gap-0.5">
                           <span className="h-[4px] w-[4px] rounded-full" style={{ background: RARITY_STYLE[r] }} />
@@ -2538,6 +2538,7 @@ export default function App() {
                     <button
                       onClick={() => setScouting((v) => !v)}
                       title={t("Scout the next opponent (V)")}
+                      aria-label={t("SCOUT")}
                       aria-pressed={scouting}
                       className={`shop-toggle label hit-y relative flex min-h-[32px] items-center gap-1 border px-2 text-[7px] ${
                         scouting
@@ -2551,6 +2552,7 @@ export default function App() {
                     <button
                       onClick={toggleLock}
                       title={t("Lock the shop so it carries into the next drawer (L)")}
+                      aria-label={t(shopLocked ? "LOCKED" : "LOCK")}
                       aria-pressed={shopLocked}
                       className={`shop-toggle shop-lock label hit-y relative flex min-h-[32px] items-center gap-1 border px-2 text-[7px] ${
                         shopLocked

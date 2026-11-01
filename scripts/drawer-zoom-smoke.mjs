@@ -39,9 +39,12 @@ try {
   assert.ok(closer<normal*.92,`zoom in did not move the actual camera: ${normal} -> ${closer}`);
   await plus.tap(); await settle(1.32); assert.equal(await plus.isDisabled(),true,'zoom-in limit');
   assert.equal(await output.innerText(),'132%');
+  await page.waitForTimeout(1200); // allow the commander entrance and audit sample to settle
+  const closeBounds=await page.locator('.battle-stage canvas').evaluate(c=>JSON.parse(c.dataset.commanderBounds));
+  assert.ok(closeBounds.ally?.every(n=>n>=0&&n<=1),`commander must stay visible at maximum zoom: ${JSON.stringify(closeBounds)}`);
   await page.getByRole('button',{name:'Open UI Doctor'}).tap();
   await page.getByRole('button',{name:'SCAN SCREEN'}).tap();
-  assert.doesNotMatch(await page.locator('.ui-doctor__body').innerText(),/Commander model clipped/,'intentional close zoom is not a framing bug');
+  assert.doesNotMatch(await page.locator('.ui-doctor__body').innerText(),/Commander model clipped/,'the real close-zoom view must not clip the commander');
   await page.getByRole('button',{name:'Minimize UI Doctor'}).tap();
   for(let i=0;i<4;i++) await minus.tap();
   const farther=await settle(.74); assert.ok(farther>normal*1.25,`zoom out did not move actual camera: ${normal} -> ${farther}`);

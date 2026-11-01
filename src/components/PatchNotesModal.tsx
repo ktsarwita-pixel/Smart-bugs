@@ -30,6 +30,8 @@ const VERSIONS: VersionEntry[] = [
       "Colony health and the round map now have dedicated space, including long periods and landscape layouts. UI Doctor checks the HUD for overlapping or clipped elements.",
       "Edge containment pass: consistent phone gutters and border-box sizing keep in-game frames inside the display; UI Doctor now audits panel overflow and off-screen borders, not only controls.",
       "Choose Auto, Low, Medium or High 3D resolution in Settings. Auto adapts on the battlefield; smoother rendering reduces high-refresh and GPU work without changing game rules. UI Doctor reports the active render size.",
+      "Fixed close-zoom framing in fullscreen: the drawer grows while both commanders stay visible. UI Doctor now checks commander clipping at every zoom level.",
+      "Sideways mode puts the drawer beside a compact bench, shop and controls on landscape phones. Turn your device sideways, or request an orientation lock in Settings when your browser supports it.",
     ],
   },
   {

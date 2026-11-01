@@ -2918,32 +2918,31 @@ export function DamageShower({ snap }: { snap: BattleState }) {
         </span>
       </button>
 
-      {open && (
-        <div id="damage-shower-body" className="damage-shower__body">
-          {led.ally.length === 0 ? (
-            <p className="latin damage-shower__empty">{t("No bugs on the drawer yet.")}</p>
-          ) : (
-            renderRows(led.ally, "ally")
-          )}
-          {led.foe.length > 0 && (
-            <>
-              <button
-                type="button"
-                className="damage-shower__enemy"
-                aria-expanded={enemyOpen}
-                aria-controls="damage-shower-enemy"
-                onClick={() => setEnemyOpen((v) => !v)}
-              >
-                <span>{enemyOpen ? t("HIDE ENEMY DAMAGE") : t("SHOW ENEMY DAMAGE")}</span>
-                <span className="damage-shower__enemy-sum">{fmt(led.foeTotal)}</span>
-              </button>
-              {enemyOpen && (
-                <div id="damage-shower-enemy">{renderRows(led.foe, "foe")}</div>
-              )}
-            </>
-          )}
-        </div>
-      )}
+      {/* Kept in the DOM and hidden rather than unmounted so both toggles keep
+          a valid aria-controls target and folding the chart never loses the
+          list's scroll position. */}
+      <div id="damage-shower-body" className="damage-shower__body" hidden={!open}>
+        {led.ally.length === 0 ? (
+          <p className="latin damage-shower__empty">{t("No bugs on the drawer yet.")}</p>
+        ) : (
+          renderRows(led.ally, "ally")
+        )}
+        {led.foe.length > 0 && (
+          <>
+            <button
+              type="button"
+              className="damage-shower__enemy"
+              aria-expanded={enemyOpen}
+              aria-controls="damage-shower-enemy"
+              onClick={() => setEnemyOpen((v) => !v)}
+            >
+              <span>{enemyOpen ? t("HIDE ENEMY DAMAGE") : t("SHOW ENEMY DAMAGE")}</span>
+              <span className="damage-shower__enemy-sum">{fmt(led.foeTotal)}</span>
+            </button>
+            <div id="damage-shower-enemy" hidden={!enemyOpen}>{renderRows(led.foe, "foe")}</div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

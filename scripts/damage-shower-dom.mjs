@@ -77,10 +77,13 @@ const count = (html, re) => (html.match(re) ?? []).length;
   assert.match(html, />DAMAGE SHOWER</, 'panel title renders');
   assert.match(html, /class="damage-shower__head"[^>]*aria-expanded="true"/, 'the chart starts expanded');
   assert.match(html, /class="damage-shower__sum"[^>]*>[^<]+</, 'own total renders');
-  assert.equal(count(html, /class="damage-row"/g), 3, 'one row per ally, enemy line stays folded');
-  assert.equal(count(html, /damage-row__track/g), 3, 'every row carries a share bar');
+  assert.equal(count(html, /class="damage-row"/g), 6, 'one row per bug on both lines');
+  assert.equal(count(html, /damage-row__track/g), 6, 'every row carries a share bar');
   assert.match(html, /SHOW ENEMY DAMAGE/, 'the enemy toggle is offered');
-  assert.doesNotMatch(html, /data-side="foe"/, 'enemy rows are not rendered until toggled');
+  // Folding keeps a valid aria-controls target: the enemy list exists but is
+  // hidden, so a screen reader is told about it without painting it.
+  assert.match(html, /id="damage-shower-enemy" hidden=""/, 'enemy rows are hidden until toggled');
+  assert.doesNotMatch(html, /id="damage-shower-body"[^>]*hidden/, 'own line starts visible');
   assert.match(html, /width:\s*\d+%/, 'the bar width is a percentage of the line total');
   assert.match(html, /aria-controls="damage-shower-body"/, 'the toggle is wired to the chart body');
   assert.match(html, /aria-controls="damage-shower-enemy"/, 'the enemy toggle is wired to the enemy list');
@@ -88,7 +91,11 @@ const count = (html, re) => (html.match(re) ?? []).length;
   // Rows are ordered from the heaviest hitter down and show the engine's own
   // ledger values, not a re-derivation in the view.
   const values = [...html.matchAll(/class="damage-row__val">([^<]+)</g)].map((m) => m[1]);
-  assert.deepEqual(values, led.ally.map((r) => r.dealt.toLocaleString('en-US')), 'rendered figures match the ledger');
+  assert.deepEqual(
+    values,
+    [...led.ally, ...led.foe].map((r) => r.dealt.toLocaleString('en-US')),
+    'rendered figures match the ledger, ally line first',
+  );
 }
 
 // ── Bahasa Indonesia: same chart, translated labels, numbers unchanged ────
@@ -96,11 +103,15 @@ const count = (html, re) => (html.match(re) ?? []).length;
   const html = render('id');
   assert.match(html, />STATISTIK DAMAGE</, 'Indonesian title renders');
   assert.match(html, /LIHAT DAMAGE MUSUH/, 'Indonesian enemy toggle renders');
-  assert.equal(count(html, /class="damage-row"/g), 3, 'the Indonesian chart lists the same rows');
+  assert.equal(count(html, /class="damage-row"/g), 6, 'the Indonesian chart lists the same rows');
   const values = [...html.matchAll(/class="damage-row__val">([^<]+)</g)].map((m) => m[1]);
   // id-ID groups thousands with a dot, en-US with a comma — the numbers are
   // formatted for the active language, not copied from English.
-  assert.deepEqual(values, led.ally.map((r) => r.dealt.toLocaleString('id-ID')), 'figures use Indonesian grouping');
+  assert.deepEqual(
+    values,
+    [...led.ally, ...led.foe].map((r) => r.dealt.toLocaleString('id-ID')),
+    'figures use Indonesian grouping',
+  );
   assert.match(html, /damage diterima/, 'the taken figure is translated');
   assert.doesNotMatch(html, /DAMAGE SHOWER|SHOW ENEMY DAMAGE/, 'no English leaks into the Indonesian panel');
 }

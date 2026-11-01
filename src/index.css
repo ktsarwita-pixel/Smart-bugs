@@ -2115,6 +2115,7 @@ html[data-motion="reduced"] .chest-icon__shine { animation:none; opacity:1; }
 .treasure-chest-3d__world { position:absolute; top:34px; left:8px; width:68px; height:34px; transform-style:preserve-3d; transform:rotateX(-12deg); }
 .treasure-chest-3d__world > *, .treasure-chest-3d__lid > * { position:absolute; box-sizing:border-box; backface-visibility:visible; }
 .treasure-chest-3d__body-front, .treasure-chest-3d__body-back { left:0; top:0; width:68px; height:34px; border:2px solid #422412; }
+.treasure-chest-3d__pixel-texture { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
 .treasure-chest-3d__body-front { transform:translateZ(12px); background:linear-gradient(90deg,#48200b44,transparent 22%,transparent 78%,#48200b44),repeating-linear-gradient(to bottom,#c27630 0 1px,#aa5b25 1px 7px,#683117 7px 9px); box-shadow:inset 0 3px #f0b458,inset 0 -4px #7a3b1a,inset 0 -6px #bc7f33,0 2px #2e1a10; }
 .treasure-chest-3d__body-back { transform:translateZ(-12px); background:#6b3619; }
 .treasure-chest-3d__body-side { left:22px; top:0; width:24px; height:34px; border:2px solid #482611; background:repeating-linear-gradient(to bottom,#9a5123 0 7px,#623116 7px 9px); }
@@ -2126,7 +2127,7 @@ html[data-motion="reduced"] .chest-icon__shine { animation:none; opacity:1; }
 .treasure-chest-3d__cavity::before { content:""; position:absolute; inset:0; opacity:0; background:radial-gradient(ellipse at center,#ffe58a88,transparent 75%); }
 .treasure-chest-3d--open .treasure-chest-3d__cavity::before { animation:chest-loot-light .75s ease-out .4s both; }
 @keyframes chest-loot-light { from { opacity:0; } to { opacity:1; } }
-.treasure-chest-3d__cavity i { position:absolute; bottom:2px; width:13px; height:8px; border-radius:50%; background:linear-gradient(#ffe591,#e3a633); border:1px solid #9a6720; box-shadow:inset 0 1px #fff5bf; }
+.treasure-chest-3d__cavity i { position:absolute; bottom:2px; width:13px; height:8px; clip-path:polygon(2px 0,calc(100% - 2px) 0,calc(100% - 2px) 1px,100% 1px,100% calc(100% - 1px),calc(100% - 2px) calc(100% - 1px),calc(100% - 2px) 100%,2px 100%,2px calc(100% - 1px),0 calc(100% - 1px),0 1px,2px 1px); background:linear-gradient(#fff1b1 0 1px,#f4c354 1px 5px,#c78a29 5px); box-shadow:inset 0 0 0 1px #a46d22; }
 .treasure-chest-3d__cavity i:nth-child(1) { left:5px; } .treasure-chest-3d__cavity i:nth-child(2) { left:17px; bottom:4px; } .treasure-chest-3d__cavity i:nth-child(3) { left:28px; } .treasure-chest-3d__cavity i:nth-child(4) { right:6px; bottom:4px; } .treasure-chest-3d__cavity i:nth-child(5) { right:16px; bottom:2px; }
 .treasure-chest-3d__gem { position:absolute; left:27px; top:2px; width:7px; height:7px; transform:rotate(45deg); border:1px solid #267d72; background:#7ce0c7; box-shadow:inset 1px 1px #dbfff3; }
 .treasure-chest-3d__strap { position:absolute; top:0; bottom:0; width:7px; background:linear-gradient(to right,#8f5c21,#f3c563 35%,#cf8b2d 75%,#80521c); box-shadow:0 0 0 1px #72431b; }

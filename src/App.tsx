@@ -176,11 +176,13 @@ function ChestIcon({ size = 24, advanced = false }: { size?: number; advanced?: 
     <path fill="#8a451f" d="M4 16h24v10H4z" />
     <path fill="#c27231" d="M5 17h22v3H5zM5 22h22v3H5z" />
     <path fill="#6b3418" d="M5 20h22v2H5zM5 25h22v1H5z" />
+    <path data-chest-grain fill="#eb9b49" d="M11 11h3v1h-3zM18 11h3v1h-3zM11 17h3v1h-3zM18 17h3v1h-3zM11 22h3v1h-3zM18 22h3v1h-3z" />
+    <path fill="#713719" d="M12 19h3v1h-3zM17 19h3v1h-3zM12 24h3v1h-3zM17 24h3v1h-3z" />
     <path fill="#9f671f" d="M7 9h4v17H7zM21 9h4v17h-4zM4 14h24v3H4zM4 25h24v2H4z" />
     <path fill="#e4a846" d="M8 9h2v5H8zM22 9h2v5h-2zM8 17h2v8H8zM22 17h2v8h-2zM5 15h22v1H5zM5 25h22v1H5z" />
     <path className="chest-icon__shine" fill="#ffe39b" d="M9 9h1v4H9zM22 9h1v4h-1zM9 17h1v7H9zM22 17h1v7h-1zM6 15h20v1H6z" />
-    <path data-chest-lock fill="#40240f" d="M13 13h6v8h-6z" /><path fill="#f7cb69" d="M14 14h4v6h-4z" /><path fill="#693c18" d="M15 16h2v2h-2zM15 18h2v1h-2z" />
-    <path fill="#fff0b5" d="M8 19h1v1H8zM23 19h1v1h-1zM8 23h1v1H8zM23 23h1v1h-1z" />
+    <path data-chest-lock fill="#40240f" d="M12 13h8v8h-8z" /><path fill="#f7cb69" d="M13 14h6v6h-6z" /><path fill="#fff0b5" d="M14 14h4v1h-4z" /><path fill="#693c18" d="M15 16h2v2h-2zM15 18h2v1h-2z" />
+    <path fill="#fff0b5" d="M8 19h1v1H8zM23 19h1v1h-1zM8 23h1v1H8zM23 23h1v1h-1zM5 25h1v1H5zM26 25h1v1h-1z" />
   </svg>;
   return <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" shapeRendering="crispEdges"><path fill="#3b2112" d="M2 4h12v2h1v8H1V6h1z"/><path fill="#a9692e" d="M3 5h10v3H3zM2 9h12v4H2z"/><path fill="#f1bb4c" d="M3 4h10v1H3zM2 8h12v1H2zM7 9h2v3H7z"/></svg>;
 }

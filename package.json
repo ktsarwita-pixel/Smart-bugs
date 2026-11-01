@@ -13,6 +13,8 @@
     "test:round-icons": "node scripts/round-icon-smoke.mjs",
     "test:roar": "node scripts/spider-roar-smoke.mjs",
     "test:roar:visual": "node scripts/spider-roar-visual-harness.mjs && node scripts/spider-rotation-visual-smoke.mjs && node scripts/spider-live-visual-smoke.mjs",
+    "test:patch-notes": "node scripts/patch-notes-smoke.mjs",
+    "test:treasure-art": "node scripts/treasure-art-smoke.mjs",
     "test:chest": "node scripts/chest-mesh-smoke.mjs && node scripts/chest-model-smoke.mjs && node scripts/chest-3d-visual-smoke.mjs"
   },
   "dependencies": {

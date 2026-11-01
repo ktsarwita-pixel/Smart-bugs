@@ -31,6 +31,7 @@ try {
     if (round===1 || round===4) {
       assert.ok(await page.getByText('TREASURE GUARDS').count()>0);
       assert.equal(await page.locator('.vs-plaque .chest-icon--advanced').count(),1,'enhanced VS chest icon');
+      assert.equal(await page.locator('.vs-plaque .chest-icon--advanced [data-chest-grain]').count(),1,'VS chest has pixel wood detailing');
       const icon=await page.locator('.vs-plaque .chest-icon--advanced').evaluate(svg=>{
         const silhouette=svg.querySelector('path').getBBox(), lock=svg.querySelector('[data-chest-lock]').getBBox(), view=svg.viewBox.baseVal;
         const mid=view.x+view.width/2;

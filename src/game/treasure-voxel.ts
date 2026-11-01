@@ -44,6 +44,11 @@ export function createChestGeometry(part: 'body' | 'lid', detailed = false): THR
         put(x,x+1,2,10,z,z,brass);
         for (const y of [3,9]) put(x,x,y,y,z,z,glint);
       }
+      // Pixel-grain highlights and short dark nicks on the front and back
+      // planks, painted into the same surface as the wood.
+      for (const [x0,x1,y] of [[5,7,3],[14,16,3],[6,8,6],[13,15,6],[5,8,9],[13,16,9]]) put(x0,x1,y,y,z,z,0xd2873d);
+      for (const [x0,x1,y] of [[5,6,5],[15,16,5],[7,8,8],[13,14,8]]) put(x0,x1,y,y,z,z,grain);
+      for (const x of [0,21]) { put(x,x,2,3,z,z,brass); put(x,x,9,10,z,z,brass); }
     }
     for (const x of [0,21]) {
       for (const y of [3,6,9]) put(x,x,y,y,2,12,light);
@@ -63,6 +68,8 @@ export function createChestGeometry(part: 'body' | 'lid', detailed = false): THR
     // Stepped dome: the slope continues over both ends and down the sides.
     put(1,20,2,4,1,13,woodTop); put(1,20,5,5,3,11,woodLight);
     put(2,19,6,6,5,9,woodTop);
+    // Short, symmetric voxel strokes keep the domed lid readable at game size.
+    for (const z of [5,9]) { put(6,8,6,6,z,z,woodLight); put(13,15,6,6,z,z,woodLight); }
     for (const z of [1,13]) put(1,20,2,2,z,z,shadow);
     for (const x of [2,18]) {
       put(x,x+1,0,4,0,14,brass);

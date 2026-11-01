@@ -28,10 +28,11 @@ const pitchDegrees = (el: Element) => {
   return m ? Math.atan2(m.m23, m.m22) * 180 / Math.PI : NaN;
 };
 const spriteVisible = (root: Element) => Array.from(root.querySelectorAll(".pixel-treasure")).some(visible);
-// Spider geometry faces local -Z, so PI faces the player on the +Z side.
+// Compare with the enemy direction captured when the roar began, not the
+// current target: body rotation is intentionally locked during retargeting.
 const spiderFacingError = (el: HTMLElement) => {
-  const facing = Number(el.dataset.roarFacing);
-  return Math.abs(Math.atan2(Math.sin(facing - Math.PI), Math.cos(facing - Math.PI))) * 180 / Math.PI;
+  const facing = Number(el.dataset.roarFacing), aim = Number(el.dataset.roarAim);
+  return Math.abs(Math.atan2(Math.sin(facing - aim), Math.cos(facing - aim))) * 180 / Math.PI;
 };
 
 /** Inspect chest components, front-facing transforms, hinge points, WebGL
@@ -90,7 +91,7 @@ export function auditVisuals(scope: ParentNode): VisualAudit {
     checked++;
     const facing = spiderFacingError(spider), head = Math.abs(Number(spider.dataset.roarHeadYaw ?? 0)) * 180 / Math.PI;
     if (!Number.isFinite(facing) || !Number.isFinite(head) || facing > 2 || head > 2) {
-      add("VISUAL", "warning", "Spider not facing the player", `During Battle Roar the body is ${Number.isFinite(facing) ? facing.toFixed(1) : "an unknown number of"}° from the front and the head is ${Number.isFinite(head) ? head.toFixed(1) : "unknown"}° off-center.`, spider);
+      add("VISUAL", "warning", "Spider not facing its opening enemy", `During Battle Roar the body is ${Number.isFinite(facing) ? facing.toFixed(1) : "an unknown number of"}° from its initial target and the head is ${Number.isFinite(head) ? head.toFixed(1) : "unknown"}° off-center.`, spider);
     }
   }
   for (const canvas of scope.querySelectorAll<HTMLCanvasElement>("canvas[data-chest-facing-error]")) {
@@ -182,7 +183,7 @@ export function monitorVisuals(onChange: (events: VisualEvent[]) => void) {
     const previous = spiderPrevious.get(spider) ?? { facing, body, head, turned: false, offFront: false };
     const facingError = spiderFacingError(spider), headAngle = Math.abs(Number(head)) * 180 / Math.PI;
     const offFront = !Number.isFinite(facingError) || !Number.isFinite(headAngle) || facingError > 2 || headAngle > 2;
-    if (offFront && !previous.offFront) { log("Spider faced away during Battle Roar."); previous.offFront = true; }
+    if (offFront && !previous.offFront) { log("Spider faced away from its opening enemy during Battle Roar."); previous.offFront = true; }
     if ((facing !== previous.facing || body !== previous.body || head !== previous.head) && !previous.turned) {
       log("Spider body rotated during Battle Roar."); previous.turned = true;
     }
@@ -218,7 +219,7 @@ export function monitorVisuals(onChange: (events: VisualEvent[]) => void) {
     }
     check(chest);
   };
-  observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-renderer", "data-roar-facing", "data-roar-body", "data-roar-head-yaw"] });
+  observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-renderer", "data-roar-facing", "data-roar-body", "data-roar-head-yaw", "data-roar-aim"] });
   document.querySelectorAll<HTMLElement>(".treasure-chest-3d").forEach(register);
   document.querySelectorAll<HTMLElement>('.ov-unit[data-unit-id][data-roaring="true"]').forEach(checkSpider);
   onChange(visualHistory());

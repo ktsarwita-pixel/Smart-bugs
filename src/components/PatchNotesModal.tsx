@@ -15,21 +15,15 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    v: "0.63",
-    title: "FRONT AND CENTER",
-    items: [
-      "Advanced build: Spider faces you before the round and throughout Battle Roar, with its body held still. Combat timing and damage are unchanged.",
-      "The VS chest and round reward chest face you with richer details, a connected hinge and a smoother opening. Reduced motion is respected.",
-      "UI Doctor checks Spider facing and rotation during Battle Roar alongside chest alignment and rendering, with brief visual problems saved in history.",
-    ],
-  },
-  {
-    v: "0.62",
+    v: "0.62–0.63",
     title: "THE BATTLE ROAR",
     items: [
       "Spider 3★ ultimate replaced: the old whole-board opening web is gone. The Spider now plants itself and roars for 1.5 seconds, then deals exactly 650 damage to every enemy; defeating it during the roar interrupts the hit.",
+      "Spider faces its opening enemy and keeps its body still throughout Battle Roar; it resumes tracking afterward.",
       "The roar has a dedicated rearing-and-tremble pose, pressure rings and a final impact flash. The Spider cannot walk or attack while roaring. After Web remains its full-Energy skill.",
-      "Round-map art rebuilt as larger monochrome pixel medallions: a rear-latched treasure chest and a centered antlered stag, joined by a clearer timeline.",
+      "The VS chest and round reward chest face you with richer details, a connected hinge and a smoother opening. Reduced motion is respected.",
+      "The round map uses detailed monochrome chest and centered stag pixel art, joined by a clearer timeline.",
+      "UI Doctor checks Spider facing and rotation during Battle Roar alongside chest alignment and rendering, with brief visual problems saved in history.",
       "Edge containment pass: consistent phone gutters and border-box sizing keep in-game frames inside the display; UI Doctor now audits panel overflow and off-screen borders, not only controls.",
     ],
   },

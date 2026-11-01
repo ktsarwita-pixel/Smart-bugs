@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {build} from 'esbuild';
 
-const bundled=await build({entryPoints:['src/game/engine.ts','src/game/animate.ts','src/game/spider-roar-visual.ts'],bundle:true,platform:'node',format:'esm',outdir:'ignored',write:false});
+const bundled=await build({entryPoints:['src/game/engine.ts','src/game/animate.ts','src/game/spider-roar-visual.ts','src/game/voxel.ts'],bundle:true,platform:'node',format:'esm',outdir:'ignored',write:false});
 const load=async name=>{
   const file=bundled.outputFiles.find(f=>f.path.endsWith(`${name}.js`));
   return import(`data:text/javascript;base64,${Buffer.from(file.contents).toString('base64')}`);
@@ -10,6 +10,14 @@ const load=async name=>{
 const {createBattle,stepBattle,SPIDER_ROAR_SECONDS,SPIDER_ROAR_DAMAGE}=await load('engine');
 const {animateInsectRig}=await load('animate');
 const {sampleSpiderRoar,sampleRoarWave}=await load('spider-roar-visual');
+const {buildVoxelModel}=await load('voxel');
+const sculpt=buildVoxelModel('spider',3), eyes=sculpt.head.children.find(child=>child.geometry && child.material===sculpt.glowMat);
+assert.ok(sculpt.head.position.z<sculpt.torso.position.z,'Spider head must be on its local -Z front');
+eyes.geometry.computeBoundingBox();
+assert.ok(eyes.geometry.boundingBox.max.z<0,'glowing eyes must be on the front of the head');
+const eyeNormals=eyes.geometry.getAttribute('normal');
+assert.ok(Array.from({length:eyeNormals.count},(_,i)=>eyeNormals.getZ(i)).some(z=>z<-.9),'actual eye faces must point toward local -Z');
+sculpt.dispose();
 const unit=(uid,bugId,star,slot)=>({uid,bugId,star,slot,zone:'board'});
 const b=createBattle([unit(1,'spider',3,4)],[unit(2,'stag',3,0),unit(3,'bomb',3,1),unit(4,'dragonfly',3,2)],'matriarch','matriarch');
 for(const u of b.units){u.hp=u.maxHp=5000;u.cd=100;u.spd=0;}
@@ -60,4 +68,4 @@ assert.ok(legacy.torso.rotation.x<-.3,'legacy pose must remain unchanged');
 assert.ok(Math.abs(enhanced.leftArm.rotation.z)>.6,'enhanced fangs should flare without rotating the body');
 animateInsectRig(enhanced,'spider',2,1,false,0,0,0,0,0,false,0,1,0,undefined,undefined,true);
 assert.notDeepEqual([enhanced.torso.rotation.x,enhanced.torso.rotation.y,enhanced.torso.rotation.z],fixed,'body animation resumes after the cast');
-console.log('PASS unchanged roar mechanics, interruption, simultaneous casts, fixed torso and expressive fangs');
+console.log('PASS actual Spider face geometry, unchanged roar mechanics, interruptions, fixed torso and expressive fangs');

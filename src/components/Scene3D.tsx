@@ -2453,9 +2453,8 @@ export function Scene3D({
       inner.add(model.group);
       holder.add(inner);
       holder.position.set(x, UNIT_GROUND, y);
-      // The sculpt's face is along local -Z; rotate it toward the player (+Z)
-      // before its first rendered frame, rather than turning during the roar.
-      const initialRot = advancedEffects && id === "spider" ? Math.PI : side === "ally" ? 0 : Math.PI;
+      // In prep the ally faces the enemy's half; the opposing side faces back.
+      const initialRot = side === "ally" ? 0 : Math.PI;
       holder.rotation.y = initialRot;
       holder.name = `unit:${id}:${uid}`;
       inner.name = "unit-flight-transform";
@@ -2829,15 +2828,18 @@ export function Scene3D({
       const phaseChanged = (flight?.phase ?? "grounded") !== u.prevPhase;
       if (flight && dive) wantRot = Math.atan2(-(dive.toX - dive.fromX), -(dive.toY - dive.fromY));
 
-      // Show the Spider's face during preparation, then keep that same
-      // player-facing direction fixed for its entire opening Battle Roar.
-      // Its target direction becomes relevant again only after the cast.
-      const frontSpiderPreview = advancedEffects && id === "spider" && !battleOn && !dead;
+      // Face the opposing half in prep. On the first roar frame, aim at the
+      // opening enemy once, then keep that direction fixed until the cast ends
+      // even if the nearest target changes. Combat targeting is untouched.
+      const enemyFacingPreview = advancedEffects && id === "spider" && !battleOn && !dead;
       const holdSpiderBody = advancedEffects && id === "spider" && roarProgress !== undefined && !dead;
-      if (frontSpiderPreview) {
-        u.rotY = Math.PI;
+      if (enemyFacingPreview) {
+        u.rotY = side === "ally" ? 0 : Math.PI;
       } else if (holdSpiderBody) {
-        if (u.prevRoarProgress < 0) u.rotY = Math.PI;
+        if (u.prevRoarProgress < 0) {
+          u.rotY = wantRot;
+          u.el.dataset.roarAim = wantRot.toFixed(5);
+        }
       } else {
         let dRot = wantRot - u.rotY;
         while (dRot > Math.PI) dRot -= Math.PI * 2;
@@ -3159,6 +3161,7 @@ export function Scene3D({
         delete u.el.dataset.roarFacing;
         delete u.el.dataset.roarBody;
         delete u.el.dataset.roarHeadYaw;
+        delete u.el.dataset.roarAim;
       }
 
       if (flight && dive) {

@@ -19,12 +19,12 @@ try {
     const canvas=document.createElement('canvas');canvas.id='bad-board';canvas.width=70;canvas.height=50;canvas.style.cssText='position:fixed;left:5px;top:100px;width:70px;height:50px';canvas.dataset.chestFacingError='0.7';canvas.dataset.chestHingeGap='0.05';document.body.append(canvas);
     const img=document.createElement('img');img.src='/missing-doctor-image.png';img.alt='Broken visual fixture';img.style.cssText='position:fixed;left:5px;top:165px;width:30px;height:30px';document.body.append(img);
     const spider=document.createElement('div');spider.className='ov-unit';spider.id='bad-spider';spider.textContent='Spider';spider.style.cssText='position:fixed;left:5px;top:205px;width:55px;height:25px';
-    spider.dataset.unitId='999';spider.dataset.roaring='true';spider.dataset.roarFacing='1';spider.dataset.roarHeadYaw='0';spider.dataset.roarBody='0,0,0';document.body.append(spider);
+    spider.dataset.unitId='999';spider.dataset.roaring='true';spider.dataset.roarAim='0';spider.dataset.roarFacing='1';spider.dataset.roarHeadYaw='0';spider.dataset.roarBody='0,0,0';document.body.append(spider);
   });
   await page.waitForFunction(()=>document.querySelector('img[alt="Broken visual fixture"]').complete);
   await page.getByRole('button',{name:'SCAN SCREEN'}).tap();
   text=await page.locator('.ui-doctor__body').innerText();
-  for(const phrase of ['Chest not facing the player','Chest lid disconnected','Old chest artwork visible','Board chest not facing the player','Board chest hinge disconnected','Image failed to load','Spider not facing the player']) assert.ok(text.includes(phrase),`missing Doctor finding: ${phrase}\n${text}`);
+  for(const phrase of ['Chest not facing the player','Chest lid disconnected','Old chest artwork visible','Board chest not facing the player','Board chest hinge disconnected','Image failed to load','Spider not facing its opening enemy']) assert.ok(text.includes(phrase),`missing Doctor finding: ${phrase}\n${text}`);
   await page.locator('.ui-doctor__history summary').tap();
   assert.match(await page.locator('.ui-doctor__history').innerText(), /Old pixel chest appeared/, 'passive history should catch the flash before a deep scan');
   await page.evaluate(()=>{
@@ -32,7 +32,7 @@ try {
     chest.querySelector('.treasure-chest-3d__world').style.transform='';
     chest.querySelector('.treasure-chest-3d__lid-anchor').style.left='';
     document.querySelector('#bad-board').remove();document.querySelector('img[alt="Broken visual fixture"]').remove();
-    document.querySelector('#bad-spider').dataset.roarFacing=String(Math.PI);
+    document.querySelector('#bad-spider').dataset.roarFacing='0';
   });
   await page.getByRole('button',{name:'Minimize UI Doctor'}).tap();
   await page.getByRole('button',{name:'Open',exact:true}).tap();

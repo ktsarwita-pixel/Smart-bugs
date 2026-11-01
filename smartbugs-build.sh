@@ -3,8 +3,8 @@
 # commit, while /?advenced is built from this checkout (the test branch).
 #
 # This recipe works in both deployment shapes:
-#   • full source uploaded            → builds the uploaded checkout in place
-#   • only this file + vercel.json    → downloads the branch from codeload
+#   - full source uploaded            -> builds the uploaded checkout in place
+#   - only this file + vercel.json    -> downloads the branch from codeload
 #     first (Vercel's GitHub app is not connected to this project, so
 #     git-triggered builds fail with git_info_fail; the two-file deployment
 #     carries the branch ref inside this script instead).
@@ -18,7 +18,7 @@ PREVIEW_REF="${PREVIEW_REF:-refs/heads/arena/ec287bd6-smart-bugs}"
 cd "$ROOT"
 PREVIEW_SRC="$ROOT"
 if [ ! -f package.json ] || [ ! -f package-lock.json ]; then
-  echo "no source in this deployment — fetching $PREVIEW_REF"
+  echo "no source in this deployment - fetching $PREVIEW_REF"
   mkdir -p "$WORK/preview"
   curl -fsSL "https://codeload.github.com/ktsarwita-pixel/Smart-bugs/tar.gz/$PREVIEW_REF" | tar xz --strip-components=1 -C "$WORK/preview"
   PREVIEW_SRC="$WORK/preview"

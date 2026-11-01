@@ -58,6 +58,8 @@ plain, JSON-safe data that survives the 4 Hz HUD snapshot.
 
 ```bash
 npm run test:damage   # engine ledger + bilingual panel rendering (no browser needed)
+npm run test:notes    # every patch note renders in Indonesian (no browser needed)
+npm run test:fuzz     # 400 random battles: the ledger must match the HP they removed
 ```
 
 ## 📦 Import formats in this package (flexible)

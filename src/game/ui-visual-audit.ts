@@ -140,10 +140,18 @@ export function auditVisuals(scope: ParentNode): VisualAudit {
   // Indonesian runs ~25-35% longer than English, so the dock is where a label
   // used to push past its own border. Clipped elements (`.truncate`, ellipsis)
   // are deliberate and skipped: only text that visibly escapes is reported.
+  const clipsItsText = (node: Element) => {
+    const s = getComputedStyle(node);
+    return !/visible/.test(s.overflowX) || s.textOverflow === "ellipsis";
+  };
   for (const el of scope.querySelectorAll<HTMLElement>(".game-dock .label, .game-dock button, .game-dock .latin")) {
     if (!visible(el) || !(el.textContent ?? "").trim()) continue;
     const st = getComputedStyle(el);
     if (!/visible/.test(st.overflowX) || st.textOverflow === "ellipsis") continue;
+    // A child that ellipsises on purpose (`.truncate` inside a button, the
+    // damage-row name) hides its own overflow, but the Range below would still
+    // measure the unclipped text and report a phantom overflow.
+    if (Array.from(el.children).some(clipsItsText)) continue;
     const box = el.getBoundingClientRect();
     if (box.width < 8) continue;
     let ink: DOMRect;

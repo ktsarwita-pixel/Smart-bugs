@@ -132,6 +132,16 @@ const ID: Record<string, string> = {
   "1 wins": "1 menang",
   "COMBAT TELEMETRY": "TELEMETRI TEMPUR",
   "YOUR LINE": "BARIS ANDA",
+  "New DAMAGE SHOWER chart in the battle telemetry dock: every bug on your line is listed with the damage it actually dealt this fight, sorted from the heaviest hitter down, with a bar showing its share of your line's output.":
+    "Grafik STATISTIK DAMAGE baru di panel telemetri tempur: setiap serangga di barisan Anda tercatat dengan damage yang benar-benar dihasilkannya di pertarungan ini, diurutkan dari yang paling besar, lengkap dengan bilah yang menunjukkan porsinya terhadap total barisan Anda.",
+  "Damage is credited to the bug that caused it, not the bug that touched it — Battle Roar, Enraged poison, After Web snares, Dig Hole vuln hits and the Dragonfly's airstrike ticks all land on their real owner's row. Defeated bugs keep their numbers so the chart still tells the whole story.":
+    "Damage dicatat untuk serangga yang menyebabkannya, bukan yang menerimanya — Raungan Pertempuran, racun Enraged, jaring After Web, serangan ke unit rentan, dan tick airstrike Dragonfly semuanya masuk ke baris pemilik aslinya. Serangga yang gugur tetap menyimpan angkanya agar grafik tetap menceritakan keseluruhan pertarungan.",
+  "Tap the chart header to fold it away, and the SHOW ENEMY DAMAGE button underneath to reveal the enemy line's damage totals in the same layout. Both toggles remember their state while you battle.":
+    "Ketuk judul grafik untuk melipatnya, dan tombol LIHAT DAMAGE MUSUH di bawahnya untuk menampilkan total damage barisan musuh dengan tata letak yang sama. Kedua tombol mengingat keadaannya selama pertempuran berlangsung.",
+  "The chart is built for phones, including Indonesian copy: long labels truncate instead of pushing numbers out of their frame, rows scroll inside the dock instead of crushing the battlefield, and KO/kill badges drop out on 320px screens.":
+    "Grafik ini dirancang untuk ponsel, termasuk teks Bahasa Indonesia: label panjang dipotong alih-alih mendorong angka keluar dari bingkainya, baris dapat digulir di dalam panel sehingga medan tempur tidak terhimpit, dan lencana KO hilang di layar 320px.",
+  "Rows carry the damage each bug took as well as dealt — visible on tablets and desktop, kept in the row tooltip everywhere.":
+    "Setiap baris memuat damage yang diterima selain yang dihasilkan — terlihat di tablet dan desktop, dan selalu tersedia di tooltip barisnya.",
   "DAMAGE SHOWER": "STATISTIK DAMAGE",
   "damage dealt": "damage diberikan",
   "damage taken": "damage diterima",

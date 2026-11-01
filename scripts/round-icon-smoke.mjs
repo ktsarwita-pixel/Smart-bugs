@@ -26,6 +26,7 @@ for (const [name,rows] of [['chest',icons.ADVANCED_CHEST_PIXELS], ['stag beetle'
   assert.equal(Math.min(...ink.map(c=>c[1]))+Math.max(...ink.map(c=>c[1])),15);
   assert.equal(new Set(rows.join('').replaceAll('.','')).size,5,`${name}: missing a shading layer`);
 }
+assert.match(icons.ADVANCED_CHEST_PIXELS[2], /mmllllmm/, 'full chest dome has a bright, shaded top');
 assert.match(icons.ADVANCED_CHEST_PIXELS[9], /hooh/, 'chest needs a central keyhole');
 assert.match(icons.ADVANCED_CHEST_PIXELS[12], /mllm/, "round-map chest shares the centered maker's mark");
 assert.match(icons.ADVANCED_CHEST_PIXELS[7], /^oo[l]+oo$/, 'chest needs a symmetric bright lid band');

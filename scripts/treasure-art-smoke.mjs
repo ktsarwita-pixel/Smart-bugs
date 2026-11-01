@@ -13,8 +13,16 @@ try {
   assert.equal(await icon.locator('[data-chest-grain]').count(),1);
   assert.equal(await icon.locator('[data-chest-emblem]').count(),1);
   assert.equal(await icon.locator('[data-chest-corners]').count(),1);
-  const centered=await icon.evaluate(el=>{const b=el.querySelector('[data-chest-lock]').getBBox();return Math.abs(b.x+b.width/2-el.viewBox.baseVal.width/2)});
-  assert.ok(centered<.1,'VS icon lock stays centered');
+  assert.equal(await icon.locator('[data-chest-dome]').count(),1);
+  const art=await icon.evaluate(el=>{const b=el.querySelector('[data-chest-lock]').getBBox(), ink=el.getBBox();return {center:Math.abs(b.x+b.width/2-el.viewBox.baseVal.width/2),width:ink.width,height:ink.height}});
+  assert.ok(art.center<.1,'VS icon lock stays centered');
+  assert.ok(art.width>=28 && art.height>=25,'the domed chest fills its pixel canvas');
+  for(const width of [280,320,384]) {
+    await page.setViewportSize({width,height:725});
+    const fit=await icon.evaluate(el=>{const p=el.closest('.vs-plaque'),i=el.getBoundingClientRect(),r=p.getBoundingClientRect();return {left:i.left,right:i.right,pLeft:r.left,pRight:r.right,scroll:p.scrollWidth,client:p.clientWidth};});
+    assert.ok(fit.left>=fit.pLeft-1 && fit.right<=fit.pRight+1 && fit.scroll<=fit.client+1,`fuller VS chest fits the ${width}px plaque: ${JSON.stringify(fit)}`);
+  }
+  await page.setViewportSize({width:384,height:725});
   if(process.env.CAPTURE_PREFIX) await icon.screenshot({path:`${process.env.CAPTURE_PREFIX}-vs.png`});
   await page.waitForFunction(()=>document.querySelector('.battle-stage canvas')?.dataset.chestFacingError!==undefined,null,{timeout:20000,polling:100});
   const board=await page.locator('.battle-stage canvas').evaluate(c=>({facing:Number(c.dataset.chestFacingError),gap:Number(c.dataset.chestHingeGap)}));
@@ -36,6 +44,10 @@ try {
   assert.equal(await chest.locator('.treasure-chest-3d__lid-bottom > svg[shape-rendering="crispEdges"]').count(),1);
   assert.equal(await chest.locator('[data-chest-emblem]').count(),1);
   assert.equal(await chest.locator('[data-chest-ridge]').count(),1);
+  assert.equal(await chest.locator('[data-chest-crown]').count(),1);
+  assert.equal(await chest.locator('[data-chest-planks]').count(),1);
+  assert.equal(await chest.locator('[data-chest-treasure]').count(),1);
+  assert.equal(await chest.locator('.treasure-chest-3d__cavity i').count(),7);
   if(process.env.CAPTURE_PREFIX) await chest.screenshot({path:`${process.env.CAPTURE_PREFIX}-reward.png`});
   for (const [width,height] of [[320,568],[384,725]]) {
     await page.setViewportSize({width,height});

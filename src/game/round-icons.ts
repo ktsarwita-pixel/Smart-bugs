@@ -66,11 +66,11 @@ export const STAG_VIEWBOX = '0 0 16 20';
 export const ADVANCED_CHEST_PIXELS = [
   '................',
   '...oooooooooo...',
-  '..osssssssssso..',
+  '..osmmllllmmso..',
   '.osmllmmmmllmso.',
   '.osmllmmmmllmso.',
   'osmmmlmssmlmmmso',
-  'osmmmlmssmlmmmso',
+  'osmmmlmmmmlmmmso',
   'oolllllllllllloo',
   'osmmmlhhhhlmmmso',
   'osmmmlhoohlmmmso',

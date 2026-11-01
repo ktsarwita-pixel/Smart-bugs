@@ -70,6 +70,9 @@ export function createChestGeometry(part: 'body' | 'lid', detailed = false): THR
     // Stepped dome: the slope continues over both ends and down the sides.
     put(1,20,2,4,1,13,woodTop); put(1,20,5,5,3,11,woodLight);
     put(2,19,6,6,5,9,woodTop);
+    // A connected upper step gives the lid a rounder, fuller silhouette.
+    put(4,17,7,7,6,8,woodLight);
+    for (const x of [4,16]) put(x,x+1,7,7,6,8,glint);
     // Short, symmetric voxel strokes keep the domed lid readable at game size.
     for (const z of [5,9]) { put(6,8,6,6,z,z,woodLight); put(13,15,6,6,z,z,woodLight); }
     for (const z of [1,13]) {

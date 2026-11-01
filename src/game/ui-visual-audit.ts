@@ -62,13 +62,29 @@ export function auditVisuals(scope: ParentNode): VisualAudit {
       continue;
     }
     const bodyFaces = ["body-back", "body-side--left", "body-side--right", "floor", "cavity"];
-    const lidFaces = ["lid-back", "lid-side--left", "lid-side--right", "lid-top", "lid-bottom", "lid-front", "lid-ridge-top"];
+    const lidFaces = ["lid-back", "lid-side--left", "lid-side--right", "lid-top", "lid-bottom", "lid-front",
+      "lid-ridge-front", "lid-ridge-back", "lid-ridge-side--left", "lid-ridge-side--right", "lid-ridge-top",
+      "lid-crown-front", "lid-crown-back", "lid-crown-side--left", "lid-crown-side--right", "lid-crown-top"];
     const missingFaces = [...bodyFaces.filter(face => !world.querySelector(`.treasure-chest-3d__${face}`)),
       ...lidFaces.filter(face => !lid.querySelector(`.treasure-chest-3d__${face}`))];
     if (missingFaces.length) add("VISUAL", "high", "Chest 3D face missing", `Missing ${missingFaces.join(", ")}; the model may look disconnected or hollow.`, chest);
-    if (!front.querySelector("[data-chest-emblem]") || !lid.querySelector("[data-chest-ridge]")) {
-      add("VISUAL", "warning", "Chest pixel detailing missing", "The integrated front emblem or lid grain is missing from the 3D model.", chest);
+    if (!front.querySelector("[data-chest-emblem]") || !front.querySelector("[data-chest-planks]") ||
+        !lid.querySelector("[data-chest-ridge]") || !lid.querySelector("[data-chest-crown]") || !world.querySelector("[data-chest-treasure]")) {
+      add("VISUAL", "warning", "Chest pixel detailing missing", "The integrated wood, lid or treasure artwork is missing from the 3D model.", chest);
     }
+    // Each side plane must be centered between its front and back. A missing
+    // depth offset made the lid's sides project beyond the chest as spikes.
+    const sideGroups = ["lid", "lid-ridge", "lid-crown"];
+    const misaligned = sideGroups.some(group => {
+      const face = (name: string) => lid.querySelector<HTMLElement>(`.treasure-chest-3d__${group}-${name}`);
+      const front = face("front"), back = face("back"), left = face("side--left"), right = face("side--right");
+      if (!front || !back || !left || !right) return false; // already reported as a missing face
+      const fm = matrix(front), bm = matrix(back), lm = matrix(left), rm = matrix(right);
+      if (!fm || !bm || !lm || !rm) return true;
+      const center = (fm.m43 + bm.m43) / 2;
+      return Math.abs(lm.m43 - center) > .5 || Math.abs(rm.m43 - center) > .5;
+    });
+    if (misaligned) add("VISUAL", "high", "Chest lid side misaligned", "A lid side is not centered between the front and back planes and may stick out or look detached.", chest);
     if (getComputedStyle(world).transformStyle !== "preserve-3d" || getComputedStyle(lid).transformStyle !== "preserve-3d") {
       add("RENDER", "warning", "Chest depth flattened", "The browser is not preserving the 3D transforms of the body and lid.", chest);
     }
@@ -89,8 +105,8 @@ export function auditVisuals(scope: ParentNode): VisualAudit {
     if (!visible(icon)) continue;
     checked++;
     const lock = icon.querySelector<SVGGraphicsElement>("[data-chest-lock]");
-    if (!icon.querySelector("[data-chest-emblem]") || !icon.querySelector("[data-chest-corners]")) {
-      add("VISUAL", "warning", "VS chest detailing missing", "The icon's front emblem or corner guards are missing.", icon.parentElement as HTMLElement);
+    if (!icon.querySelector("[data-chest-emblem]") || !icon.querySelector("[data-chest-corners]") || !icon.querySelector("[data-chest-dome]")) {
+      add("VISUAL", "warning", "VS chest detailing missing", "The icon's domed lid, front emblem or corner guards are missing.", icon.parentElement as HTMLElement);
     }
     try {
       if (!lock) throw new Error("missing lock");

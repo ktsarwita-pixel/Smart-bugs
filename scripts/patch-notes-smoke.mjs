@@ -6,14 +6,18 @@ const errors=[];page.on('pageerror',e=>errors.push(e.message));
 const base=process.env.BASE_URL||'http://127.0.0.1:5173';
 try {
   await page.goto(base+'/?advenced');
+  assert.match(await page.locator('body').innerText(),/v0\.62/i,'advanced home shows v0.62');
+  assert.doesNotMatch(await page.locator('body').innerText(),/v0\.63/i);
   await page.getByRole('button',{name:'PATCH NOTES'}).tap();
   const dialog=page.getByRole('dialog',{name:'PATCH NOTES'});
-  const version=dialog.getByText('v0.62–0.63',{exact:true});
-  assert.equal(await version.count(),1,'versions are combined into one entry');
-  assert.equal(await dialog.getByText('v0.62',{exact:true}).count(),0,'old 0.62 entry must not be duplicated');
+  const version=dialog.locator('.relative.mb-3').getByText('v0.62',{exact:true});
+  assert.equal(await version.count(),1,'all changes appear in one v0.62 entry');
+  assert.doesNotMatch(await dialog.innerText(),/0\.63/,'the patch must not look like a skipped release');
+  assert.match(await dialog.locator('h3').innerText(),/v0\.62/,'current heading uses the same version');
+  assert.equal(await dialog.getByText('v0.61',{exact:true}).count(),1,'previous version follows naturally');
   const entry=version.locator('..').locator('..');
   const text=await entry.innerText();
-  assert.match(text,/650 damage/); assert.match(text,/opposing side/); assert.match(text,/reward chest/); assert.match(text,/UI Doctor/);
+  assert.match(text,/CURRENT/); assert.match(text,/650 damage/); assert.match(text,/opposing side/); assert.match(text,/reward chest/); assert.match(text,/UI Doctor/);
   assert.equal(await entry.locator('li').count(),7,'merged entry retains both sets of changes');
   for (const width of [280,320,390]) {
     await page.setViewportSize({width,height:653});
@@ -28,9 +32,9 @@ try {
   await page.reload();
   await page.getByRole('button',{name:'CATATAN PEMBARUAN'}).tap();
   const indonesian=page.getByRole('dialog',{name:'CATATAN PEMBARUAN'});
-  const merged=indonesian.getByText('v0.62–0.63',{exact:true}).locator('..').locator('..');
+  const merged=indonesian.locator('.relative.mb-3').getByText('v0.62',{exact:true}).locator('..').locator('..');
   assert.match(await merged.innerText(),/Laba-laba menghadap lurus ke sisi lawan/,'new correction is translated');
   assert.match(await merged.innerText(),/Peti VS/,'chest update remains translated');
   assert.deepEqual(errors,[]);
-  console.log('PASS merged 0.62–0.63 patch notes, retained changes, translations and narrow layouts');
+  console.log('PASS single v0.62 patch notes, retained changes, translations and narrow layouts');
 } finally {await browser.close();}

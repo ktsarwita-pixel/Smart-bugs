@@ -25,4 +25,5 @@ for (const detailed of [false, true]) for (const part of ['body','lid']) {
 
 assert.ok(bounds['lid-false'].min.y+0.46 > bounds['body-false'].max.y, 'legacy lid clearance remains unchanged');
 assert.ok(Math.abs(bounds['lid-true'].min.y+0.44-bounds['body-true'].max.y)<1e-6, 'advanced lid must meet the body without a gap');
+assert.ok(bounds['lid-true'].max.y>bounds['lid-false'].max.y, 'advanced lid has a fuller, connected upper step');
 console.log('PASS legacy clearance and connected advanced lid');

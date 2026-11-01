@@ -169,11 +169,12 @@ interface Report {
 function ChestIcon({ size = 24, advanced = false }: { size?: number; advanced?: boolean }) {
   if (advanced) return <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" shapeRendering="crispEdges" className="chest-icon chest-icon--advanced">
     {/* Symmetric, front-facing curved lid, oak boards and engraved brass. */}
-    <path fill="#29180f" d="M2 15h2v-4h2V8h2V6h3V5h10v1h3v2h2v3h2v4h2v11h-2v2H4v-2H2z" />
-    <path fill="#673419" d="M4 15v-3h2V9h2V7h3V6h10v1h3v2h2v3h2v3z" />
-    <path fill="#b96b2b" d="M6 13v-2h2V9h2V8h12v1h2v2h2v2z" />
+    <path fill="#29180f" d="M2 15h2v-4h2V8h2V6h3V4h10v2h3v2h2v3h2v4h2v11h-2v3H4v-3H2z" />
+    <path fill="#673419" d="M4 15v-3h2V9h2V7h3V5h10v2h3v2h2v3h2v3z" />
+    <path data-chest-dome fill="#b96b2b" d="M6 13v-2h2V9h2V6h12v3h2v2h2v2z" />
+    <path fill="#e5a14b" d="M11 6h10v1H11zM9 8h14v1H9z" />
     <path fill="#d99143" d="M10 8h12v1H10zM8 10h16v1H8zM6 13h20v1H6z" />
-    <path fill="#8a451f" d="M4 16h24v10H4z" />
+    <path fill="#8a451f" d="M4 16h24v11H4z" />
     <path fill="#c27231" d="M5 17h22v3H5zM5 22h22v3H5z" />
     <path fill="#6b3418" d="M5 20h22v2H5zM5 25h22v1H5z" />
     <path data-chest-grain fill="#eb9b49" d="M11 11h3v1h-3zM18 11h3v1h-3zM11 17h3v1h-3zM18 17h3v1h-3zM11 22h3v1h-3zM18 22h3v1h-3z" />
@@ -1813,7 +1814,7 @@ export default function App() {
                   <span className="label hidden text-[7px] text-[#56DCA8] min-[420px]:inline">{t("YOU")}</span>
                   <span className="vs-word">VS</span>
                   <span className="label max-w-[16ch] truncate text-[7px] text-[#F05A36]">{treasure ? t("TREASURE GUARDS") : foe.short}</span>
-                  {treasure ? <ChestIcon advanced={advancedGame} /> : <SpecimenIcon id={foe.cmd} size={24} badge="none" />}
+                  {treasure ? <ChestIcon size={advancedGame ? 28 : 24} advanced={advancedGame} /> : <SpecimenIcon id={foe.cmd} size={24} badge="none" />}
                 </div>
               ) : (
                 <button
@@ -1828,7 +1829,7 @@ export default function App() {
                   <span className="label hidden text-[7px] text-[#56DCA8] min-[420px]:inline">{t("YOU")}</span>
                   <span className="vs-word">VS</span>
                   <span className="label max-w-[16ch] truncate text-[7px] text-[#F05A36]">{treasure ? t("TREASURE GUARDS") : foe.short}</span>
-                  {treasure ? <ChestIcon advanced={advancedGame} /> : <SpecimenIcon id={foe.cmd} size={24} badge="none" />}
+                  {treasure ? <ChestIcon size={advancedGame ? 28 : 24} advanced={advancedGame} /> : <SpecimenIcon id={foe.cmd} size={24} badge="none" />}
                   <IconScout size={11} className={`vs-scout-ico shrink-0 ${scouting ? "text-[#F05A36]" : "text-[#8C7E6E]"}`} />
                 </button>
               )}

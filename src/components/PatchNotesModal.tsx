@@ -15,7 +15,7 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
-    v: "0.62–0.63",
+    v: "0.62",
     title: "THE BATTLE ROAR",
     items: [
       "Spider 3★ ultimate replaced: the old whole-board opening web is gone. The Spider now plants itself and roars for 1.5 seconds, then deals exactly 650 damage to every enemy; defeating it during the roar interrupts the hit.",

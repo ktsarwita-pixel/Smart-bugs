@@ -13,7 +13,7 @@ export function sampleChestOpening(progress: number) {
   return { angle: -1.52 * (opening + settle), glow: smooth((p - 0.2) / 0.55) };
 }
 
-/** One physical chest, shared by the battlefield and the result card. */
+/** The battlefield model echoes the full, hinged reward-card chest. */
 export function createDetailedChest() {
   const root = new THREE.Group();
   const geometries: THREE.BufferGeometry[] = [];
@@ -42,10 +42,19 @@ export function createDetailedChest() {
   pile.position.set(0, .22, 0); root.add(pile); // rests on the interior floor
   const coinGeo = geo(new THREE.CylinderGeometry(0.075, 0.075, 0.035, 8));
   const coins: [number, number][] = [[-.19,-.08],[-.02,-.09],[.16,-.08],[-.16,.07],[0,.06],[.17,.07]];
-  coins.forEach(([x,z]) => { const c = new THREE.Mesh(coinGeo, coinMat); c.position.set(x,.3375,z); root.add(c); });
+  const addCoin = (x: number, z: number, level: number) => {
+    const coin = new THREE.Mesh(coinGeo, coinMat);
+    coin.position.set(x, .3375 + .035 * level, z); coin.userData.chestCoinLevel = level; root.add(coin);
+  };
+  coins.forEach(([x,z]) => addCoin(x,z,0));
+  // Short supported stacks add volume but remain below the closed lid.
+  for (const i of [0,2,4,5]) addCoin(coins[i][0],coins[i][1],1);
   const gemMat = mat(new THREE.MeshStandardMaterial({ color: 0x6fe1d4, emissive: 0x174a43, metalness: 0.25, roughness: 0.3 }));
   const gem = new THREE.Mesh(geo(new THREE.OctahedronGeometry(0.055, 0)), gemMat);
   gem.position.set(-.1,.375,0); gem.rotation.y = .4; root.add(gem);
+  const rubyMat = mat(new THREE.MeshStandardMaterial({ color: 0xe66547, emissive: 0x5a1b10, metalness: 0.2, roughness: 0.35 }));
+  const ruby = new THREE.Mesh(geo(new THREE.OctahedronGeometry(0.045, 0)), rubyMat);
+  ruby.position.set(.09,.365,0); ruby.rotation.y = -.3; root.add(ruby);
 
   const glowMat = mat(new THREE.MeshBasicMaterial({ color: 0xffc95d, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
   const glow = new THREE.Mesh(geo(new THREE.PlaneGeometry(.59,.39)), glowMat);

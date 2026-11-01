@@ -26,14 +26,16 @@ const checkLandscape=async(width,height)=>{
       matchup:rect(row.querySelector('.vs-plaque')),resources:rect(row.querySelector('.deck-resources')),help:rect(row.querySelector('.help-btn')),
       shop:[...document.querySelectorAll('.shop-grid button')].map(rect),actions:[...document.querySelectorAll('.action-bar button')].map(rect),
       ladder:[...document.querySelectorAll('.ladder-button')].map(rect),
-      zoom:rect(document.querySelector('.drawer-zoom')),scene:rect(document.querySelector('.battle-stage .scene-host'))};
+      zoom:rect(document.querySelector('.drawer-zoom')),scene:rect(document.querySelector('.battle-stage .scene-host')),
+      drawerBounds:JSON.parse(document.querySelector('.battle-stage canvas').dataset.drawerBounds||'null')};
   });
   assert.ok(data.documentWidth<=width&&data.documentHeight<=height+1,`${width}×${height}: the page should fit sideways: ${JSON.stringify(data)}`);
   assert.ok(data.stage.right<=data.dock.left+1&&data.stage.height>=150,`${width}×${height}: drawer and side dock must fit without overlap: ${JSON.stringify(data)}`);
   assert.ok(data.actions.every(r=>r.top>=0&&r.bottom<=height&&r.width>=40&&r.height>=40),`${width}×${height}: actions must stay reachable: ${JSON.stringify(data)}`);
   assert.ok(data.shop.length===5&&data.shop.every(r=>r.left>=data.dock.left&&r.right<=data.dock.right),`${width}×${height}: five supply cards must fit`);
   assert.ok(data.ladder.length===8&&data.ladder.every(r=>r.width>=40&&r.height>=40),`${width}×${height}: standings must have tappable targets`);
-  assert.ok(data.scene.right<=data.zoom.left+1&&data.zoom.bottom<=data.stage.bottom,`${width}×${height}: zoom covers the drawer`);
+  assert.ok(data.scene.bottom<=data.zoom.top+1&&data.zoom.bottom<=data.stage.bottom+1,`${width}×${height}: zoom toolbar must sit below the canvas`);
+  assert.ok(data.drawerBounds?.every(n=>n>=0&&n<=1),`${width}×${height}: drawer envelope clipped sideways: ${JSON.stringify(data.drawerBounds)}`);
   const parts=[data.health,data.round,data.matchup,data.resources,data.help];
   for(let i=0;i<parts.length;i++){
     assert.ok(parts[i].left>=data.row.left-1&&parts[i].right<=data.row.right+1&&parts[i].top>=data.row.top-1&&parts[i].bottom<=data.row.bottom+1,`${width}×${height}: HUD part outside the deck: ${JSON.stringify(data)}`);
@@ -47,6 +49,7 @@ try {
   await page.goto(`${base}/?advenced&doctor=1`);
   let settings=await openTitleSettings();
   await settings.getByRole('button',{name:'Enter fullscreen'}).tap();
+  await page.waitForFunction(()=>!!document.fullscreenElement,null,{timeout:5000});
   assert.equal(await page.evaluate(()=>!!document.fullscreenElement),true,'browser entered actual fullscreen');
   await settings.getByRole('button',{name:'CLOSE'}).first().tap();
   await page.getByRole('button',{name:'PLAY MATCH'}).tap();
@@ -57,6 +60,10 @@ try {
   let bounds=await page.locator('.battle-stage canvas').evaluate(el=>JSON.parse(el.dataset.commanderBounds));
   assert.ok(bounds.ally?.every(n=>n>=0&&n<=1),`fullscreen 132% player commander is cut off: ${JSON.stringify(bounds)}`);
   assert.equal(await page.locator('.drawer-zoom output').innerText(),'132%');
+  // Chromium cannot resize a native fullscreen window; leave fullscreen before
+  // exercising the responsive breakpoints (the fullscreen fit was checked above).
+  await page.evaluate(()=>document.fullscreenElement?document.exitFullscreen():undefined);
+  await page.waitForFunction(()=>!document.fullscreenElement,null,{timeout:5000});
   await checkLandscape(568,320);
   await page.getByRole('button',{name:'Open UI Doctor'}).tap();
   await page.getByRole('button',{name:'SCAN SCREEN'}).tap();

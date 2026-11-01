@@ -23,7 +23,7 @@ const layout=async (width,height,selected=false)=>{
   });
   assert.ok(result.scrollWidth<=width,`${width}×${height}: horizontal overflow`);
   assert.ok(result.group.left>=result.stage.left&&result.group.right<=result.stage.right&&result.group.top>=result.stage.top&&result.group.bottom<=result.stage.bottom,`${width}×${height}: zoom controls outside stage: ${JSON.stringify(result)}`);
-  assert.ok(result.scene.right<=result.group.left+1,`${width}×${height}: controls cover the drawer: ${JSON.stringify(result)}`);
+  assert.ok(result.scene.bottom<=result.group.top+1,`${width}×${height}: zoom toolbar must sit below the canvas, not over it: ${JSON.stringify(result)}`);
   assert.ok(result.buttons.every(b=>b.width>=40&&b.height>=40&&b.left>=0&&b.right<=width&&b.top>=0&&b.bottom<=height),`${width}×${height}: zoom controls unreachable: ${JSON.stringify(result)}`);
   if(selected&&result.selected) assert.ok(!overlaps(result.group,result.selected),`${width}×${height}: zoom covers selected-unit actions: ${JSON.stringify(result)}`);
 };
@@ -42,6 +42,8 @@ try {
   await page.waitForTimeout(1200); // allow the commander entrance and audit sample to settle
   const closeBounds=await page.locator('.battle-stage canvas').evaluate(c=>JSON.parse(c.dataset.commanderBounds));
   assert.ok(closeBounds.ally?.every(n=>n>=0&&n<=1),`commander must stay visible at maximum zoom: ${JSON.stringify(closeBounds)}`);
+  const drawerBounds=await page.locator('.battle-stage canvas').evaluate(c=>JSON.parse(c.dataset.drawerBounds));
+  assert.ok(drawerBounds.every(n=>n>=0&&n<=1),`the whole drawer envelope must stay inside the canvas at maximum zoom: ${JSON.stringify(drawerBounds)}`);
   await page.getByRole('button',{name:'Open UI Doctor'}).tap();
   await page.getByRole('button',{name:'SCAN SCREEN'}).tap();
   assert.doesNotMatch(await page.locator('.ui-doctor__body').innerText(),/Commander model clipped/,'the real close-zoom view must not clip the commander');
@@ -51,8 +53,8 @@ try {
   assert.equal(await minus.isDisabled(),true,'zoom-out limit');
   assert.equal(await output.innerText(),'74%');
   assert.equal(await page.locator('.deck-resources').innerText(),initialGold,'zoom must not spend gold or alter gameplay');
-  await plus.tap(); await plus.tap(); await settle(1);
-  assert.equal(await output.innerText(),'100%');
+  await page.getByRole('button',{name:'Fit drawer'}).tap(); await settle(1);
+  assert.equal(await output.innerText(),'100%','FIT returns to the reference framing');
   for(const [w,h] of [[280,653],[320,568],[384,725],[812,375],[1280,800]]) await layout(w,h);
   await page.setViewportSize({width:384,height:725}); await page.evaluate(()=>scrollTo(0,0));
   await page.locator('.shop-grid button:not([disabled])').first().tap();

@@ -198,6 +198,16 @@ export function auditVisuals(scope: ParentNode): VisualAudit {
         }
       }
     } catch { /* Missing or stale diagnostic data is not a clipping finding. */ }
+    try {
+      const drawer: unknown = JSON.parse(canvas.dataset.drawerBounds || "null");
+      if (Array.isArray(drawer) && drawer.length === 4 && drawer.every(v => typeof v === "number" && Number.isFinite(v))) {
+        checked++;
+        const [left, top, right, bottom] = drawer as number[];
+        if (left < -.01 || top < -.01 || right > 1.01 || bottom > 1.01) {
+          add("VISUAL", "high", "Drawer frame clipped", "The cabinet, plinths or commander envelope extends beyond the battlefield edge. Use FIT or zoom out.", canvas);
+        }
+      }
+    } catch { /* Missing or stale diagnostic data is not a clipping finding. */ }
   }
   for (const canvas of scope.querySelectorAll<HTMLCanvasElement>("canvas[data-render-resolution]")) {
     if (!visible(canvas)) continue;

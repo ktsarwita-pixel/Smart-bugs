@@ -15,6 +15,8 @@ const checkBounds=async(label)=>{
     assert.ok(Math.abs((b[0]+b[2])/2-.5)<.1,`${label}: ${side} not centered: ${JSON.stringify(result)}`);
     assert.ok(b[2]>b[0]&&b[3]>b[1],`${label}: ${side} has no projected geometry`);
   }
+  const drawer=await page.locator('canvas').evaluate(el=>JSON.parse(el.dataset.drawerBounds||'null'));
+  assert.ok(drawer?.length===4&&drawer.every(n=>n>=0&&n<=1),`${label}: drawer envelope clipped: ${JSON.stringify(drawer)}`);
 };
 const zoom=async(value)=>{
   await page.evaluate(v=>window.roarHarness.zoom(v),value);

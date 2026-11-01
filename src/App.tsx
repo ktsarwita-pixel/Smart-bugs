@@ -1822,7 +1822,7 @@ export default function App() {
 
   return (
     <div className={`${advancedGame ? "advanced-ui " : ""}battle-shell cabinet-bg safe-t w-full`}>
-      <div className="game-grid mx-auto max-w-[1160px]">
+      <div className="game-grid mx-auto max-w-[1440px]">
         {/* ── LEFT / TOP STAGE: Header + Standings + 3D Drawer ── */}
         <div className="battle-main flex min-h-0 flex-1 flex-col lg:border lg:border-[#3B322A] lg:bg-[#130E0A]">
           {/* ── FIELD LAB COMMAND DECK (v3): one continuous command slab ──
@@ -2093,6 +2093,8 @@ export default function App() {
                 <button type="button" aria-label={t("Zoom in drawer")} title={t("Zoom in drawer")}
                   disabled={drawerZoomIndex === DRAWER_ZOOM_LEVELS.length - 1}
                   onClick={() => setDrawerZoomIndex(index => Math.min(DRAWER_ZOOM_LEVELS.length - 1, index + 1))}>+</button>
+                <button type="button" className="drawer-zoom__fit" aria-label={t("Fit drawer")} title={t("Fit drawer")}
+                  onClick={() => setDrawerZoomIndex(2)}>{t("FIT")}</button>
                 <output aria-live="polite">{Math.round(drawerZoom * 100)}%</output>
                 <button type="button" aria-label={t("Zoom out drawer")} title={t("Zoom out drawer")}
                   disabled={drawerZoomIndex === 0}
@@ -2432,6 +2434,7 @@ export default function App() {
           ) : (
             /* ── PREP COMMAND DOCK: Bench + Shop + Actions ─────── */
             <div className="prep-dock dock-in flex flex-1 flex-col justify-start">
+              <div className="dock-scroll">
               {/* Bench Row (6 Slots) */}
               <div className="bench-section px-2 pt-1.5 pb-1.5 sm:px-3">
                 <div className="section-heading mb-1 flex items-center justify-between">
@@ -2633,6 +2636,7 @@ export default function App() {
                     );
                   })}
                 </div>
+              </div>
               </div>
 
               {/* Action Controls Bar */}

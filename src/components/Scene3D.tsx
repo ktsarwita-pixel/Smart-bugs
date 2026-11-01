@@ -248,7 +248,7 @@ export function Scene3D({
     // The advanced board includes commander plinths beyond both short ends.
     // Aim slightly toward the near plinth so the player's totem is not cut
     // off at the bottom of a compact stage.
-    const target = new THREE.Vector3(showcase ? 0 : 3.5, showcase ? 0.24 : 0.08, showcase ? 0.15 : advancedEffects ? 3.5 : 3.05);
+    const target = new THREE.Vector3(showcase ? 0 : 3.5, showcase ? 0.24 : advancedEffects ? 0.3 : 0.08, showcase ? 0.15 : advancedEffects ? 3.0 : 3.05);
 
     let W = hostEl.clientWidth || 360;
     let H = hostEl.clientHeight || 320;
@@ -2062,23 +2062,70 @@ export function Scene3D({
       }
     }
 
-    /* ── Camera Framing ── */
-    const fitW = showcase ? 4.8 : 7.85;
-    const fitH = showcase ? 2.55 : advancedEffects ? 8.5 : 7.35;
+    /* ── Camera Framing ──────────────────────────────────────────────
+       The old fit used a flat width/height heuristic. Perspective makes the
+       near edge of a 3D drawer larger than the far edge, so that heuristic
+       cropped the frame and commander plinths whenever the stage changed
+       aspect ratio or the player zoomed in.
+
+       Fit the *projected envelope* instead: every corner of the cabinet,
+       both plinths, and a conservative commander volume must land inside a
+       safe NDC rectangle. The reference distance is solved at maximum zoom,
+       then divided by the live zoom. Zoom therefore still moves the camera,
+       but even 132% keeps the whole drawer on screen. */
+    const MAX_DRAWER_ZOOM = 1.32;
     const elev = showcase ? 0.36 : 0.84;
-    // At close zoom the near commander used to slide out of the viewport.
-    // Lowering the view slightly foreshortens the drawer's depth, keeping
-    // both end plinths visible while the playable board still grows.
-    const zoomElevation = (zoom: number) => !showcase && advancedEffects ? elev - Math.max(0, zoom - 1) * 0.62 : elev;
+    const zoomElevation = (zoom: number) => !showcase && advancedEffects
+      ? elev - Math.max(0, zoom - 1) * 0.9
+      : elev;
+    const cameraZoom = () => !showcase && advancedEffects
+      ? Math.min(MAX_DRAWER_ZOOM, Math.max(0.74, P.current.drawerZoom || 1))
+      : 1;
+
+    // Conservative world-space envelope. X spans the outer brass caps; Z
+    // spans both commander banners; Y covers the tallest commander sculpt.
+    // Keeping this static avoids a feedback loop where an animated commander
+    // changes the fit, which changes the projection, which changes the fit.
+    const fitPoints: THREE.Vector3[] = [];
+    if (showcase) {
+      for (const x of [-2.4, 2.4]) for (const y of [-0.3, 2.2]) for (const z of [-2.4, 2.4]) fitPoints.push(new THREE.Vector3(x, y, z));
+    } else {
+      const minX = -0.62, maxX = COLS + 0.62;
+      const minZ = advancedEffects ? -1.62 : -0.62;
+      const maxZ = advancedEffects ? ROWS + 1.62 : ROWS + 0.62;
+      for (const x of [minX, maxX]) for (const y of [-0.22, 0.5]) for (const z of [minZ, maxZ]) fitPoints.push(new THREE.Vector3(x, y, z));
+      if (advancedEffects) {
+        for (const x of [COLS / 2 - 0.9, COLS / 2 + 0.9]) for (const y of [0, 1.45]) for (const z of [-1.62, ROWS + 1.62]) fitPoints.push(new THREE.Vector3(x, y, z));
+      }
+    }
+    const fitRight = new THREE.Vector3();
+    const fitUp = new THREE.Vector3();
+    const fitDir = new THREE.Vector3();
+    const fitRel = new THREE.Vector3();
+    function solveFitDistance(elevation: number, aspect: number) {
+      const tanV = Math.tan((camera.fov * Math.PI) / 360);
+      const tanH = tanV * aspect;
+      // Leave a little breathing room for parallax, shake and pixel rounding.
+      const safeX = showcase ? 0.9 : 0.96;
+      const safeY = showcase ? 0.88 : 0.94;
+      const az = 0;
+      fitDir.set(Math.sin(az) * Math.cos(elevation), Math.sin(elevation), Math.cos(az) * Math.cos(elevation));
+      fitRight.set(Math.cos(az), 0, -Math.sin(az));
+      fitUp.crossVectors(fitDir, fitRight).normalize();
+      let distance = 1;
+      for (const point of fitPoints) {
+        fitRel.copy(point).sub(target);
+        const along = fitRel.dot(fitDir);
+        const x = Math.abs(fitRel.dot(fitRight)) / (safeX * tanH);
+        const y = Math.abs(fitRel.dot(fitUp)) / (safeY * tanV);
+        distance = Math.max(distance, along + x, along + y);
+      }
+      return distance;
+    }
+
     let camElev = elev;
     let camDist = 11;
-    // Fit distance for the current viewport. Entering a battle swaps the dock
-    // and resizes the stage mid-session; tick() eases the real distance toward
-    // this target so the reframing glides instead of jolting the camera.
     let camDistTarget = 11;
-    const cameraZoom = () => !showcase && advancedEffects ? Math.min(1.32, Math.max(0.74, P.current.drawerZoom || 1)) : 1;
-    // After initialization, resize repaints immediately so the cleared
-    // WebGL buffer cannot flash during the prep-to-battle transition.
     let cameraInitialized = false;
     let sizeInitialized = false;
     function frame() {
@@ -2093,15 +2140,29 @@ export function Scene3D({
         sizeInitialized = true;
       }
       camera.aspect = W / H;
-      const vFov = (camera.fov * Math.PI) / 180;
-      const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
-      camDistTarget = Math.max(fitH / 2 / Math.tan(vFov / 2), fitW / 2 / Math.tan(hFov / 2));
       camera.updateProjectionMatrix();
-      if (!cameraInitialized) {
-        // ResizeObserver may repaint before the first animation frame. Never
-        // render from Three's default origin (inside the board) in that gap.
-        camDist = camDistTarget / cameraZoom();
-        camElev = zoomElevation(cameraZoom());
+      if (showcase) {
+        const vFov = (camera.fov * Math.PI) / 180;
+        const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
+        camDistTarget = Math.max(2.55 / 2 / Math.tan(vFov / 2), 4.8 / 2 / Math.tan(hFov / 2));
+      } else if (!advancedEffects) {
+        camDistTarget = solveFitDistance(elev, camera.aspect);
+      } else {
+        // Elevation changes with zoom, so a distance that is safe at 132% is
+        // not automatically safe at 100%. Solve the whole supported range and
+        // keep one reference distance; live distance is reference / zoom.
+        camDistTarget = Math.max(
+          solveFitDistance(zoomElevation(0.74), camera.aspect) * 0.74,
+          solveFitDistance(zoomElevation(1), camera.aspect),
+          solveFitDistance(zoomElevation(MAX_DRAWER_ZOOM), camera.aspect) * MAX_DRAWER_ZOOM,
+        );
+      }
+      const zoom = cameraZoom();
+      if (!cameraInitialized || resized) {
+        // Resize/fullscreen/orientation changes snap to the new safe fit.
+        // Easing here would show a cropped intermediate frame for ~1s.
+        camDist = camDistTarget / zoom;
+        camElev = zoomElevation(zoom);
         camera.position.set(target.x, target.y + Math.sin(camElev) * camDist, target.z + Math.cos(camElev) * camDist);
         camera.lookAt(target);
         cameraInitialized = true;
@@ -3457,8 +3518,8 @@ export function Scene3D({
 
       // Camera
       parallax.lerp(parallaxTarget, 1 - Math.exp(-dt * 4));
-      const drift = Math.sin(t * 0.22) * 0.03;
-      const az = drift + parallax.x * 0.12;
+      const drift = Math.sin(t * 0.22) * (advancedEffects && !showcase ? 0.008 : 0.03);
+      const az = drift + parallax.x * (advancedEffects && !showcase ? 0.03 : 0.12);
       impactShake = Math.max(0, impactShake - dt * 5.5);
       const shake = impactShake * impactShake;
       const zoom = cameraZoom();
@@ -3664,7 +3725,18 @@ export function Scene3D({
             bounds[side] = [left, top, right, bottom].map(value => Number(value.toFixed(4)));
           }
           renderer.domElement.dataset.commanderBounds = JSON.stringify(bounds);
-        } else delete renderer.domElement.dataset.commanderBounds;
+          let drawerLeft = Infinity, drawerTop = Infinity, drawerRight = -Infinity, drawerBottom = -Infinity;
+          for (const point of fitPoints) {
+            totemAuditPoint.copy(point).project(camera);
+            const px = (totemAuditPoint.x + 1) / 2, py = (1 - totemAuditPoint.y) / 2;
+            drawerLeft = Math.min(drawerLeft, px); drawerRight = Math.max(drawerRight, px);
+            drawerTop = Math.min(drawerTop, py); drawerBottom = Math.max(drawerBottom, py);
+          }
+          renderer.domElement.dataset.drawerBounds = JSON.stringify([drawerLeft, drawerTop, drawerRight, drawerBottom].map(value => Number(value.toFixed(4))));
+        } else {
+          delete renderer.domElement.dataset.commanderBounds;
+          delete renderer.domElement.dataset.drawerBounds;
+        }
       }
 
       if (tilesMesh && tileRimsMesh) {

@@ -15,6 +15,17 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    v: "0.63",
+    title: "THE STEADY DRAWER",
+    items: [
+      "Fixed the cropped battlefield: the camera now fits the actual 3D cabinet, commander plinths and frame envelope instead of a flat width/height guess. Rotating, entering fullscreen or changing zoom no longer slices off the drawer edge.",
+      "Zoom controls moved into a dedicated toolbar under the canvas, with a FIT button that returns to the reference framing. No button sits on top of tiles, health bars or commanders.",
+      "Portrait phones get a compact command deck and a single swipeable colony ladder, giving the battlefield much more height. Bench, supply and actions keep readable touch targets.",
+      "Sideways mode keeps the drawer on the left and a scrollable bench/supply dock on the right while Reroll, Line +1 and Engage stay pinned in view. Labels return when the dock is wide enough.",
+      "UI Doctor now reports a clipped drawer frame as well as clipped commanders, and the framing regression checks the whole cabinet envelope at every zoom and aspect ratio.",
+    ],
+  },
+  {
     v: "0.62",
     title: "THE BATTLE ROAR",
     items: [

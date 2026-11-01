@@ -8,8 +8,19 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:mobile": "node scripts/mobile-ui-smoke.mjs",
-    "test:doctor": "node scripts/ui-doctor-smoke.mjs",
-    "test:background": "node scripts/background-smoke.mjs"
+    "test:doctor": "node scripts/ui-doctor-smoke.mjs && node scripts/ui-doctor-visual-smoke.mjs && node scripts/ui-doctor-settings-smoke.mjs",
+    "test:background": "node scripts/background-smoke.mjs",
+    "test:round-icons": "node scripts/round-icon-smoke.mjs",
+    "test:roar": "node scripts/spider-roar-smoke.mjs",
+    "test:roar:visual": "node scripts/spider-roar-visual-harness.mjs && node scripts/spider-rotation-visual-smoke.mjs && node scripts/spider-live-visual-smoke.mjs",
+    "test:patch-notes": "node scripts/patch-notes-smoke.mjs",
+    "test:treasure-art": "node scripts/treasure-art-smoke.mjs",
+    "test:chest": "node scripts/chest-mesh-smoke.mjs && node scripts/chest-model-smoke.mjs && node scripts/chest-3d-visual-smoke.mjs",
+    "test:ui-refresh": "node scripts/ui-refresh-smoke.mjs",
+    "test:commander-framing": "node scripts/commander-framing-smoke.mjs",
+    "test:drawer-zoom": "node scripts/drawer-zoom-smoke.mjs",
+    "test:sideways": "node scripts/fullscreen-sideways-smoke.mjs",
+    "test:resolution": "node scripts/resolution-perf-smoke.mjs"
   },
   "dependencies": {
     "clsx": "2.1.1",

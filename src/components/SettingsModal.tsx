@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { IconClose, IconGlobe, IconSettings } from "./CustomIcons";
 import { useSettings, type Lang } from "../i18n";
+import { isAdvancedGameLocation } from "../game/build-mode";
+import type { RenderResolution } from "../game/render-quality";
 
 interface Props {
   open: boolean;
@@ -11,18 +13,44 @@ const LANGS: { id: Lang; native: string; latin: string }[] = [
   { id: "en", native: "English", latin: "English" },
   { id: "id", native: "Bahasa Indonesia", latin: "Indonesian" },
 ];
+const RESOLUTIONS: { id: RenderResolution; label: string }[] = [
+  { id: "auto", label: "Auto — adaptive" },
+  { id: "low", label: "Low — 50%" },
+  { id: "medium", label: "Medium — 75%" },
+  { id: "high", label: "High — 100%" },
+];
+
+// A browser orientation lock belongs to the page, not to one Settings sheet.
+// Keep its ownership across menu/game remounts, without persisting a permission
+// that must be requested again by a user gesture after a reload.
+const sidewaysSession = { locked: false, usedFullscreen: false, ownsFullscreen: false };
+type LockableOrientation = ScreenOrientation & { lock?: (orientation: "landscape") => Promise<void> };
 
 /**
  * Options sheet. Mobile-first bottom sheet, centred dialog on desktop.
- * Everything here is applied immediately and persisted to localStorage.
+ * Preferences apply immediately; browser display permissions are session-only.
  */
 export function SettingsModal({ open, onClose }: Props) {
-  const { lang, setLang, motion, setMotion, potato, setPotato, background, setBackground, t } = useSettings();
+  const { lang, setLang, motion, setMotion, potato, setPotato, resolution, setResolution, background, setBackground, t } = useSettings();
   const [fullscreen, setFullscreen] = useState(() => !!document.fullscreenElement);
   const [fullscreenError, setFullscreenError] = useState(false);
+  const [sidewaysLocked, setSidewaysLocked] = useState(() => sidewaysSession.locked);
+  const [sidewaysBusy, setSidewaysBusy] = useState(false);
+  const [sidewaysMessage, setSidewaysMessage] = useState("");
   const fullscreenSupported = !!document.fullscreenEnabled && !!document.documentElement.requestFullscreen;
   useEffect(() => {
-    const sync = () => setFullscreen(!!document.fullscreenElement);
+    const sync = () => {
+      setFullscreen(!!document.fullscreenElement);
+      // Browsers release a fullscreen orientation lock when the user exits
+      // fullscreen (including Escape). Don't leave a misleading ON state.
+      if (!document.fullscreenElement && sidewaysSession.locked && sidewaysSession.usedFullscreen) {
+        try { screen.orientation?.unlock(); } catch { /* already unlocked */ }
+        sidewaysSession.locked = sidewaysSession.usedFullscreen = sidewaysSession.ownsFullscreen = false;
+        setSidewaysLocked(false);
+        setSidewaysMessage("");
+      }
+    };
+    sync();
     document.addEventListener("fullscreenchange", sync);
     return () => document.removeEventListener("fullscreenchange", sync);
   }, []);
@@ -35,7 +63,59 @@ export function SettingsModal({ open, onClose }: Props) {
       setFullscreenError(true);
     }
   };
-  const [doctor, setDoctor] = useState(() => localStorage.getItem("sb-doctor") === "1");
+  const toggleSideways = async () => {
+    if (sidewaysBusy) return;
+    setSidewaysBusy(true);
+    setSidewaysMessage("");
+    try {
+      if (sidewaysSession.locked) {
+        const exitOwnedFullscreen = sidewaysSession.ownsFullscreen && !!document.fullscreenElement;
+        try { screen.orientation?.unlock(); } catch { /* fullscreen exit also releases the lock */ }
+        sidewaysSession.locked = sidewaysSession.usedFullscreen = sidewaysSession.ownsFullscreen = false;
+        setSidewaysLocked(false);
+        if (exitOwnedFullscreen) {
+          try { await document.exitFullscreen(); } catch { /* user can exit fullscreen separately */ }
+        }
+        return;
+      }
+      const orientation = screen.orientation as LockableOrientation | undefined;
+      if (typeof orientation?.lock !== "function") {
+        setSidewaysMessage("Could not lock orientation. Rotate your device sideways; the layout adjusts automatically.");
+        return;
+      }
+      let ownsFullscreen = false;
+      try {
+        // Most mobile browsers require fullscreen; installed apps may allow
+        // locking without it. Preserve fullscreen if the player entered it.
+        if (!document.fullscreenElement && fullscreenSupported) {
+          try {
+            await document.documentElement.requestFullscreen();
+            ownsFullscreen = !!document.fullscreenElement;
+          } catch { /* still try: standalone browsers may allow orientation lock */ }
+        }
+        await orientation.lock("landscape");
+        sidewaysSession.locked = true;
+        sidewaysSession.usedFullscreen = !!document.fullscreenElement;
+        sidewaysSession.ownsFullscreen = ownsFullscreen;
+        setSidewaysLocked(true);
+        setSidewaysMessage("Sideways orientation is locked. Unlock it to return to your device's normal rotation.");
+      } catch {
+        if (ownsFullscreen && document.fullscreenElement) {
+          try { await document.exitFullscreen(); } catch { /* user can exit fullscreen separately */ }
+        }
+        setSidewaysMessage("Could not lock orientation. Rotate your device sideways; the layout adjusts automatically.");
+      }
+    } finally {
+      setSidewaysBusy(false);
+    }
+  };
+  const advancedDoctor = isAdvancedGameLocation(window.location);
+  const [doctor, setDoctor] = useState(() => {
+    try {
+      const stored = localStorage.getItem("sb-doctor");
+      return stored === "1" || (advancedDoctor && stored !== "0" && new URLSearchParams(location.search).get("doctor") === "1");
+    } catch { return advancedDoctor && new URLSearchParams(location.search).get("doctor") === "1"; }
+  });
   const setDoctorState = (v: boolean) => {
     setDoctor(v);
     try { localStorage.setItem("sb-doctor", v ? "1" : "0"); } catch { /* storage blocked */ }
@@ -119,6 +199,52 @@ export function SettingsModal({ open, onClose }: Props) {
               );
             })}
           </div>
+
+          {advancedDoctor && <>
+            <div className="mt-4 mb-2 flex items-center gap-2">
+              <IconSettings size={13} className="text-[#56DCA8]" />
+              <h3 className="label text-[8px] text-[#56DCA8]">{t("SIDEWAYS MODE")}</h3>
+            </div>
+            <button type="button" onClick={toggleSideways} disabled={sidewaysBusy}
+              aria-pressed={sidewaysLocked} aria-describedby="sideways-help"
+              className="lift min-h-[48px] w-full border border-[#4A3828] bg-[#17110C] px-3 py-2 text-left font-mono text-[11px] text-[#EDE2CB] hover:border-[#56DCA8] disabled:opacity-50">
+              {sidewaysLocked ? t("Unlock sideways orientation") : t("Lock sideways orientation")}
+            </button>
+            <p id="sideways-help" className="mt-2 text-[10px] leading-snug text-[#9C8F7E]" role="status" aria-live="polite">
+              {t(sidewaysMessage || "Turn your device sideways for a wider drawer and a side command panel. Automatic locking depends on your browser.")}
+            </p>
+
+            <div className="mt-4 mb-2 flex items-center gap-2">
+              <IconSettings size={13} className="text-[#F0A93B]" />
+              <h3 className="label text-[8px] text-[#F0A93B]">{t("3D RESOLUTION")}</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t("3D RESOLUTION")} aria-describedby="resolution-help"
+              onKeyDown={(event) => {
+                const direction = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1
+                  : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
+                if (!direction) return;
+                event.preventDefault();
+                event.stopPropagation();
+                const index = RESOLUTIONS.findIndex((item) => item.id === resolution);
+                const next = (index + direction + RESOLUTIONS.length) % RESOLUTIONS.length;
+                setResolution(RESOLUTIONS[next].id);
+                event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus();
+              }}>
+              {RESOLUTIONS.map((option) => {
+                const on = resolution === option.id;
+                return <button key={option.id} type="button" role="radio" aria-checked={on} tabIndex={on ? 0 : -1}
+                  onClick={() => setResolution(option.id)}
+                  className={`lift min-h-[48px] border px-3 py-2 text-left font-mono text-[10px] ${on
+                    ? "border-[#56DCA8] bg-[#0F241C] text-[#D6FFEF]"
+                    : "border-[#3B322A] bg-[#17110C] text-[#B3A594]"}`}>
+                  {t(option.label)}
+                </button>;
+              })}
+            </div>
+            <p id="resolution-help" className="mt-2 text-[10px] leading-snug text-[#7B6E5F]">
+              {t("Presets scale the capped device resolution for 3D; the interface stays sharp. Auto adapts on the battlefield. Potato mode may lower it further.")}
+            </p>
+          </>}
 
           <div className="mt-4 mb-2 flex items-center gap-2">
             <IconSettings size={13} className="text-[#F0A93B]" />
@@ -231,13 +357,13 @@ export function SettingsModal({ open, onClose }: Props) {
                       : "border-[#3B322A] bg-[#17110C] text-[#B3A594]"
                   }`}
                 >
-                  {option === true ? t("On — find broken taps") : t("Off — normal play")}
+                  {option === true ? t(advancedDoctor ? "On — find UI and visual bugs" : "On — find broken taps") : t("Off — normal play")}
                 </button>
               );
             })}
           </div>
           <p className="mt-2 text-[10px] leading-snug text-[#7B6E5F]">
-            {t("Overlay that hunts unresponsive UI: tiny tap targets, covered buttons, clipped panels, and dropped frames. Shows an FPS meter and a copyable report.")}
+            {t(advancedDoctor ? "Scans touch, layout, chest alignment, Spider facing and rendering. Deep Scan watches for flashes, rotation and stalled animation; visual history records brief issues while enabled." : "Overlay that hunts unresponsive UI: tiny tap targets, covered buttons, clipped panels, and dropped frames. Shows an FPS meter and a copyable report.")}
           </p>
         </div>
 

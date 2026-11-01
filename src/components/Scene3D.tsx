@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { createChestGeometry } from "../game/treasure-voxel";
+import { createDetailedChest } from "../game/chest-model";
 import { BUGS, COMMANDERS, SPECIMEN_IDS, type BugId, type CmdId } from "../game/data";
 import { COLS, ROWS, SPIDER_ROAR_SECONDS, boardXY, type BattleState, type BUnit, type Zone, type PrepUnit } from "../game/engine";
 import { GRAND_WEB_GROW_SECONDS, grandWebGrowth, visualGrandImpactReady, setGrandWebScale } from "../game/web-growth";
 import { buildVoxelModel, dotTexture, warmVoxelCache, V, type VoxModel } from "../game/voxel";
 import { animateInsectRig } from "../game/animate";
+import { sampleRoarWave, spiderRoarFacing } from "../game/spider-roar-visual";
+import { isAdvancedGameLocation } from "../game/build-mode";
+import { RenderFrameGate, renderPixelRatio } from "../game/render-quality";
 import { useSettings } from "../i18n";
 import {
   AIRSTRIKE_RADIUS, AIRSTRIKE_SECONDS, createAirstrikePose, sampleAirstrikeDive,
@@ -21,6 +25,10 @@ interface Props {
   /** Live mutable battle ref for 60/120fps rendering without React re-renders */
   battleRef?: React.RefObject<BattleState | null>;
   battleSpeed?: number;
+  /** User-selected magnification of the battlefield camera (1 is fit-to-screen). */
+  drawerZoom?: number;
+  /** Visual changes reserved for the opt-in playable test build. */
+  advancedEffects?: boolean;
   treasure?: boolean;
   selectedUid?: number | null;
   canDeployMore?: boolean;
@@ -34,6 +42,13 @@ interface Props {
   onUnit?: (uid: number) => void;
   className?: string;
   style?: React.CSSProperties;
+}
+
+interface RoarCue {
+  root: HTMLDivElement;
+  badge: HTMLElement;
+  meter: HTMLElement;
+  waves: SVGSVGElement[];
 }
 
 interface UnitObj {
@@ -62,6 +77,8 @@ interface UnitObj {
   prevRoarProgress: number;
   /** Last emitted roar-wave index, keeping the effect deterministic per cast. */
   roarPulse: number;
+  roarCue: RoarCue | null;
+  roarImpactLife: number;
   prevCd: number;
   /** 0→1 deploy pop when the voxel sculpt first mounts (instant if reduced motion) */
   spawnT: number;
@@ -100,7 +117,7 @@ const SHOWCASE_ORDER = SPECIMEN_IDS;
 const OV_ID: Record<string, string> = {
   CLIMB: "NAIK", "LOCK ON": "MENGUNCI", DIVE: "MENUKIK", LANDED: "Mendarat",
   AIRSTRIKE: "SERBUAN UDARA", PINCER: "CAPITAN", RAKE: "TEBASAN", BURST: "LEDAKAN",
-  GLOW: "CAHAYA", HOLE: "LUBANG", "TRAP!": "Jebakan!", TOUCHDOWN: "Mendarat", "ROAR!": "RAUNGAN!",
+  GLOW: "CAHAYA", HOLE: "LUBANG", "TRAP!": "Jebakan!", TOUCHDOWN: "Mendarat", "ROAR!": "RAUNGAN!", "IMPACT!": "HANTAM!",
 };
 const ovWord = (w: string): string =>
   typeof document !== "undefined" && document.documentElement.lang === "id" ? OV_ID[w] ?? w : w;
@@ -111,6 +128,8 @@ export function Scene3D({
   battle = null,
   battleRef,
   battleSpeed = 1,
+  drawerZoom = 1,
+  advancedEffects = false,
   treasure = false,
   selectedUid = null,
   canDeployMore = true,
@@ -124,7 +143,9 @@ export function Scene3D({
   className = "",
   style,
 }: Props) {
-  const { t } = useSettings();
+  const { t, resolution, potato } = useSettings();
+  const qualityRef = useRef({ resolution, potato });
+  qualityRef.current = { resolution, potato };
   const hostRef = useRef<HTMLDivElement>(null);
   const ovRef = useRef<HTMLDivElement>(null);
   const [noGL, setNoGL] = useState(false);
@@ -135,6 +156,7 @@ export function Scene3D({
     battle,
     battleRef,
     battleSpeed,
+    drawerZoom,
     treasure,
     selectedUid,
     canDeployMore,
@@ -152,6 +174,7 @@ export function Scene3D({
     battle,
     battleRef,
     battleSpeed,
+    drawerZoom,
     treasure,
     selectedUid,
     canDeployMore,
@@ -201,9 +224,10 @@ export function Scene3D({
     const ovEl: HTMLDivElement = ov;
     const showcase = P.current.mode === "showcase";
     const isCompact = window.innerWidth < 640;
-
+    // Showcase has no advancedEffects prop, but its canvas shares the same
+    // resolution preference as the advanced battlefield.
+    const advancedQuality = advancedEffects || isAdvancedGameLocation(window.location);
     const dpr = Math.min(window.devicePixelRatio || 1, isCompact ? 1.65 : 2);
-    renderer.setPixelRatio(dpr);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -221,36 +245,73 @@ export function Scene3D({
     scene.fog = new THREE.FogExp2(0x0b0806, showcase ? 0.032 : 0.022);
     const camera = new THREE.PerspectiveCamera(showcase ? 34 : 35, 1, 0.1, 80);
 
-    const target = new THREE.Vector3(showcase ? 0 : 3.5, showcase ? 0.24 : 0.08, showcase ? 0.15 : 3.05);
+    // The advanced board includes commander plinths beyond both short ends.
+    // Aim slightly toward the near plinth so the player's totem is not cut
+    // off at the bottom of a compact stage.
+    const target = new THREE.Vector3(showcase ? 0 : 3.5, showcase ? 0.24 : 0.08, showcase ? 0.15 : advancedEffects ? 3.5 : 3.05);
 
     let W = hostEl.clientWidth || 360;
     let H = hostEl.clientHeight || 320;
 
-    // ── Potato mode (weak devices) ─────────────────────────────────────
-    // Settings provider mirrors the flag onto <html data-potato> and fires
-    // "sb-potato". Kills the shadow depth pass (the single biggest cost),
-    // caps the framebuffer well under native, and hides fireflies.
-    let potatoOn = document.documentElement.dataset.potato === "1";
+    // ── Resolution and Potato mode ──────────────────────────────────────
+    // Fixed presets never fight the governor. Auto uses a smaller initial
+    // buffer and adapts under load; Potato adds a ceiling and disables the
+    // expensive shadow pass independently of the selected resolution.
+    let potatoOn = qualityRef.current.potato;
+    let resolutionMode = qualityRef.current.resolution;
+    let pxScale = 1;
+    let ftEma = 16.7;
+    let ftWarmup = 0;
+    let qualityClock = 0;
+    let shadowPhase = 0;
+    let frameParity = 0;
+    let sceneReady = false;
+    const resetGovernor = () => { pxScale = 1; ftEma = 16.7; ftWarmup = 0; qualityClock = 0; };
+    const applyResolution = () => {
+      const ratio = advancedQuality
+        ? renderPixelRatio(resolutionMode, window.devicePixelRatio || 1, window.innerWidth < 640, potatoOn, pxScale)
+        : potatoOn ? Math.min(dpr, 1.6) * 0.6 : dpr * pxScale;
+      const changed = Math.abs(renderer.getPixelRatio() - ratio) > 0.0001;
+      // setPixelRatio already calls setSize internally; don't clear/allocate
+      // the same framebuffer a second time.
+      if (changed) renderer.setPixelRatio(ratio);
+      if (advancedQuality) {
+        renderer.domElement.dataset.renderResolution = resolutionMode;
+        renderer.domElement.dataset.renderDpr = ratio.toFixed(3);
+        renderer.domElement.dataset.renderPotato = potatoOn ? "1" : "0";
+      }
+      return changed;
+    };
     const applyPotato = () => {
+      const shadowChanged = renderer.shadowMap.enabled === potatoOn;
       renderer.shadowMap.enabled = !potatoOn;
-      renderer.setPixelRatio(potatoOn ? Math.min(dpr, 1.6) * 0.6 : dpr);
-      renderer.setSize(W, H, false);
-      // toggling shadowMap.enabled recompiles every lit material
-      scene.traverse((o) => {
-        const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
-        if (!m) return;
-        (Array.isArray(m) ? m : [m]).forEach((mm) => { mm.needsUpdate = true; });
-      });
+      if (shadowChanged) {
+        // Only a shadow change requires material recompilation. Changing the
+        // resolution alone must not rebuild every shader.
+        scene.traverse((o) => {
+          const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+          if (!m) return;
+          (Array.isArray(m) ? m : [m]).forEach((mm) => { mm.needsUpdate = true; });
+        });
+        renderer.shadowMap.needsUpdate = !potatoOn;
+      }
+      const resized = applyResolution();
+      if (sceneReady && (resized || shadowChanged)) renderer.render(scene, camera);
     };
     applyPotato();
     const onPotato = () => {
-      potatoOn = document.documentElement.dataset.potato === "1";
-      pxScale = 1;
-      ftEma = 16.7;
-      ftWarmup = 0;
+      potatoOn = qualityRef.current.potato;
+      resetGovernor();
       applyPotato();
     };
+    const onResolution = () => {
+      if (!advancedQuality) return;
+      resolutionMode = qualityRef.current.resolution;
+      resetGovernor();
+      if (applyResolution() && sceneReady) renderer.render(scene, camera);
+    };
     window.addEventListener("sb-potato", onPotato);
+    window.addEventListener("sb-resolution", onResolution);
 
     const disposables: { dispose: () => void }[] = [];
     const track = <T extends { dispose: () => void }>(o: T) => (disposables.push(o), o);
@@ -288,6 +349,8 @@ export function Scene3D({
     let tilesMesh: THREE.InstancedMesh | null = null;
     let tileRimsMesh: THREE.InstancedMesh | null = null;
     const tileHeights = new Float32Array(COLS * ROWS);
+    const tileColors = new Uint32Array(21);
+    const tileOccupied = new Uint8Array(21);
     let hoverSlot = -1;
     const hoverMeshRef: { mesh: THREE.Mesh | null; mat: THREE.MeshBasicMaterial | null } = {
       mesh: null,
@@ -2001,35 +2064,34 @@ export function Scene3D({
 
     /* ── Camera Framing ── */
     const fitW = showcase ? 4.8 : 7.85;
-    const fitH = showcase ? 2.55 : 7.35;
+    const fitH = showcase ? 2.55 : advancedEffects ? 8.5 : 7.35;
     const elev = showcase ? 0.36 : 0.84;
+    // At close zoom the near commander used to slide out of the viewport.
+    // Lowering the view slightly foreshortens the drawer's depth, keeping
+    // both end plinths visible while the playable board still grows.
+    const zoomElevation = (zoom: number) => !showcase && advancedEffects ? elev - Math.max(0, zoom - 1) * 0.62 : elev;
+    let camElev = elev;
     let camDist = 11;
     // Fit distance for the current viewport. Entering a battle swaps the dock
     // and resizes the stage mid-session; tick() eases the real distance toward
     // this target so the reframing glides instead of jolting the camera.
     let camDistTarget = 11;
-    // ── Adaptive resolution ──
-    // Sustained slow frames (EMA of frame time) step the render scale down;
-    // sustained headroom steps it back up. Keeps the scene smooth on weak
-    // GPUs instead of dropping to a slideshow.
-    const baseDpr = dpr;
-    let pxScale = 1;
-    let ftEma = 16.7;
-    let ftWarmup = 0;
-    let qualityClock = 0;
-    let shadowPhase = 0;
-    let frameParity = 0;
-    // Flips once init completes. After that, frame() repaints immediately
-    // after every canvas resize — resizing a WebGL buffer clears it, and
-    // without this repaint the cleared frame shows as a dark flash exactly
-    // when the prep dock hands over to the battle dock.
-    let sceneReady = false;
-
+    const cameraZoom = () => !showcase && advancedEffects ? Math.min(1.32, Math.max(0.74, P.current.drawerZoom || 1)) : 1;
+    // After initialization, resize repaints immediately so the cleared
+    // WebGL buffer cannot flash during the prep-to-battle transition.
     let cameraInitialized = false;
+    let sizeInitialized = false;
     function frame() {
-      W = hostEl.clientWidth || 360;
-      H = hostEl.clientHeight || 280;
-      renderer.setSize(W, H, false);
+      const nextW = hostEl.clientWidth || 360;
+      const nextH = hostEl.clientHeight || 280;
+      const resized = !sizeInitialized || W !== nextW || H !== nextH;
+      W = nextW;
+      H = nextH;
+      const qualityChanged = advancedQuality && applyResolution();
+      if (resized) {
+        renderer.setSize(W, H, false);
+        sizeInitialized = true;
+      }
       camera.aspect = W / H;
       const vFov = (camera.fov * Math.PI) / 180;
       const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
@@ -2038,23 +2100,26 @@ export function Scene3D({
       if (!cameraInitialized) {
         // ResizeObserver may repaint before the first animation frame. Never
         // render from Three's default origin (inside the board) in that gap.
-        camDist = camDistTarget;
-        camera.position.set(target.x, target.y + Math.sin(elev) * camDist, target.z + Math.cos(elev) * camDist);
+        camDist = camDistTarget / cameraZoom();
+        camElev = zoomElevation(cameraZoom());
+        camera.position.set(target.x, target.y + Math.sin(camElev) * camDist, target.z + Math.cos(camElev) * camDist);
         camera.lookAt(target);
         cameraInitialized = true;
       }
-      if (sceneReady) renderer.render(scene, camera);
+      if (sceneReady && (resized || qualityChanged)) renderer.render(scene, camera);
     }
-    // pre-warm every shader program in the scene so the first battle
-    // doesn't hitch while the GPU compiles materials mid-fight
-    renderer.compile(scene, camera);
 
     frame();
 
     const ro = new ResizeObserver(() => frame());
     ro.observe(hostEl);
+    // Also catch device-DPR changes when moving a desktop window between screens.
+    window.addEventListener("resize", frame);
 
     /* ── Commander Totems ── */
+    const totemAuditBox = new THREE.Box3();
+    const totemAuditPoint = new THREE.Vector3();
+    let totemAuditClock = 0;
     // Per-commander pedestal tune: the holder baseline (y=0.44) was set for
     // the tall insect commanders; the worm grub is half their height AND its
     // sculpt rests ~0.056 above its own origin, so on the shared holder its
@@ -2108,6 +2173,45 @@ export function Scene3D({
       scale: number;
     }[] = [];
     const sharedRingGeo = track(new THREE.RingGeometry(0.2, 0.3, 22));
+
+    // Subtle pooled ground-pressure fronts for the opt-in roar. They mark
+    // the cast and impact without washing out the surrounding battle board.
+    const roarWaveGeo = track(new THREE.RingGeometry(0.92, 1, 32));
+    roarWaveGeo.rotateX(-Math.PI / 2);
+    const roarWaves = Array.from({ length: advancedEffects ? (isCompact ? 6 : 10) : 0 }, () => {
+      const mat = track(new THREE.MeshBasicMaterial({
+        transparent: true, opacity: 0, depthWrite: false,
+        blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false,
+      }));
+      const mesh = new THREE.Mesh(roarWaveGeo, mat);
+      mesh.visible = false;
+      mesh.renderOrder = 5;
+      scene.add(mesh);
+      return { mesh, mat, life: 0, max: 1, radius: 1 };
+    });
+    let roarWaveCursor = 0;
+    function spawnRoarWave(x: number, z: number, side: "ally" | "foe", impact = false) {
+      if (!roarWaves.length) return;
+      const wave = roarWaves[roarWaveCursor];
+      roarWaveCursor = (roarWaveCursor + 1) % roarWaves.length;
+      wave.mesh.position.set(x, UNIT_GROUND + 0.027, z);
+      wave.mat.color.setHex(side === "ally" ? 0xffa64f : 0xff5554);
+      wave.max = impact ? 0.9 : 0.7;
+      wave.life = wave.max;
+      wave.radius = impact ? 2.0 : 1.25;
+      wave.mesh.visible = true;
+    }
+    function updateRoarWaves(dt: number) {
+      for (const wave of roarWaves) {
+        if (wave.life <= 0) continue;
+        wave.life = Math.max(0, wave.life - dt);
+        const remaining = wave.life / wave.max;
+        const progress = 1 - remaining;
+        wave.mesh.scale.setScalar(0.42 + (1 - (1 - progress) ** 2) * wave.radius);
+        wave.mat.opacity = remaining * 0.3;
+        if (wave.life === 0) wave.mesh.visible = false;
+      }
+    }
 
     /** A single bright bloom that swells and dies — the flash of an impact. */
     function spawnFlash(x: number, y: number, z: number, color: number, scale = 1.6) {
@@ -2339,6 +2443,26 @@ export function Scene3D({
       ringPool.push({ mesh, mat, life: 0.58 });
     }
 
+    function makeRoarCue(uid: number, side: "ally" | "foe"): RoarCue {
+      const root = document.createElement("div");
+      root.className = "roar-cue";
+      root.dataset.roarUnit = String(uid);
+      root.dataset.roarSide = side;
+      root.setAttribute("aria-hidden", "true");
+      // A single translucent ring and compact timing label follow the
+      // projected unit, keeping the rig and surrounding tiles visible.
+      root.innerHTML = `
+        <svg class="roar-cue__wave" viewBox="0 0 100 100" aria-hidden="true"><circle class="roar-cue__wave-line" cx="50" cy="50" r="36"/></svg>
+        <div class="roar-cue__badge"><span></span><i><b></b></i></div>`;
+      ovEl.prepend(root);
+      return {
+        root,
+        badge: root.querySelector(".roar-cue__badge span") as HTMLElement,
+        meter: root.querySelector(".roar-cue__badge b") as HTMLElement,
+        waves: Array.from(root.querySelectorAll<SVGSVGElement>(".roar-cue__wave")),
+      };
+    }
+
     function makeTag() {
       const el = document.createElement("div");
       el.className = "ov-unit";
@@ -2360,6 +2484,7 @@ export function Scene3D({
       let u = units.get(uid);
       if (u && u.id === id && u.star === star) {
         u.side = side;
+        if (u.el.dataset.side !== side) u.el.dataset.side = side;
         return u;
       }
       const hadPrev = !u;
@@ -2373,7 +2498,9 @@ export function Scene3D({
       inner.add(model.group);
       holder.add(inner);
       holder.position.set(x, UNIT_GROUND, y);
-      holder.rotation.y = side === "ally" ? 0 : Math.PI;
+      // In prep the ally faces the enemy's half; the opposing side faces back.
+      const initialRot = side === "ally" ? 0 : Math.PI;
+      holder.rotation.y = initialRot;
       holder.name = `unit:${id}:${uid}`;
       inner.name = "unit-flight-transform";
       scene.add(holder);
@@ -2441,7 +2568,7 @@ export function Scene3D({
         holder,
         inner,
         ring,
-        rotY: side === "ally" ? 0 : Math.PI,
+        rotY: initialRot,
         bob: (uid * 1.7) % 6,
         lunge: 0,
         deadT: 0,
@@ -2449,6 +2576,8 @@ export function Scene3D({
         prevCast: 0,
         prevRoarProgress: -1,
         roarPulse: -1,
+        roarCue: null,
+        roarImpactLife: 0,
         prevCd: cd,
         shadow,
         blurDisc,
@@ -2487,6 +2616,7 @@ export function Scene3D({
       void u.prevPhase;
       (u.ring?.material as THREE.Material | undefined)?.dispose();
       u.model.dispose();
+      u.roarCue?.root.remove();
       u.el.remove();
       units.delete(uid);
     }
@@ -2670,8 +2800,11 @@ export function Scene3D({
     const alivePops = new Set<number>();
     let raf = 0;
     let impactShake = 0;
+    let roarImpactRendered = false;
     let paused = document.hidden;
     let last = performance.now();
+    const frameGate = advancedQuality ? new RenderFrameGate(60) : null;
+    frameGate?.reset(last);
     let t = 0;
     let visualBattleTime = 0;
     let clockBattle: BattleState | null = null;
@@ -2712,6 +2845,7 @@ export function Scene3D({
       battleTime = 0,
       treasureGuard = false,
       roarProgress?: number,
+      roarCompleted = false,
     ) {
       seen.add(uid);
       const u = ensureUnit(uid, id, star, side, rx, ry, cd);
@@ -2741,10 +2875,23 @@ export function Scene3D({
       const phaseChanged = (flight?.phase ?? "grounded") !== u.prevPhase;
       if (flight && dive) wantRot = Math.atan2(-(dive.toX - dive.fromX), -(dive.toY - dive.fromY));
 
-      let dRot = wantRot - u.rotY;
-      while (dRot > Math.PI) dRot -= Math.PI * 2;
-      while (dRot < -Math.PI) dRot += Math.PI * 2;
-      u.rotY += dRot * (1 - Math.exp(-dt * 10));
+      // Face straight across the board before and throughout the roar.
+      // Do not turn toward an off-center target until the roar is over.
+      const enemyFacingPreview = advancedEffects && id === "spider" && !battleOn && !dead;
+      const holdSpiderBody = advancedEffects && id === "spider" && roarProgress !== undefined && !dead;
+      if (enemyFacingPreview) {
+        u.rotY = spiderRoarFacing(side);
+      } else if (holdSpiderBody) {
+        if (u.prevRoarProgress < 0) {
+          u.rotY = spiderRoarFacing(side);
+          u.el.dataset.roarAim = u.rotY.toFixed(5);
+        }
+      } else {
+        let dRot = wantRot - u.rotY;
+        while (dRot > Math.PI) dRot -= Math.PI * 2;
+        while (dRot < -Math.PI) dRot += Math.PI * 2;
+        u.rotY += dRot * (1 - Math.exp(-dt * 10));
+      }
 
       const px = u.holder.position.x;
       const pz = u.holder.position.z;
@@ -2782,17 +2929,35 @@ export function Scene3D({
       if (cast > 0 && u.prevCast <= 0 && id !== "dragonfly") spawnRing(rx, ry, side === "ally" ? 0x4fd3a0 : 0xe0522f);
       u.prevCast = cast;
 
-      // Three-star Spider opener: its body animation is paired with visible
-      // pressure waves. The unit stays planted while these pulses radiate;
-      // the last flash coincides with the engine's one-time 650 hit.
+      // The engine owns cast timing and interruption. In the test build the
+      // subtle cue follows this exact unit; it never starts or applies damage
+      // on its own.
+      const quietRoar = document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches;
       if (roarProgress !== undefined) {
         u.el.dataset.roaring = "true";
         u.el.dataset.roarProgress = String(Math.round(roarProgress * 100));
         const pulse = Math.min(3, Math.floor(roarProgress * 4));
-        const quietMotion = document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches;
-        if (!quietMotion && pulse > u.roarPulse) {
-          spawnRing(rx, ry, side === "ally" ? 0xff9b55 : 0xff5147);
-          if (pulse === 2) spawnBurst(rx, 0.34, ry, 0xffcf72, isCompact ? 5 : 8, 1.2);
+        if (!quietRoar && pulse > u.roarPulse) {
+          if (advancedEffects) spawnRoarWave(rx, ry, side);
+          else {
+            spawnRing(rx, ry, side === "ally" ? 0xff9b55 : 0xff5147);
+            if (pulse === 2) spawnBurst(rx, 0.34, ry, 0xffcf72, isCompact ? 5 : 8, 1.2);
+          }
+        }
+        if (advancedEffects) {
+          const cue = u.roarCue ?? (u.roarCue = makeRoarCue(uid, side));
+          cue.root.hidden = false;
+          if (cue.root.dataset.roarCue !== "charging") cue.root.dataset.roarCue = "charging";
+          if (cue.root.dataset.roarSide !== side) cue.root.dataset.roarSide = side;
+          const roarWord = ovWord("ROAR!");
+          if (cue.badge.textContent !== roarWord) cue.badge.textContent = roarWord;
+          cue.meter.style.transform = `scaleX(${quietRoar ? 0.5 : roarProgress})`;
+          cue.waves.forEach(wave => {
+            const sample = quietRoar ? { scale: 0.8, opacity: 0.3 } : sampleRoarWave(roarProgress);
+            wave.style.transform = `scale(${sample.scale.toFixed(3)})`;
+            wave.style.opacity = sample.opacity.toFixed(3);
+          });
+          u.roarImpactLife = 0;
         }
         u.roarPulse = Math.max(u.roarPulse, pulse);
         u.prevRoarProgress = roarProgress;
@@ -2800,18 +2965,49 @@ export function Scene3D({
         delete u.el.dataset.roaring;
         delete u.el.dataset.roarProgress;
         if (u.prevRoarProgress >= 0) {
-          // A death before 1.5s interrupts the ultimate and gets no hit wave.
-          if (!dead && battleTime >= SPIDER_ROAR_SECONDS) {
-            const quietMotion = document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches;
-            spawnRing(rx, ry, side === "ally" ? 0xffb35c : 0xff604f);
-            if (!quietMotion) {
-              spawnFlash(rx, 0.42, ry, 0xffb15b, 2.1);
-              spawnBurst(rx, 0.38, ry, 0xffd58a, isCompact ? 10 : 16, 2.4);
+          // Completion is read from the simulation, not the interpolated
+          // render clock. This also handles simultaneous opposing roars; a
+          // spider killed *during* the cast still has roarEnd and never hits.
+          const landed = advancedEffects ? roarCompleted : !dead && battleTime >= SPIDER_ROAR_SECONDS;
+          if (landed) {
+            if (advancedEffects) {
+              u.roarImpactLife = 0.62;
+              roarImpactRendered = true;
+              if (!quietRoar) {
+                spawnRoarWave(rx, ry, side, true);
+                spawnFlash(rx, 0.42, ry, side === "ally" ? 0xffb85b : 0xff6555, 1.8);
+                spawnBurst(rx, 0.38, ry, 0xffd58a, isCompact ? 6 : 10, 1.8);
+                impactShake = Math.max(impactShake, 0.2);
+              }
+            } else {
+              spawnRing(rx, ry, side === "ally" ? 0xffb35c : 0xff604f);
+              if (!quietRoar) {
+                spawnFlash(rx, 0.42, ry, 0xffb15b, 2.1);
+                spawnBurst(rx, 0.38, ry, 0xffd58a, isCompact ? 10 : 16, 2.4);
+              }
             }
+          } else if (u.roarCue) {
+            u.roarCue.root.hidden = true;
+            u.roarImpactLife = 0;
           }
           u.prevRoarProgress = -1;
           u.roarPulse = -1;
         }
+      }
+      if (advancedEffects && u.roarCue && u.roarImpactLife > 0) {
+        const cue = u.roarCue;
+        cue.root.hidden = false;
+        if (cue.root.dataset.roarCue !== "impact") cue.root.dataset.roarCue = "impact";
+        const impactWord = ovWord("IMPACT!");
+        if (cue.badge.textContent !== impactWord) cue.badge.textContent = impactWord;
+        const impactProgress = 1 - u.roarImpactLife / 0.62;
+        cue.waves.forEach(wave => {
+          const scale = quietRoar ? 0.9 : 0.8 + impactProgress * 0.2;
+          wave.style.transform = `scale(${scale.toFixed(3)})`;
+          wave.style.opacity = quietRoar ? "0.3" : String(Math.max(0, 0.5 * (1 - impactProgress)));
+        });
+        u.roarImpactLife = Math.max(0, u.roarImpactLife - dt);
+        if (u.roarImpactLife === 0) cue.root.hidden = true;
       }
 
       /* ── Dragonfly flight realism ─────────────────────────────
@@ -2908,8 +3104,10 @@ export function Scene3D({
       // ground, never pops out of existence
       const corpseSink = dead ? -(1 - Math.min(1, Math.max(0, fade))) * 0.34 : 0;
       u.inner.position.y = flight ? 0 : bobY + hop + corpseSink;
-      u.inner.rotation.x = flight ? flight.pitch : u.inner.rotation.x * Math.exp(-dt * 16);
-      u.inner.rotation.z = flight ? flight.bank : u.inner.rotation.z * Math.exp(-dt * 16);
+      if (!holdSpiderBody) {
+        u.inner.rotation.x = flight ? flight.pitch : u.inner.rotation.x * Math.exp(-dt * 16);
+        u.inner.rotation.z = flight ? flight.bank : u.inner.rotation.z * Math.exp(-dt * 16);
+      }
 
       if (dead) {
         u.deadT += dt;
@@ -2943,6 +3141,10 @@ export function Scene3D({
         if (flash > 0) {
           const eb = u.model.emissiveBase;
           u.model.bodyMat.emissive.setRGB(flash * 2.1 + eb[0], flash * 1.5 + eb[1], flash * 1.0 + eb[2]);
+        } else if (advancedEffects && roarProgress !== undefined) {
+          const eb = u.model.emissiveBase;
+          const glow = quietRoar ? 0.18 : 0.1 + 0.14 * Math.sin(roarProgress * Math.PI);
+          u.model.bodyMat.emissive.setRGB(eb[0] + glow, eb[1] + glow * 0.22, eb[2] + glow * 0.08);
         } else if (poison > 0 || snared > 0) {
           // status silk: poisoned foes seep venom green, foes stuck in the
           // After Web sheen sticky violet — both breathe with the sim
@@ -2982,7 +3184,29 @@ export function Scene3D({
         0,
         flight,
         roarProgress,
+        advancedEffects,
       );
+      if (advancedEffects && id === "spider") {
+        const facing = u.holder.rotation.y.toFixed(5);
+        if (u.el.dataset.spiderFacing !== facing) u.el.dataset.spiderFacing = facing;
+      }
+      if (holdSpiderBody) {
+        // Inspectable rendered transforms also make target-switch regressions
+        // testable without affecting the combat simulation.
+        const facing = u.holder.rotation.y.toFixed(5);
+        const body = [u.inner.rotation.x, u.inner.rotation.y, u.inner.rotation.z,
+          u.model.group.rotation.x, u.model.group.rotation.y, u.model.group.rotation.z,
+          u.model.torso.rotation.x, u.model.torso.rotation.y, u.model.torso.rotation.z].map(v => v.toFixed(5)).join(",");
+        if (u.el.dataset.roarFacing !== facing) u.el.dataset.roarFacing = facing;
+        if (u.el.dataset.roarBody !== body) u.el.dataset.roarBody = body;
+        const headYaw = u.model.head.rotation.y.toFixed(5);
+        if (u.el.dataset.roarHeadYaw !== headYaw) u.el.dataset.roarHeadYaw = headYaw;
+      } else if (u.el.dataset.roarFacing !== undefined) {
+        delete u.el.dataset.roarFacing;
+        delete u.el.dataset.roarBody;
+        delete u.el.dataset.roarHeadYaw;
+        delete u.el.dataset.roarAim;
+      }
 
       if (flight && dive) {
         u.activeDiveId = dive.id;
@@ -3010,6 +3234,16 @@ export function Scene3D({
         selRing.rotation.z += dt * 1.4;
       }
 
+      // Project the effect around the body (not the health-bar anchor).
+      let roarCenter: { x: number; y: number } | null = null;
+      if (u.roarCue && !u.roarCue.root.hidden) {
+        proj.set(u.holder.position.x, u.holder.position.y + 0.28 + u.inner.position.y, u.holder.position.z).project(camera);
+        const cx = (proj.x * 0.5 + 0.5) * W;
+        const cy = (-proj.y * 0.5 + 0.5) * H;
+        roarCenter = { x: cx, y: cy };
+        u.roarCue.root.style.transform = `translate3d(${cx.toFixed(1)}px,${cy.toFixed(1)}px,0) translate(-50%,-50%)`;
+      }
+
       // Project & dirty-write DOM HUD tag
       const hWorld = u.model.height * u.scale;
       proj.set(u.holder.position.x, u.holder.position.y + hWorld + 0.22 + u.inner.position.y, u.holder.position.z).project(camera);
@@ -3017,11 +3251,6 @@ export function Scene3D({
       const sy = (-proj.y * 0.5 + 0.5) * H;
       const vis = proj.z < 1 && !(dead && fade <= 0.02) ? 1 : 0;
 
-      if (Math.abs(sx - u.lx) > 0.25 || Math.abs(sy - u.ly) > 0.25) {
-        u.lx = sx;
-        u.ly = sy;
-        u.el.style.transform = `translate3d(${sx.toFixed(1)}px,${sy.toFixed(1)}px,0) translate(-50%,-100%)`;
-      }
       if (vis !== u.lvis) {
         u.lvis = vis;
         u.el.style.opacity = vis ? "1" : "0";
@@ -3093,36 +3322,91 @@ export function Scene3D({
         const starSvg = '<svg viewBox="0 0 12 12" width="9" height="9" class="inline-block mx-[0.5px]" style="filter:drop-shadow(0 1px 2px #000);"><polygon points="6,1 7.5,4.5 11,6 7.5,7.5 6,11 4.5,7.5 1,6 4.5,4.5" fill="#F0A93B" stroke="#4A2E10" stroke-width="0.8"/><polygon points="6,3 7,5 9,6 7,7 6,9 5,7 3,6 5,5" fill="#FFF8E0" opacity="0.85"/></svg>';
         u.pipsEl.innerHTML = Array(star).fill(starSvg).join("");
       }
+      let tagX = sx, tagY = sy;
+      if (roarCenter && u.roarCue) {
+        // Status labels and camera zoom can move health relative to the
+        // body's effect. Keep the tag in the stage and place the small roar
+        // badge above it, or beside it when the top edge leaves no room.
+        // Measurements are limited to the brief active cue, not every unit.
+        const tagWidth = u.el.offsetWidth, tagHeight = u.el.offsetHeight;
+        tagX = Math.max(tagWidth / 2 + 2, Math.min(W - tagWidth / 2 - 2, sx));
+        tagY = Math.max(tagHeight + 2, Math.min(H - 2, sy));
+        const badge = u.roarCue.badge.parentElement!;
+        const badgeWidth = badge.offsetWidth, badgeHeight = badge.offsetHeight;
+        const barWidth = u.hpEl.parentElement?.parentElement?.offsetWidth ?? 46;
+        // Matches the badge's CSS top: 18% - 18px, measured from a
+        // cue whose origin is centered (18% - 50% = -32%).
+        const defaultBottom = roarCenter.y - u.roarCue.root.offsetWidth * 0.32 - 18;
+        const healthTop = tagY - tagHeight;
+        let badgeBottom = Math.min(defaultBottom, healthTop - 3);
+        const half = badgeWidth / 2 + 2;
+        let badgeX = Math.max(half, Math.min(W - half, roarCenter.x));
+        if (badgeBottom < badgeHeight + 2) {
+          badgeBottom = badgeHeight + 2;
+          const distance = barWidth / 2 + badgeWidth / 2 + 3;
+          const left = tagX - distance, right = tagX + distance;
+          // Prefer the side toward the middle of the stage, then the other.
+          const candidates = tagX > W / 2 ? [left, right] : [right, left];
+          badgeX = candidates.find(x => x >= half && x <= W - half) ?? badgeX;
+        }
+        u.roarCue.root.style.setProperty("--roar-label-shift", `${(badgeX - roarCenter.x).toFixed(1)}px`);
+        u.roarCue.root.style.setProperty("--roar-label-lift", `${(badgeBottom - defaultBottom).toFixed(1)}px`);
+      }
+      if (Math.abs(tagX - u.lx) > 0.25 || Math.abs(tagY - u.ly) > 0.25) {
+        u.lx = tagX;
+        u.ly = tagY;
+        u.el.style.transform = `translate3d(${tagX.toFixed(1)}px,${tagY.toFixed(1)}px,0) translate(-50%,-100%)`;
+      }
     }
 
-    // A small voxel-style chest stands behind the neutral guards. The lid is
-    // a separate hinge; opening is visual only and never changes combat.
-    const chest = new THREE.Group();
-    // Contiguous voxel meshes expose only outer faces. No two materials
-    // occupy the same face, avoiding z-fighting during camera movement.
-    const chestMaterial = track(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.68, metalness: 0.12 }));
-    const chestBody = new THREE.Mesh(track(createChestGeometry("body")), chestMaterial);
-    chest.add(chestBody);
-    const chestLid = new THREE.Group();
-    chestLid.position.set(0, 0.46, -0.30);
-    chestLid.add(new THREE.Mesh(track(createChestGeometry("lid")), chestMaterial));
-    chest.add(chestLid);
-    const chestGlowMat = track(new THREE.MeshBasicMaterial({ color: 0xffca65, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
-    const chestGlow = new THREE.Mesh(track(new THREE.PlaneGeometry(0.56, 0.45)), chestGlowMat);
-    chestGlow.rotation.x = -Math.PI / 2; chestGlow.position.y = 0.13; chest.add(chestGlow);
-    const chestSparkMat = track(new THREE.MeshBasicMaterial({ color: 0xffd981, transparent: true, opacity: 0, depthWrite: false }));
-    const chestSparkGeo = track(new THREE.BoxGeometry(0.055, 0.055, 0.055));
-    const chestSparks = Array.from({ length: 6 }, (_, i) => {
-      const m = new THREE.Mesh(chestSparkGeo, chestSparkMat);
-      m.position.set(Math.sin(i * 2.4) * 0.22, 0.4, Math.cos(i * 2.4) * 0.16); chest.add(m); return m;
-    });
-    chest.position.set(COLS / 2, UNIT_GROUND, 0.86); chest.scale.setScalar(1.22); scene.add(chest);
+    // The advanced chest is a physically hinged model; the legacy build
+    // retains its original mesh and animation untouched.
+    const detailedChest = advancedEffects ? track(createDetailedChest()) : null;
+    const chest = detailedChest?.root ?? new THREE.Group();
+    let updateChest: (progress: number, time: number, reduced: boolean, potato: boolean) => void;
+    if (detailedChest) {
+      updateChest = detailedChest.update;
+    } else {
+      const chestMaterial = track(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.68, metalness: 0.12 }));
+      chest.add(new THREE.Mesh(track(createChestGeometry("body")), chestMaterial));
+      const lid = new THREE.Group();
+      lid.position.set(0, 0.46, -0.30);
+      lid.add(new THREE.Mesh(track(createChestGeometry("lid")), chestMaterial));
+      chest.add(lid);
+      const glowMat = track(new THREE.MeshBasicMaterial({ color: 0xffca65, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+      const glow = new THREE.Mesh(track(new THREE.PlaneGeometry(0.56, 0.45)), glowMat);
+      glow.rotation.x = -Math.PI / 2; glow.position.y = 0.13; chest.add(glow);
+      const sparkMat = track(new THREE.MeshBasicMaterial({ color: 0xffd981, transparent: true, opacity: 0, depthWrite: false }));
+      const sparkGeo = track(new THREE.BoxGeometry(0.055, 0.055, 0.055));
+      const sparks = Array.from({ length: 6 }, (_, i) => {
+        const m = new THREE.Mesh(sparkGeo, sparkMat);
+        m.position.set(Math.sin(i * 2.4) * 0.22, 0.4, Math.cos(i * 2.4) * 0.16); chest.add(m); return m;
+      });
+      updateChest = (progress, time, reduced, potato) => {
+        lid.rotation.x = -1.35 * (1 - Math.pow(1 - progress, 3));
+        glowMat.opacity = progress * 0.65;
+        sparkMat.opacity = progress * (potato ? 0 : 0.9);
+        sparks.forEach((spark, i) => {
+          const rise = reduced ? 0.4 : (time * 0.75 + i / sparks.length) % 1;
+          spark.position.y = 0.45 + rise * 0.8;
+          spark.scale.setScalar(reduced ? 1 : Math.max(0.05, Math.sin(rise * Math.PI)));
+        });
+      };
+    }
+    chest.position.set(COLS / 2, UNIT_GROUND, 0.86);
+    chest.scale.setScalar(advancedEffects ? 1.38 : 1.22);
+    scene.add(chest);
+    const chestForward = new THREE.Vector3();
     let chestOpen = 0;
 
     function tick(now: number) {
       if (paused) return;
       raf = requestAnimationFrame(tick);
+      // High-refresh phones and monitors no longer render the same scene
+      // 90–144 times a second. Simulation still advances on its own clock.
+      if (frameGate && !frameGate.shouldRender(now)) return;
       const dt = Math.min(0.05, (now - last) / 1000);
+      roarImpactRendered = false;
       last = now;
       t += dt;
       const p = P.current;
@@ -3142,19 +3426,17 @@ export function Scene3D({
         ftEma += (dt * 1000 - ftEma) * 0.06;
       }
       qualityClock += dt;
-      // Governor is battle-only (and never fights Potato's fixed floor):
-      // a dragged menu spikes frame times and the resulting resolution
-      // switch read as "voxels glitch for a sec".
-      if (qualityClock >= 1.5 && !showcase && !potatoOn) {
+      // The governor is battlefield-only and never changes a manually chosen
+      // preset or fights Potato's cap. The 60 fps gate means headroom is
+      // measured around 16.7ms, not the old 120 Hz-only threshold.
+      if (qualityClock >= 1.5 && !showcase && !potatoOn && (!advancedQuality || resolutionMode === "auto")) {
         qualityClock = 0;
         if (ftEma > 22 && pxScale > 0.6) {
           pxScale = Math.max(0.6, pxScale - 0.15);
-          renderer.setPixelRatio(baseDpr * pxScale);
-          renderer.setSize(W, H, false);
-        } else if (ftEma < 14.5 && pxScale < 1) {
+          applyResolution();
+        } else if (ftEma < (advancedQuality ? 18.5 : 14.5) && pxScale < 1) {
           pxScale = Math.min(1, pxScale + 0.1);
-          renderer.setPixelRatio(baseDpr * pxScale);
-          renderer.setSize(W, H, false);
+          applyResolution();
         }
       }
 
@@ -3177,10 +3459,24 @@ export function Scene3D({
       parallax.lerp(parallaxTarget, 1 - Math.exp(-dt * 4));
       const drift = Math.sin(t * 0.22) * 0.03;
       const az = drift + parallax.x * 0.12;
-      const el2 = elev - parallax.y * 0.07;
       impactShake = Math.max(0, impactShake - dt * 5.5);
       const shake = impactShake * impactShake;
-      camDist += (camDistTarget - camDist) * (1 - Math.exp(-dt * 4.5));
+      const zoom = cameraZoom();
+      const distanceTarget = camDistTarget / zoom;
+      const elevationTarget = zoomElevation(zoom);
+      if (advancedEffects && !showcase && (document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches)) {
+        camDist = distanceTarget;
+        camElev = elevationTarget;
+      } else {
+        const cameraEase = 1 - Math.exp(-dt * 4.5);
+        camDist += (distanceTarget - camDist) * cameraEase;
+        camElev += (elevationTarget - camElev) * cameraEase;
+      }
+      // Mouse parallax should not push the near model back out of frame at
+      // high zoom; keep a subtle tilt, with less range as the camera closes in.
+      const tiltRange = advancedEffects && !showcase ? 0.07 * (1 - Math.max(0, zoom - 1) * 2.4) : 0.07;
+      const el2 = camElev - parallax.y * tiltRange;
+      if (advancedEffects && !showcase && renderer.domElement.dataset.drawerZoom !== zoom.toFixed(2)) renderer.domElement.dataset.drawerZoom = zoom.toFixed(2);
       camera.position.set(
         target.x + Math.sin(az) * Math.cos(el2) * camDist + Math.sin(t * 91) * shake * 0.075,
         target.y + Math.sin(el2) * camDist + Math.cos(t * 113) * shake * 0.05,
@@ -3217,24 +3513,32 @@ export function Scene3D({
       }
 
       updateSparks(dt);
+      updateRoarWaves(dt);
       updateDust(dt);
       updateWalls(dt);
       updateScars(dt);
 
       const activeBattle = p.mode === "prep" ? null : p.battleRef?.current ?? p.battle;
       chest.visible = !showcase && p.treasure;
+      if (detailedChest && chest.visible) {
+        // Keep the chest square to the actual camera even during parallax.
+        const cameraHeading = Math.atan2(camera.position.x - chest.position.x, camera.position.z - chest.position.z);
+        chest.rotation.y = cameraHeading;
+        chest.updateWorldMatrix(true, true);
+        detailedChest.body.getWorldDirection(chestForward);
+        const bodyHeading = Math.atan2(chestForward.x, chestForward.z);
+        const facingError = Math.atan2(Math.sin(bodyHeading - cameraHeading), Math.cos(bodyHeading - cameraHeading));
+        const facingText = facingError.toFixed(5), gapText = detailedChest.inspect().hingeGap.toFixed(5);
+        if (renderer.domElement.dataset.chestFacingError !== facingText) renderer.domElement.dataset.chestFacingError = facingText;
+        if (renderer.domElement.dataset.chestHingeGap !== gapText) renderer.domElement.dataset.chestHingeGap = gapText;
+      } else if (renderer.domElement.dataset.chestFacingError !== undefined) {
+        delete renderer.domElement.dataset.chestFacingError;
+        delete renderer.domElement.dataset.chestHingeGap;
+      }
       const shouldOpen = !!activeBattle && activeBattle.over === "ally";
       const reduceChestMotion = document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches;
-      chestOpen = shouldOpen ? (reduceChestMotion ? 1 : Math.min(1, chestOpen + dt * 2.3)) : 0;
-      chestLid.rotation.x = -1.35 * (1 - Math.pow(1 - chestOpen, 3));
-      chestGlowMat.opacity = chestOpen * 0.65;
-      chestSparkMat.opacity = chestOpen * (potatoOn ? 0 : 0.9);
-      for (let i = 0; i < chestSparks.length; i++) {
-        const spark = chestSparks[i];
-        const rise = reduceChestMotion ? 0.4 : (t * 0.75 + i / chestSparks.length) % 1;
-        spark.position.y = 0.45 + rise * 0.8;
-        spark.scale.setScalar(reduceChestMotion ? 1 : Math.max(0.05, Math.sin(rise * Math.PI)));
-      }
+      chestOpen = shouldOpen ? (reduceChestMotion ? 1 : Math.min(1, chestOpen + dt * (advancedEffects ? 1 / 1.15 : 2.3))) : 0;
+      updateChest(chestOpen, t, reduceChestMotion, potatoOn);
       if (activeBattle !== clockBattle) {
         clockBattle = activeBattle;
         visualBattleTime = activeBattle?.t ?? 0;
@@ -3336,6 +3640,33 @@ export function Scene3D({
         if (totemState.foeRing) totemState.foeRing.opacity = 0.4 + Math.sin(t * 2.4 + 1.5) * 0.18;
       }
 
+      // Doctor samples projected, animated geometry only while enabled, not
+      // on every frame. Normalized bounds let it spot real 3D clipping even
+      // though the commander has no DOM element to measure.
+      if (advancedEffects && (totemAuditClock -= dt) <= 0) {
+        totemAuditClock = 0.5;
+        if (document.querySelector("[data-ui-doctor]")) {
+          renderer.domElement.dataset.cameraDistance = camDist.toFixed(3);
+          renderer.domElement.dataset.cameraMagnification = (camDistTarget / camDist).toFixed(3);
+          camera.updateMatrixWorld();
+          const bounds: Record<string, number[]> = {};
+          for (const [side, holder] of [["ally", totemState.allyHolder], ["foe", totemState.foeHolder]] as const) {
+            if (!holder || !holder.visible || !holder.children.length) continue;
+            holder.updateWorldMatrix(true, true);
+            totemAuditBox.setFromObject(holder);
+            if (totemAuditBox.isEmpty()) continue;
+            let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+            for (const x of [totemAuditBox.min.x, totemAuditBox.max.x]) for (const y of [totemAuditBox.min.y, totemAuditBox.max.y]) for (const z of [totemAuditBox.min.z, totemAuditBox.max.z]) {
+              totemAuditPoint.set(x, y, z).project(camera);
+              const px = (totemAuditPoint.x + 1) / 2, py = (1 - totemAuditPoint.y) / 2;
+              left = Math.min(left, px); right = Math.max(right, px); top = Math.min(top, py); bottom = Math.max(bottom, py);
+            }
+            bounds[side] = [left, top, right, bottom].map(value => Number(value.toFixed(4)));
+          }
+          renderer.domElement.dataset.commanderBounds = JSON.stringify(bounds);
+        } else delete renderer.domElement.dataset.commanderBounds;
+      }
+
       if (tilesMesh && tileRimsMesh) {
         const hasSel = p.mode === "prep" && p.selectedUid != null;
         let selSlot = -1;
@@ -3344,12 +3675,17 @@ export function Scene3D({
           if (su && su.zone === "board") selSlot = su.slot;
         }
 
+        tileOccupied.fill(0);
+        if (!battleOn) for (const unit of p.prep) {
+          if (unit.zone === "board" && unit.slot >= 0 && unit.slot < tileOccupied.length) tileOccupied[unit.slot] = 1;
+        }
         let matrixDirty = false;
+        let colorDirty = false;
         for (let aIdx = 0; aIdx < 21; aIdx++) {
           const idx = ALLY_ROW_MIN * COLS + aIdx;
           const r = Math.floor(idx / COLS);
           const c = idx % COLS;
-          const occupied = !battleOn && p.prep.some((u) => u.zone === "board" && u.slot === aIdx);
+          const occupied = tileOccupied[aIdx] === 1;
           const isHover = !battleOn && hoverSlot === aIdx;
           const isSelTile = aIdx === selSlot;
 
@@ -3367,20 +3703,21 @@ export function Scene3D({
             matrixDirty = true;
           }
 
-          if (isHover || isSelTile) {
-            cTmp.setHex(0xf0a93b);
-          } else if (hasSel) {
-            cTmp.setHex(occupied ? 0xf0a93b : p.canDeployMore ? 0x68e8b7 : 0x2a3d35);
-          } else {
-            cTmp.setHex(occupied ? 0x4fd3a0 : 0x2b4d3f);
+          const color = isHover || isSelTile ? 0xf0a93b : hasSel
+            ? occupied ? 0xf0a93b : p.canDeployMore ? 0x68e8b7 : 0x2a3d35
+            : occupied ? 0x4fd3a0 : 0x2b4d3f;
+          if (tileColors[aIdx] !== color) {
+            tileColors[aIdx] = color;
+            tileRimsMesh.setColorAt(aIdx, cTmp.setHex(color));
+            colorDirty = true;
           }
-          tileRimsMesh.setColorAt(aIdx, cTmp);
         }
         if (matrixDirty) {
           tilesMesh.instanceMatrix.needsUpdate = true;
           tileRimsMesh.instanceMatrix.needsUpdate = true;
         }
-        if (tileRimsMesh.instanceColor) tileRimsMesh.instanceColor.needsUpdate = true;
+        // Don't re-upload the same 21 highlight colors to the GPU every frame.
+        if (colorDirty && tileRimsMesh.instanceColor) tileRimsMesh.instanceColor.needsUpdate = true;
         (tileRimsMesh.material as THREE.MeshBasicMaterial).opacity = battleOn
           ? 0.14
           : hasSel
@@ -3448,8 +3785,9 @@ export function Scene3D({
             r.roarEnd !== undefined && !r.dead
               ? (document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches
                   ? 0.5
-                  : Math.max(0, Math.min(1, liveBattle.t / SPIDER_ROAR_SECONDS)))
+                  : Math.max(0, Math.min(1, (advancedEffects ? visualBattleTime : liveBattle.t) / SPIDER_ROAR_SECONDS)))
               : undefined,
+            r.bugId === "spider" && r.star >= 3 && r.roarEnd === undefined && liveBattle.t + 1e-9 >= SPIDER_ROAR_SECONDS,
           );
         }
       } else {
@@ -3475,7 +3813,7 @@ export function Scene3D({
           let elp = popEls.get(pop.id);
           if (!elp) {
             elp = document.createElement("div");
-            elp.className = `ov-pop ov-${pop.kind}`;
+            elp.className = `ov-pop ov-${pop.kind}${advancedEffects && pop.text === "ROAR!" ? " ov-pop--roar" : ""}`;
             elp.textContent = ovWord(pop.text);
             ovEl.appendChild(elp);
             popEls.set(pop.id, elp);
@@ -3483,7 +3821,7 @@ export function Scene3D({
             if (pop.kind === "skill") {
               // Airstrike's effect comes from the Dragonfly touching down,
               // not an extra explosion travelling alongside the specimen.
-              if (pop.text !== "AIRSTRIKE" && pop.text !== "TOUCHDOWN") {
+              if (pop.text !== "AIRSTRIKE" && pop.text !== "TOUCHDOWN" && !(advancedEffects && pop.text === "ROAR!")) {
                 spawnRing(pop.x, pop.y + 0.25, pop.text === "GLOW" ? 0x56dca8 : 0xf0a93b);
                 spawnBurst(
                   pop.x,
@@ -3522,6 +3860,9 @@ export function Scene3D({
       }
 
       renderer.render(scene, camera);
+      // Hold a winning opening impact on screen even if a slow WebGL frame
+      // reaches it only after the simulation has already ended the round.
+      if (activeBattle && roarImpactRendered) activeBattle.visualRoarUntil = performance.now() + 620;
       // Anchor the result deadline after WebGL returns, not before expensive
       // driver work. A slow frame must not consume unseen animation time.
       if (activeBattle && activeBattle.visualWebRemaining != null) {
@@ -3545,6 +3886,7 @@ export function Scene3D({
       if (paused) cancelAnimationFrame(raf);
       else {
         last = performance.now();
+        frameGate?.reset(last);
         raf = requestAnimationFrame(tick);
       }
     };
@@ -3567,6 +3909,8 @@ export function Scene3D({
       cancelAnimationFrame(raf);
       document.removeEventListener("visibilitychange", syncVisibility);
       window.removeEventListener("sb-potato", onPotato);
+      window.removeEventListener("sb-resolution", onResolution);
+      window.removeEventListener("resize", frame);
       visibilityObserver?.disconnect();
       ro.disconnect();
       el.removeEventListener("pointerdown", onDown);

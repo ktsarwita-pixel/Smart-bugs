@@ -1,7 +1,24 @@
 import assert from 'node:assert/strict';
+import * as THREE from 'three';
 import {build} from 'esbuild';
-const out=await build({entryPoints:['src/game/engine.ts'],bundle:true,platform:'node',format:'esm',write:false});
-const {createBattle,stepBattle,SPIDER_ROAR_SECONDS,SPIDER_ROAR_DAMAGE}=await import(`data:text/javascript;base64,${Buffer.from(out.outputFiles[0].contents).toString('base64')}`);
+
+const bundled=await build({entryPoints:['src/game/engine.ts','src/game/animate.ts','src/game/spider-roar-visual.ts','src/game/voxel.ts'],bundle:true,platform:'node',format:'esm',outdir:'ignored',write:false});
+const load=async name=>{
+  const file=bundled.outputFiles.find(f=>f.path.endsWith(`${name}.js`));
+  return import(`data:text/javascript;base64,${Buffer.from(file.contents).toString('base64')}`);
+};
+const {createBattle,stepBattle,SPIDER_ROAR_SECONDS,SPIDER_ROAR_DAMAGE}=await load('engine');
+const {animateInsectRig}=await load('animate');
+const {sampleSpiderRoar,sampleRoarWave,spiderRoarFacing}=await load('spider-roar-visual');
+assert.equal(spiderRoarFacing('ally'),0); assert.equal(spiderRoarFacing('foe'),Math.PI);
+const {buildVoxelModel}=await load('voxel');
+const sculpt=buildVoxelModel('spider',3), eyes=sculpt.head.children.find(child=>child.geometry && child.material===sculpt.glowMat);
+assert.ok(sculpt.head.position.z<sculpt.torso.position.z,'Spider head must be on its local -Z front');
+eyes.geometry.computeBoundingBox();
+assert.ok(eyes.geometry.boundingBox.max.z<0,'glowing eyes must be on the front of the head');
+const eyeNormals=eyes.geometry.getAttribute('normal');
+assert.ok(Array.from({length:eyeNormals.count},(_,i)=>eyeNormals.getZ(i)).some(z=>z<-.9),'actual eye faces must point toward local -Z');
+sculpt.dispose();
 const unit=(uid,bugId,star,slot)=>({uid,bugId,star,slot,zone:'board'});
 const b=createBattle([unit(1,'spider',3,4)],[unit(2,'stag',3,0),unit(3,'bomb',3,1),unit(4,'dragonfly',3,2)],'matriarch','matriarch');
 for(const u of b.units){u.hp=u.maxHp=5000;u.cd=100;u.spd=0;}
@@ -10,7 +27,9 @@ foes.at(-1).vuln=5; // exact roar damage ignores Vulnerable and Slipstream modif
 assert.equal(spider.roarEnd,SPIDER_ROAR_SECONDS); assert.equal(b.shots.length,0); assert.equal(b.webs.length,0);
 for(let i=0;i<Math.round(SPIDER_ROAR_SECONDS/.1)-1;i++) stepBattle(b,.1);
 assert.deepEqual([spider.x,spider.y],start); assert.ok(foes.every(u=>u.hp===5000)); assert.equal(spider.roarEnd,SPIDER_ROAR_SECONDS);
+assert.equal(b.lastRoarAt,undefined);
 stepBattle(b,.1); assert.deepEqual(foes.map(u=>u.hp),foes.map(()=>5000-SPIDER_ROAR_DAMAGE)); assert.equal(spider.roarEnd,undefined); assert.equal(b.webs.length,0); assert.equal(b.shots.length,0);
+assert.ok(Math.abs(b.lastRoarAt-SPIDER_ROAR_SECONDS)<1e-8);
 stepBattle(b,.1); assert.deepEqual(foes.map(u=>u.hp),foes.map(()=>5000-SPIDER_ROAR_DAMAGE));
 spider.x=foes[0].x; spider.y=foes[0].y+.4; spider.energy=spider.maxEnergy; spider.cd=0;
 stepBattle(b,.1); assert.ok(b.shots.some(s=>s.kind==='websnare'),'After Web must remain the full-Energy skill'); assert.ok(!b.shots.some(s=>s.kind==='webgrand'));
@@ -18,5 +37,36 @@ const other=createBattle([unit(1,'spider',2,0)],[unit(2,'stag',3,0)],'matriarch'
 const interrupted=createBattle([unit(1,'spider',3,0)],[unit(2,'stag',3,0)],'matriarch','matriarch');
 const killer=interrupted.units.find(u=>u.side==='foe'); const slain=interrupted.units.find(u=>u.side==='ally');
 killer.hp=killer.maxHp=5000;killer.cd=100;killer.spd=0;slain.dead=true;slain.hp=0;
-stepBattle(interrupted,.1);assert.equal(killer.hp,5000);
-console.log('PASS spider roar timing, fixed damage to every enemy, stationary cast, interruption and no grand web');
+stepBattle(interrupted,.1);assert.equal(killer.hp,5000);assert.equal(interrupted.lastRoarAt,undefined);
+const simultaneous=createBattle([unit(1,'spider',3,0)],[unit(2,'spider',3,0)],'matriarch','matriarch');
+for(const u of simultaneous.units){u.hp=u.maxHp=5000;u.cd=100;u.spd=0;}
+for(let i=0;i<15;i++)stepBattle(simultaneous,.1);
+assert.deepEqual(simultaneous.units.map(u=>u.hp),[4350,4350],'opposing roars must resolve together');
+
+assert.equal(sampleSpiderRoar(0).rear,0);
+assert.ok(sampleSpiderRoar(.5).rear>.9);
+assert.ok(sampleSpiderRoar(.9).rear>.7,'the enhanced pose must stay raised until impact');
+assert.notDeepEqual(sampleRoarWave(0),sampleRoarWave(.25));
+for(let i=0;i<=100;i++) {
+  const sample=sampleRoarWave(i/100);
+  assert.ok(sample.scale>=.62&&sample.scale<=1&&sample.opacity>=0&&sample.opacity<=.52);
+}
+const model=()=>{
+  const rig={};
+  for(const part of ['group','torso','head','leftArm','rightArm','legsA','legsB','crown']) rig[part]=new THREE.Group();
+  rig.rest=Object.fromEntries(['torso','head','leftArm','rightArm','legsA','legsB','crown'].map(key=>[key,new THREE.Vector3()]));
+  return rig;
+};
+const enhanced=model(), legacy=model();
+enhanced.torso.rotation.set(.12,-.08,.06);
+const fixed=[enhanced.torso.rotation.x,enhanced.torso.rotation.y,enhanced.torso.rotation.z];
+for (let i=0;i<=60;i++) {
+  animateInsectRig(enhanced,'spider',i/60,1,i%2===0,i,0,0,i%3===0?.8:0,0,false,0,1/60,0,undefined,i/60,true);
+  assert.deepEqual([enhanced.torso.rotation.x,enhanced.torso.rotation.y,enhanced.torso.rotation.z],fixed,'no Spider torso rotation during the entire roar, even when hit');
+}
+animateInsectRig(legacy,'spider',0,1,false,0,0,0,0,0,false,0,1,0,undefined,.5,false);
+assert.ok(legacy.torso.rotation.x<-.3,'legacy pose must remain unchanged');
+assert.ok(Math.abs(enhanced.leftArm.rotation.z)>.6,'enhanced fangs should flare without rotating the body');
+animateInsectRig(enhanced,'spider',2,1,false,0,0,0,0,0,false,0,1,0,undefined,undefined,true);
+assert.notDeepEqual([enhanced.torso.rotation.x,enhanced.torso.rotation.y,enhanced.torso.rotation.z],fixed,'body animation resumes after the cast');
+console.log('PASS actual Spider face geometry, unchanged roar mechanics, interruptions, fixed torso and expressive fangs');

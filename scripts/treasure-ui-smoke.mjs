@@ -28,8 +28,27 @@ try {
 
     assert.equal(await track.locator('.round-track__cell[data-state="current"]').count(),1);
     assert.equal(await track.locator('.round-track__cell[data-treasure="1"]').count(),2);
-    if (round===1 || round===4) assert.ok(await page.getByText('TREASURE GUARDS').count()>0);
+    if (round===1 || round===4) {
+      assert.ok(await page.getByText('TREASURE GUARDS').count()>0);
+      assert.equal(await page.locator('.vs-plaque .chest-icon--advanced').count(),1,'enhanced VS chest icon');
+      assert.equal(await page.locator('.vs-plaque .chest-icon--advanced [data-chest-grain]').count(),1,'VS chest has pixel wood detailing');
+      const icon=await page.locator('.vs-plaque .chest-icon--advanced').evaluate(svg=>{
+        const silhouette=svg.querySelector('path').getBBox(), lock=svg.querySelector('[data-chest-lock]').getBBox(), view=svg.viewBox.baseVal;
+        const mid=view.x+view.width/2;
+        const shine=svg.querySelector('.chest-icon__shine');
+        return {silhouette:Math.abs(silhouette.x+silhouette.width/2-mid),lock:Math.abs(lock.x+lock.width/2-mid),shineAnimation:getComputedStyle(shine).animationName};
+      });
+      assert.ok(icon.silhouette<.1 && icon.lock<.1,'VS icon must be symmetric and face the player');
+      assert.equal(icon.shineAnimation,'chest-icon-sheen','VS icon has a subtle smooth highlight, not a rotating body');
+      await page.evaluate(()=>document.documentElement.dataset.motion='reduced');
+      assert.equal(await page.locator('.vs-plaque .chest-icon__shine').evaluate(el=>getComputedStyle(el).animationName),'none','VS highlight respects reduced motion');
+      await page.evaluate(()=>document.documentElement.dataset.motion='full');
+      await page.waitForFunction(()=>document.querySelector('.battle-stage canvas')?.dataset.chestFacingError!==undefined,null,{timeout:15000});
+      const board=await page.locator('.battle-stage canvas').evaluate(c=>({facing:Number(c.dataset.chestFacingError),hinge:Number(c.dataset.chestHingeGap)}));
+      assert.ok(Math.abs(board.facing)<.01&&board.hinge<.001,'board chest must face the camera and have an attached hinge');
+    }
     await page.getByRole('button',{name:/Engage battle/}).tap();
+    if (round===1 || round===4) assert.equal(await page.locator('.vs-plaque .chest-icon--advanced').count(),1,'enhanced combat VS chest icon');
     await page.getByText('COMBAT TELEMETRY').waitFor();
     await page.getByRole('button',{name:'Open admin panel'}).first().tap();
     await page.getByRole('tab',{name:'MATCH'}).tap();
@@ -42,11 +61,22 @@ try {
     assert.ok(await page.locator('.result-next').isVisible());
     assert.equal(await page.locator('.result-details').getAttribute('open'),null);
     if (round===1) {
+      await page.waitForTimeout(400); // let the result card's entrance transform settle
       await page.evaluate(() => window.dispatchEvent(new CustomEvent('sb-doctor',{detail:true})));
       await page.getByRole('button',{name:'Open UI Doctor'}).tap();
       await page.getByRole('button',{name:'SCAN SCREEN'}).tap();
       const report=await page.locator('.ui-doctor__body').innerText();
       assert.doesNotMatch(report,/SCROLL[^\n]*result-body/,'doctor should not find result-body scrolling');
+      assert.ok(Number(report.match(/(\d+) visual targets/)?.[1])>=1,'doctor checks visual targets on the result');
+      assert.equal(await page.locator('.result-card .treasure-chest-3d').count(),1,'the actual result chest is present for the scan');
+      assert.doesNotMatch(report,/Chest not facing|Chest lid disconnected|Old chest artwork|Chest depth flattened|Chest is clipped/,'healthy result has no chest visual faults');
+      await page.locator('.result-card .treasure-chest-3d__world').evaluate(el=>{el.style.transform='rotateX(-24deg) rotateY(35deg)';});
+      await page.getByRole('button',{name:'SCAN SCREEN'}).tap();
+      assert.match(await page.locator('.ui-doctor__body').innerText(),/Chest not facing the player/,'Doctor inspects the real result chest, not only icons');
+      await page.locator('.result-card .treasure-chest-3d__world').evaluate(el=>{el.style.transform='';});
+      await page.getByRole('button',{name:'DEEP SCAN'}).tap();
+      await page.getByText('WATCHING…').waitFor({state:'hidden',timeout:12000});
+      assert.doesNotMatch(await page.locator('.ui-doctor__body').innerText(),/Chest opening is stalled|Chest artwork changed during scan|Open chest lid is still closed/,'healthy opening passes the deeper observation');
       await page.getByRole('button',{name:'Minimize UI Doctor'}).tap();
       await page.evaluate(() => window.dispatchEvent(new CustomEvent('sb-doctor',{detail:false})));
       await page.locator('.result-details summary').tap();
@@ -76,19 +106,31 @@ try {
     assert.ok(aligned,'result icons must remain centered in every state');
     if (round===1 || round===4) {
       assert.equal(await page.locator('.treasure-result').count(),1);
-      assert.equal(await page.locator('.pixel-treasure--open').count(),1);
-      await page.waitForTimeout(800);
-      const sprite = await page.locator('.pixel-treasure').evaluate(el => {
-        const back=el.querySelector('.pixel-treasure__lid-open'), closed=el.querySelector('.pixel-treasure__lid-closed'), rect=back.getBoundingClientRect(), outer=el.getBoundingClientRect();
-        const ink=back.getBBox(), inside=el.querySelector('.pixel-treasure__inside').getBBox();
-        return { back: getComputedStyle(back).opacity, closed: getComputedStyle(closed).opacity, offset: Math.abs((rect.left+rect.right-outer.left-outer.right)/2), lidCenter: ink.x+ink.width/2, insideCenter: inside.x+inside.width/2 };
+      const chest3d = page.locator('.treasure-chest-3d');
+      await chest3d.waitFor();
+      assert.equal(await chest3d.getAttribute('data-renderer'),'css3d');
+      assert.equal(await page.locator('.treasure-result .pixel-treasure, .treasure-result canvas').count(),0,'no old artwork or delayed WebGL swap');
+      await page.waitForFunction(() => {
+        const lid = document.querySelector('.treasure-chest-3d__lid');
+        if (!lid) return false;
+        const m = new DOMMatrixReadOnly(getComputedStyle(lid).transform);
+        return Math.atan2(m.m23,m.m22)*180/Math.PI > 80;
+      }, null, {timeout:15000});
+      const visual = await chest3d.evaluate(el => {
+        const world=el.querySelector('.treasure-chest-3d__world'), a=el.querySelector('.treasure-chest-3d__body-anchor').getBoundingClientRect(), b=el.querySelector('.treasure-chest-3d__lid-anchor').getBoundingClientRect();
+        const m=new DOMMatrixReadOnly(getComputedStyle(world).transform);
+        return {yaw:Math.atan2(m.m31,m.m33),gap:Math.hypot(a.left-b.left,a.top-b.top)};
       });
-      assert.equal(sprite.back,'1'); assert.equal(sprite.closed,'0'); assert.ok(sprite.offset<1,'open lid should stay centered behind chest'); assert.equal(sprite.lidCenter,32); assert.equal(sprite.insideCenter,32);
+      assert.ok(Math.abs(visual.yaw)<.01 && visual.gap<1,'result chest faces the player and the lid stays attached');
       assert.equal(await page.locator('.treasure-loot > span').count(),2);
       if(round===4) assert.match(await page.locator('.treasure-result').innerText(),/\+25G/);
       assert.equal(await page.locator('.result-health__change').getAttribute('data-loss'),'0');
     } else assert.equal(await page.locator('.treasure-result').count(),0);
-    await page.locator('.result-next').tap();
+    if (round===2) {
+      await page.locator('.result-next').focus();
+      await page.keyboard.press('n');
+      await page.locator('.result-card').waitFor({state:'hidden'});
+    } else await page.locator('.result-next').tap();
     if(round===1) {
       const queue=page.locator('.treasure-queue');
       assert.match(await queue.innerText(),/· 2/);
@@ -108,6 +150,8 @@ try {
   await page.setViewportSize({width:280,height:653});
   const claimBox = await page.locator('.treasure-queue button').boundingBox();
   assert.ok(claimBox.x >= 0 && claimBox.x + claimBox.width <= 280 && claimBox.height >= 40, 'claim control must fit small phones');
+  const gearBox = await page.getByRole('button',{name:'SETTINGS',exact:true}).boundingBox();
+  assert.ok(gearBox.width>=40 && gearBox.height>=40 && gearBox.x+gearBox.width<=claimBox.x+1, 'prep settings must not cover treasure claims');
   await page.setViewportSize({width:384,height:725});
   await page.getByRole('button',{name:'Open admin panel'}).first().tap();
   const advanced = page.getByRole('button',{name:'▸ ADVANCED — TYPE COMMANDS'});
@@ -120,6 +164,17 @@ try {
   await page.getByRole('button',{name:'RUN',exact:true}).tap();
   await page.getByRole('button',{name:'Close admin panel'}).tap();
   assert.equal(await page.locator('.bench-slot[title*="tap to deploy"]').count(),6);
+  await page.setViewportSize({width:280,height:653});
+  const heading = await page.locator('.bench-section .section-heading').evaluate(el=>{
+    const boxes=[...el.querySelectorAll('button')].map(button=>{const r=button.getBoundingClientRect();return {label:button.getAttribute('aria-label')||button.textContent,left:r.left,right:r.right,top:r.top,bottom:r.bottom};});
+    return {boxes,width:document.documentElement.scrollWidth};
+  });
+  assert.ok(heading.width<=280 && heading.boxes.every(b=>b.left>=0&&b.right<=280),`full-bench controls fit at 280px: ${JSON.stringify(heading)}`);
+  for(let i=0;i<heading.boxes.length;i++) for(const b of heading.boxes.slice(i+1)) {
+    const a=heading.boxes[i];
+    assert.ok(!(a.left<b.right-1&&a.right>b.left+1&&a.top<b.bottom-1&&a.bottom>b.top+1),`full-bench controls must not overlap: ${JSON.stringify(heading)}`);
+  }
+  await page.setViewportSize({width:384,height:725});
   await page.locator('.treasure-queue button').tap();
   assert.match(await page.locator('.treasure-queue').innerText(),/· 2/, 'full bench must retain rewards');
   if (await page.getByRole('button',{name:'Deselect'}).count()) await page.getByRole('button',{name:'Deselect'}).tap();

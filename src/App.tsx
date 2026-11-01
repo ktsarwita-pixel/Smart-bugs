@@ -1,6 +1,8 @@
-import { CHEST_PATH, CHEST_VIEWBOX, STAG_PATH, STAG_VIEWBOX } from "./game/round-icons";
+import { ADVANCED_CHEST_PATHS, ADVANCED_STAG_PATHS, CHEST_PATH, CHEST_VIEWBOX, STAG_PATH, STAG_VIEWBOX } from "./game/round-icons";
+import { isAdvancedGameLocation } from "./game/build-mode";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Scene3D } from "./components/Scene3D";
+import { TreasureChest3D } from "./components/TreasureChest3D";
 import { PatchNotesModal } from "./components/PatchNotesModal";
 import { warmRoster } from "./game/voxel";
 import { SpecimenIcon, RankBadge } from "./components/SpecimenIcon";
@@ -89,6 +91,7 @@ import {
 type Phase = "title" | "cmd" | "prep" | "battle" | "result" | "spectate" | "final";
 
 const SHOWCASE_IDS = SPECIMEN_IDS;
+const DRAWER_ZOOM_LEVELS = [0.74, 0.86, 1, 1.15, 1.32] as const;
 
 const MOTES = Array.from({ length: 16 }, (_, i) => ({
   i,
@@ -164,7 +167,27 @@ interface Report {
   treasureGold?: number;
 }
 
-function ChestIcon({ size = 24 }: { size?: number }) {
+function ChestIcon({ size = 24, advanced = false }: { size?: number; advanced?: boolean }) {
+  if (advanced) return <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" shapeRendering="crispEdges" className="chest-icon chest-icon--advanced">
+    {/* Symmetric, front-facing curved lid, oak boards and engraved brass. */}
+    <path fill="#29180f" d="M2 15h2v-4h2V8h2V6h3V4h10v2h3v2h2v3h2v4h2v11h-2v3H4v-3H2z" />
+    <path fill="#673419" d="M4 15v-3h2V9h2V7h3V5h10v2h3v2h2v3h2v3z" />
+    <path data-chest-dome fill="#b96b2b" d="M6 13v-2h2V9h2V6h12v3h2v2h2v2z" />
+    <path fill="#e5a14b" d="M11 6h10v1H11zM9 8h14v1H9z" />
+    <path fill="#d99143" d="M10 8h12v1H10zM8 10h16v1H8zM6 13h20v1H6z" />
+    <path fill="#8a451f" d="M4 16h24v11H4z" />
+    <path fill="#c27231" d="M5 17h22v3H5zM5 22h22v3H5z" />
+    <path fill="#6b3418" d="M5 20h22v2H5zM5 25h22v1H5z" />
+    <path data-chest-grain fill="#eb9b49" d="M11 11h3v1h-3zM18 11h3v1h-3zM11 17h3v1h-3zM18 17h3v1h-3zM11 22h3v1h-3zM18 22h3v1h-3z" />
+    <path fill="#713719" d="M12 19h3v1h-3zM17 19h3v1h-3zM12 24h3v1h-3zM17 24h3v1h-3z" />
+    <path data-chest-corners fill="#c58a34" d="M4 22h2v3h3v2H4zM26 22h2v5h-5v-2h3z" />
+    <path data-chest-emblem fill="#f4c462" d="M15 22h2v1h1v1h-1v1h-2v-1h-1v-1h1z" />
+    <path fill="#9f671f" d="M7 9h4v17H7zM21 9h4v17h-4zM4 14h24v3H4zM4 25h24v2H4z" />
+    <path fill="#e4a846" d="M8 9h2v5H8zM22 9h2v5h-2zM8 17h2v8H8zM22 17h2v8h-2zM5 15h22v1H5zM5 25h22v1H5z" />
+    <path className="chest-icon__shine" fill="#ffe39b" d="M9 9h1v4H9zM22 9h1v4h-1zM9 17h1v7H9zM22 17h1v7h-1zM6 15h20v1H6z" />
+    <path data-chest-lock fill="#40240f" d="M12 13h8v8h-8z" /><path fill="#f7cb69" d="M13 14h6v6h-6z" /><path fill="#fff0b5" d="M14 14h4v1h-4z" /><path fill="#693c18" d="M15 16h2v2h-2zM15 18h2v1h-2z" />
+    <path fill="#fff0b5" d="M8 19h1v1H8zM23 19h1v1h-1zM8 23h1v1H8zM23 23h1v1h-1zM5 25h1v1H5zM26 25h1v1h-1z" />
+  </svg>;
   return <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" shapeRendering="crispEdges"><path fill="#3b2112" d="M2 4h12v2h1v8H1V6h1z"/><path fill="#a9692e" d="M3 5h10v3H3zM2 9h12v4H2z"/><path fill="#f1bb4c" d="M3 4h10v1H3zM2 8h12v1H2zM7 9h2v3H7z"/></svg>;
 }
 
@@ -213,7 +236,13 @@ function PixelTreasure({ open }: { open: boolean }) {
 }
 
 /** Monochrome, grid-aligned encounter glyphs: no rarity colours. */
-function RoundIcon({ chest }: { chest: boolean }) {
+function RoundIcon({ chest, advanced }: { chest: boolean; advanced: boolean }) {
+  if (advanced) {
+    const paths = chest ? ADVANCED_CHEST_PATHS : ADVANCED_STAG_PATHS;
+    return <svg viewBox="0 0 16 16" aria-hidden="true" shapeRendering="crispEdges" className="round-track__icon" data-sprite={chest ? "chest" : "stag"}>
+      {paths.map(({ color, path }) => <path key={color} fill={color} d={path} />)}
+    </svg>;
+  }
   return <svg viewBox={chest ? CHEST_VIEWBOX : STAG_VIEWBOX} aria-hidden="true" shapeRendering="crispEdges" className="round-track__icon">
     <path fill="currentColor" d={chest ? CHEST_PATH : STAG_PATH} />
   </svg>;
@@ -221,15 +250,16 @@ function RoundIcon({ chest }: { chest: boolean }) {
 
 /** A compact, fixed-size map of the current period (decorative cells are
  * mirrored by the accessible label). It never affects the match schedule. */
-function RoundTrack({ period, round, length, label, compact = false }: {
-  period: number; round: number; length: number; label: string; compact?: boolean;
+function RoundTrack({ period, round, length, label, advanced, compact = false }: {
+  period: number; round: number; length: number; label: string; advanced: boolean; compact?: boolean;
 }) {
-  return <div className={`round-track ${compact ? "round-track--compact" : ""}`} role="img" aria-label={label} data-round-count={length}>
+  return <div className={`round-track ${compact ? "round-track--compact" : ""} ${advanced ? "round-track--advanced" : ""}`} role="img" aria-label={label} data-round-count={length}>
+    {advanced && compact && <span className="round-track__caption" aria-hidden="true">{label}</span>}
     <div className="round-track__cells" aria-hidden="true">
       {Array.from({ length }, (_, i) => {
         const special = period === 1 && (i === 0 || i === 3);
         return <span key={i} className="round-track__cell" data-state={i + 1 < round ? "past" : i + 1 === round ? "current" : "future"} data-treasure={special ? "1" : "0"}>
-          <RoundIcon chest={special} />
+          <RoundIcon chest={special} advanced={advanced} />
         </span>;
       })}
     </div>
@@ -255,6 +285,7 @@ export default function App() {
     return <AdvancedView onExit={() => { window.location.assign("/"); }} />;
   }
 
+  const advancedGame = isAdvancedGameLocation(window.location);
   const [phase, setPhase] = useState<Phase>("title");
   const [ladderFocus, setLadderFocus] = useState<string | null>(null);
   // Screen changes should not inherit the previous screen's scroll offset.
@@ -283,6 +314,8 @@ export default function App() {
   const [shop, setShop] = useState<(BugId | null)[]>(rollShop);
   const [match, setMatch] = useState(createMatch);
   const [selected, setSelected] = useState<number | null>(null);
+  const [drawerZoomIndex, setDrawerZoomIndex] = useState(2);
+  const drawerZoom = DRAWER_ZOOM_LEVELS[drawerZoomIndex];
   const [benchInspectMode, setBenchInspectMode] = useState(false);
   useEffect(() => { if (phase !== "prep") setBenchInspectMode(false); }, [phase]);
   const [speed, setSpeed] = useState<1 | 2 | 3>(() => {
@@ -589,6 +622,7 @@ export default function App() {
      combat loop start ticking — the fight never stutters at frame one. */
   const [simLive, setSimLive] = useState(false);
   const [fightFlash, setFightFlash] = useState(0);
+  const fightHasRoar = useRef(false);
 
   const engage = () => {
     if (phase !== "prep" || hp <= 0 || !roundFixture || match.winnerId) return;
@@ -616,6 +650,10 @@ export default function App() {
     // Pre-render pass 1: guarantee every sculpt in this exact matchup exists
     // BEFORE the scene draws its first frame of the fight.
     warmRoster(initial.units);
+    // In the test build the fight card plays during the existing pre-roll,
+    // so it cannot cover most of a three-star Spider's opening cast.
+    fightHasRoar.current = advancedGame && initial.units.some((u) => u.roarEnd !== undefined && !u.dead);
+    if (fightHasRoar.current) setFightFlash((n) => n + 1);
     battleRef.current = initial;
     settledBattleRef.current = null;
     setBattleSnap({ ...initial });
@@ -664,7 +702,7 @@ export default function App() {
     if (phase !== "battle" || simLive) return;
     const t = window.setTimeout(() => {
       setSimLive(true);
-      setFightFlash((n) => n + 1);
+      if (!fightHasRoar.current) setFightFlash((n) => n + 1);
     }, 640);
     return () => window.clearTimeout(t);
   }, [phase, simLive]);
@@ -710,10 +748,11 @@ export default function App() {
     // The renderer reports its own reveal deadline. Sim time alone is not
     // sufficient: a slow first WebGL frame may occur after the fight ends.
     // Bound the wait so an unavailable renderer or background tab never traps
-    // the player, and keep reduced-motion results immediate as before.
+    // the player. Reduced motion keeps the static roar impact but no shake.
     const b = battleRef.current;
     const reduced = document.documentElement.dataset.motion === "reduced" || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const hasGrand = !!b && (b.webs.some(w => w.kind === "grand") || b.pending.some(hit => hit.kind === "webgrand"));
+    const hasFreshRoar = advancedGame && b?.lastRoarAt !== undefined && b.t - b.lastRoarAt < 0.3;
     const start = performance.now();
     let timer = 0;
     const settleWhenVisible = () => {
@@ -723,6 +762,12 @@ export default function App() {
         const waitingForFrame = deadline == null && now - start < 3300;
         const waitingForReveal = deadline != null && now < deadline + 1600 && now - start < 12000;
         if (waitingForFrame || waitingForReveal) { timer = window.setTimeout(settleWhenVisible, 100); return; }
+      }
+      if (hasFreshRoar && !document.hidden) {
+        const deadline = b?.visualRoarUntil;
+        const waitingForFrame = deadline == null && now - start < 2500;
+        const waitingForImpact = deadline != null && now < deadline && now - start < 3500;
+        if (waitingForFrame || waitingForImpact) { timer = window.setTimeout(settleWhenVisible, 100); return; }
       }
       finish(over);
     };
@@ -1123,6 +1168,10 @@ export default function App() {
   useEffect(() => {
     if (phase !== "prep" && phase !== "battle" && phase !== "result") return;
     const onKey = (e: KeyboardEvent) => {
+      // A settings/guide/admin sheet owns its keyboard interaction. In
+      // particular Enter or Space on a resolution radio must never engage a
+      // battle or change speed behind the modal.
+      if (settingsOpen || guideOpen || patchOpen || adminOpen) return;
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -1150,7 +1199,7 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, gold, shop, units, level, boardUnits.length, benchUnits.length, shopLocked, cmd, round, foeIdx]);
+  }, [phase, gold, shop, units, level, boardUnits.length, benchUnits.length, shopLocked, cmd, round, foeIdx, settingsOpen, guideOpen, patchOpen, adminOpen]);
   const canDeployMore = useMemo(() => {
     if (!sel) return boardUnits.length < level;
     if (sel.zone === "board") return true;
@@ -1195,20 +1244,21 @@ export default function App() {
   useEffect(() => {
     if (phase !== "title") return;
     const onKey = (e: KeyboardEvent) => {
+      if (settingsOpen || guideOpen || patchOpen || adminOpen) return;
       if (e.key === "ArrowLeft") stepFocus(-1);
       else if (e.key === "ArrowRight") stepFocus(1);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, focusId]);
+  }, [phase, focusId, settingsOpen, guideOpen, patchOpen, adminOpen]);
 
   /* ════════════════════════════════════════════════════════════
      SCREEN 1 — MAIN MENU (Interactive 3D Specimen Cabinet)
      ════════════════════════════════════════════════════════════ */
   if (phase === "title") {
     return (
-      <div className="cabinet-bg safe-t relative min-h-[100dvh] w-full overflow-x-hidden text-[#EDE2CB]">
+      <div className={`${advancedGame ? "advanced-ui " : ""}cabinet-bg safe-t relative min-h-[100dvh] w-full overflow-x-hidden text-[#EDE2CB]`}>
         <Ambience />
         <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[1080px] flex-col justify-between px-3.5 py-3 sm:px-6 sm:py-5">
           {/* Top Cabinet Bar */}
@@ -1224,6 +1274,7 @@ export default function App() {
             </div>
             <button
               onClick={() => setGuideOpen(true)}
+              aria-label={t("FIELD GUIDE")}
               className="lift flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 border border-[#4A3828] bg-[#18120E] px-3 py-1.5 label text-[8.5px] text-[#EDE2CB] hover:border-[#F0A93B]"
             >
               <IconHelp size={13} className="text-[#F0A93B]" /> <span className="hidden min-[420px]:inline">{t("FIELD GUIDE")}</span>
@@ -1241,7 +1292,7 @@ export default function App() {
           </header>
 
           {new URLSearchParams(window.location.search).has("advenced") && (
-            <div role="status" className="mt-3 border border-[#2a6e52] bg-[#0E241A] px-3 py-2 label text-[8px] leading-relaxed text-[#75e8ba]">
+            <div role="status" className="advanced-banner mt-3 border border-[#2a6e52] bg-[#0E241A] px-3 py-2 label text-[8px] leading-relaxed text-[#75e8ba]">
               {t("ADVANCED TEST BUILD — updates in testing")}
             </div>
           )}
@@ -1250,7 +1301,7 @@ export default function App() {
           <main className="title-layout my-auto grid grid-cols-1 items-center gap-4 py-3 lg:grid-cols-[1.02fr_1.15fr] lg:gap-8 lg:py-6">
             {/* Right on Desktop / Below the fold on Mobile (title+CTA first) */}
             <div className="order-2 lg:order-2">
-              <div className="relative border-2 border-[#3B322A] bg-[#120D09] shadow-[0_12px_36px_rgba(0,0,0,.75)]">
+              <div className="specimen-cabinet relative border-2 border-[#3B322A] bg-[#120D09] shadow-[0_12px_36px_rgba(0,0,0,.75)]">
                 {/* Brass corner rivets */}
                 <span className="pointer-events-none absolute left-1.5 top-1.5 z-20 h-1.5 w-1.5 bg-[#F0A93B]" />
                 <span className="pointer-events-none absolute right-1.5 top-1.5 z-20 h-1.5 w-1.5 bg-[#F0A93B]" />
@@ -1358,7 +1409,7 @@ export default function App() {
             </div>
 
             {/* Left on Desktop / Top on Mobile: Title & Primary Actions */}
-            <div className="order-1 flex flex-col items-start lg:order-1">
+            <div className="hero-copy order-1 flex flex-col items-start lg:order-1">
               <div className="mb-2.5 flex items-center gap-2">
                 <span className="h-[3px] w-10 bg-[#E0522F]" />
                 <span className="label text-[8.5px] text-[#56DCA8]">{t("3D TACTICAL SPECIMEN BATTLER")}</span>
@@ -1391,7 +1442,7 @@ export default function App() {
               </div>
 
               {/* Primary CTA Row */}
-              <div className="safe-b mt-5 flex w-full flex-col gap-2.5 sm:flex-row sm:w-auto">
+              <div className="hero-actions safe-b mt-5 flex w-full flex-col gap-2.5 sm:flex-row sm:w-auto">
                 <button
                   onClick={() => setPhase("cmd")}
                   className="btn-sheen lift flex items-center justify-center gap-3 border-2 border-[#56DCA8] bg-gradient-to-b from-[#2a9c74] to-[#1F7A5A] px-7 py-3.5 font-pixel text-[12px] text-[#04130d] shadow-[0_5px_0_#0D3B2A,0_10px_30px_-10px_rgba(86,220,168,.6)]"
@@ -1436,23 +1487,42 @@ export default function App() {
      SCREEN 2 — COMMANDER SELECTION
      ════════════════════════════════════════════════════════════ */
   if (phase === "cmd") {
+    const selectedCommander = cmdById(pick);
+    const rivalGrid = (
+      <div className="rival-grid mt-2 grid grid-cols-3 gap-2">
+        {BOTS.map((b) => (
+          <div key={b.id} className="flex items-center gap-2 border border-[#2B221B] bg-[#100C09] p-2">
+            <SpecimenIcon id={b.cmd} size={28} badge="none" />
+            <RankBadge id={b.cmd} size={13} />
+            <div className="min-w-0">
+              <div className="label truncate text-[8px] text-[#EDE2CB]">{b.short}</div>
+              <div className="latin truncate text-[11px] text-[#56DCA8]">{b.latin}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
     return (
-      <div className="cabinet-bg safe-t safe-b relative min-h-[100dvh] w-full overflow-x-hidden">
+      <div className={`${advancedGame ? "advanced-ui " : ""}cabinet-bg safe-t safe-b relative min-h-[100dvh] w-full overflow-x-hidden`}>
         <Ambience />
         <div className="commander-layout relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[780px] flex-col justify-between px-4 py-4 pb-28 sm:px-6 sm:py-7 md:pb-7">
-          <div>
+          <div className="commander-content">
             <div className="commander-header flex items-center justify-between border-b border-[#3B322A] pb-3">
               <button
                 onClick={() => setPhase("title")}
-                className="lift flex min-h-[44px] items-center gap-1.5 border border-[#3B322A] bg-[#16110D] px-2.5 py-1.5 label text-[8px] text-[#B3A594] hover:border-[#F0A93B] hover:text-[#EDE2CB]"
+                className="commander-back lift flex min-h-[44px] items-center gap-1.5 border border-[#3B322A] bg-[#16110D] px-2.5 py-1.5 label text-[8px] text-[#B3A594] hover:border-[#F0A93B] hover:text-[#EDE2CB]"
               >
                 <IconArrowLeft size={11} />
                 <span>{t("MENU")}</span>
               </button>
-              <span className="label text-[8.5px] text-[#F0A93B]">{t("SELECT 1 OF")} {GAME_INFO.commanders} {t("COMMANDERS")}</span>
+              <span className="commander-header-label label text-[8.5px] text-[#F0A93B]">
+                <span className="commander-header-full">{t("SELECT 1 OF")} {GAME_INFO.commanders} {t("COMMANDERS")}</span>
+                {advancedGame && <span className="commander-header-compact">{GAME_INFO.commanders} {t("COMMANDERS")}</span>}
+              </span>
               <button
                 onClick={() => setGuideOpen(true)}
-                className="lift flex min-h-[44px] min-w-[44px] shrink-0 items-center gap-1.5 border border-[#3B322A] bg-[#16110D] px-2.5 py-1.5 label text-[8px] text-[#F0A93B]"
+                aria-label={t("GUIDE")}
+                className="commander-guide lift flex min-h-[44px] min-w-[44px] shrink-0 items-center gap-1.5 border border-[#3B322A] bg-[#16110D] px-2.5 py-1.5 label text-[8px] text-[#F0A93B]"
               >
                 <IconHelp size={11} />
                 <span>{t("GUIDE")}</span>
@@ -1468,34 +1538,36 @@ export default function App() {
               {adminButton()}
             </div>
 
-            <h2 className="mt-4 font-pixel text-[15px] leading-relaxed text-[#EDE2CB] sm:text-[18px]">
+            <h2 className="commander-title mt-4 font-pixel text-[15px] leading-relaxed text-[#EDE2CB] sm:text-[18px]">
               {t("CHOOSE YOUR")} <span className="text-[#56DCA8]">{t("COLONY GENERAL")}</span>
             </h2>
-            <p className="latin mt-1 text-[14px] text-[#B3A594]">
+            <p className="commander-intro latin mt-1 text-[14px] text-[#B3A594]">
               {GAME_INFO.colonies} {t("colonies enter. One survives. Your general grants a unique passive for the entire match.")}
             </p>
 
-            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="commander-cards mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
               {COMMANDERS.map((c) => {
                 const on = pick === c.id;
                 return (
                   <button
                     key={c.id}
                     onClick={() => setPick(c.id)}
-                    className={`paper-card lift relative flex flex-col justify-between border-2 p-4 text-left ${
+                    aria-pressed={on}
+                    aria-label={t(c.name)}
+                    className={`commander-card paper-card lift relative flex flex-col justify-between border-2 p-4 text-left ${
                       on ? "border-[#F0A93B]" : "border-[#3B322A] opacity-85 hover:opacity-100"
                     }`}
-                    style={{
+                    style={advancedGame ? undefined : {
                       boxShadow: on
                         ? "0 0 0 2px #F0A93B, 0 8px 0 rgba(0,0,0,.5)"
                         : "0 6px 0 rgba(0,0,0,.45)",
                     }}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="shrink-0 border border-[#241B14]/30 bg-[#16110D] p-2">
+                    <div className="commander-card-top flex items-start gap-3">
+                      <div className="commander-portrait shrink-0 border border-[#241B14]/30 bg-[#16110D] p-2">
                         <SpecimenIcon id={c.id} size={64} selected={on} badge="none" />
                       </div>
-                      <div className="min-w-0 flex-1">
+                      <div className="commander-identity min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-1">
                           <span className="flex min-w-0 items-center gap-1.5">
                             <RankBadge id={c.id} size={16} />
@@ -1512,7 +1584,8 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="mt-3 border-t border-[#241B14]/20 pt-2.5">
+                    {advancedGame && <span className="commander-short" aria-hidden="true">{t(c.short)}</span>}
+                    <div className="commander-perk mt-3 border-t border-[#241B14]/20 pt-2.5">
                       <span className="label inline-block bg-[#8E2A16] px-1.5 py-0.5 text-[7.5px] text-[#FFF3DC]">
                         {t("PERK")} · {t(c.perk)}
                       </span>
@@ -1523,28 +1596,34 @@ export default function App() {
               })}
             </div>
 
-            {/* Rival Colonies Preview */}
-            <div className="mt-4 border border-[#3B322A] bg-[#16110D] p-3">
-              <div className="label text-[8px] text-[#9C8F7E]">{t("RIVAL COLONIES IN THIS CASE")}</div>
-              <div className="rival-grid mt-2 grid grid-cols-3 gap-2">
-                {BOTS.map((b) => (
-                  <div key={b.id} className="flex items-center gap-2 border border-[#2B221B] bg-[#100C09] p-2">
-                    <SpecimenIcon id={b.cmd} size={28} badge="none" />
-                    <RankBadge id={b.cmd} size={13} />
-                    <div className="min-w-0">
-                      <div className="label truncate text-[8px] text-[#EDE2CB]">{b.short}</div>
-                      <div className="latin truncate text-[11px] text-[#56DCA8]">{b.latin}</div>
-                    </div>
-                  </div>
-                ))}
+            {advancedGame && (
+              <div className="commander-current paper-card" role="status" aria-live="polite">
+                <div className="commander-current__heading">
+                  <strong>{t(selectedCommander.name)}</strong>
+                  <span>{t(selectedCommander.perk)}</span>
+                </div>
+                <p>{t(selectedCommander.desc)}</p>
               </div>
-            </div>
+            )}
+
+            {/* Optional roster details stay available without forcing a long
+                scroll before the player can start on a phone. */}
+            {advancedGame ? (
+              <details className="rival-preview">
+                <summary><span>{t("RIVAL COLONIES IN THIS CASE")}</span><b>{GAME_INFO.rivals}</b><IconChevronRight size={13} /></summary>
+                {rivalGrid}
+              </details>
+            ) : (
+              <div className="mt-4 border border-[#3B322A] bg-[#16110D] p-3">
+                <div className="label text-[8px] text-[#9C8F7E]">{t("RIVAL COLONIES IN THIS CASE")}</div>
+                {rivalGrid}
+              </div>
+            )}
           </div>
 
-          {/* Mobile: the CTA pins above the safe area — below the fold it read
-              as a dead button (and hid behind the scroll content). Desktop
-              keeps it in flow at the end of the column. */}
-          <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-[#3B322A] bg-[#16110D]/95 px-4 pb-[max(0.8rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-sm md:hidden">
+          {/* The advanced layout keeps the mobile confirmation in flow, so it
+              never sits over a commander card. Desktop uses the button below. */}
+          <div className="commander-confirm fixed inset-x-0 bottom-0 z-30 border-t-2 border-[#3B322A] bg-[#16110D]/95 px-4 pb-[max(0.8rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-sm md:hidden">
             <button
               onClick={() => {
                 setCmd(pick);
@@ -1565,7 +1644,7 @@ export default function App() {
               setMatch(createMatch(pick));
               setPhase("prep");
             }}
-            className="lift mt-5 hidden w-full border-2 border-[#56DCA8] bg-[#1F7A5A] py-3.5 font-pixel text-[12px] text-[#090604] shadow-[0_5px_0_#0D3B2A] md:block"
+            className="commander-start-desktop lift mt-5 hidden w-full border-2 border-[#56DCA8] bg-[#1F7A5A] py-3.5 font-pixel text-[12px] text-[#090604] shadow-[0_5px_0_#0D3B2A] md:block"
           >
             <span className="flex items-center justify-center gap-2">
               <span>{t("BEGIN ROUND 1")}</span>
@@ -1584,7 +1663,7 @@ export default function App() {
 
   if (phase === "spectate") {
     return (
-      <div className="cabinet-bg safe-t safe-b relative min-h-[100dvh] w-full overflow-x-hidden">
+      <div className={`${advancedGame ? "advanced-ui " : ""}cabinet-bg safe-t safe-b relative min-h-[100dvh] w-full overflow-x-hidden`}>
         <Ambience />
         <main className="screen relative z-10 mx-auto flex min-h-[100dvh] max-w-[560px] flex-col justify-center px-4 py-6">
           <div className="label text-[9px] text-[#F0A93B]">{tf("Your place is locked: #{place}", { place: playerColony.place ?? "—" })}</div>
@@ -1640,7 +1719,7 @@ export default function App() {
     const place = playerColony.place ?? table.findIndex((t) => t.you) + 1;
 
     return (
-      <div className="cabinet-bg safe-t safe-b relative min-h-[100dvh] w-full overflow-x-hidden">
+      <div className={`${advancedGame ? "advanced-ui " : ""}cabinet-bg safe-t safe-b relative min-h-[100dvh] w-full overflow-x-hidden`}>
         <Ambience />
         <div className="screen relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[540px] flex-col justify-center px-4 py-8">
           <div className="border-2 border-[#4A3828] bg-[#16110D] p-5 shadow-[0_14px_40px_rgba(0,0,0,.85)]">
@@ -1742,7 +1821,7 @@ export default function App() {
   const focusedColony = ladderRows.find((row) => row.key === ladderFocus);
 
   return (
-    <div className="battle-shell cabinet-bg safe-t w-full">
+    <div className={`${advancedGame ? "advanced-ui " : ""}battle-shell cabinet-bg safe-t w-full`}>
       <div className="game-grid mx-auto max-w-[1160px]">
         {/* ── LEFT / TOP STAGE: Header + Standings + 3D Drawer ── */}
         <div className="battle-main flex min-h-0 flex-1 flex-col lg:border lg:border-[#3B322A] lg:bg-[#130E0A]">
@@ -1751,15 +1830,15 @@ export default function App() {
               of boxed chips, and a one-line colony ladder rail. On phones the
               whole deck is ~70px — every pixel the old wrapped chip grid
               wasted now goes to the 3D stage. */}
-          <div className="deck shrink-0">
-            <div className="deck-row" data-ui-boundary>
-              <div className="deck-cluster">
-                <div className="deck-stat" title={t("Your colony HP — reach zero and you're out")}>
+          <div className="deck shrink-0" data-scouting={scouting && !inCombat ? "1" : undefined}>
+            <div className="deck-row" data-ui-boundary data-long-period={advancedGame && period.length >= 6 ? "1" : undefined}>
+              <div className="deck-cluster deck-vitals">
+                <div className="deck-stat deck-health" data-critical={hp <= 30 ? "1" : "0"} title={t("Your colony HP — reach zero and you're out")}>
                   <IconHeart size={14} />
                   <span className="deck-num colony-health" style={{ color: hp > 30 ? "#56DCA8" : "#F05A36" }}>{hp}<small>/{STARTING_COLONY_HP}</small></span>
                   <span className="deck-cap">{t("Colony HP")}</span>
                 </div>
-                <RoundTrack compact period={period.period} round={period.round} length={period.length}
+                <RoundTrack compact advanced={advancedGame} period={period.period} round={period.round} length={period.length}
                   label={tf("PERIOD {p} · ROUND {n}/{total}", { p: period.period, n: period.round, total: period.length })} />
               </div>
 
@@ -1773,7 +1852,7 @@ export default function App() {
                   <span className="label hidden text-[7px] text-[#56DCA8] min-[420px]:inline">{t("YOU")}</span>
                   <span className="vs-word">VS</span>
                   <span className="label max-w-[16ch] truncate text-[7px] text-[#F05A36]">{treasure ? t("TREASURE GUARDS") : foe.short}</span>
-                  {treasure ? <ChestIcon /> : <SpecimenIcon id={foe.cmd} size={24} badge="none" />}
+                  {treasure ? <ChestIcon size={advancedGame ? 28 : 24} advanced={advancedGame} /> : <SpecimenIcon id={foe.cmd} size={24} badge="none" />}
                 </div>
               ) : (
                 <button
@@ -1788,7 +1867,7 @@ export default function App() {
                   <span className="label hidden text-[7px] text-[#56DCA8] min-[420px]:inline">{t("YOU")}</span>
                   <span className="vs-word">VS</span>
                   <span className="label max-w-[16ch] truncate text-[7px] text-[#F05A36]">{treasure ? t("TREASURE GUARDS") : foe.short}</span>
-                  {treasure ? <ChestIcon /> : <SpecimenIcon id={foe.cmd} size={24} badge="none" />}
+                  {treasure ? <ChestIcon size={advancedGame ? 28 : 24} advanced={advancedGame} /> : <SpecimenIcon id={foe.cmd} size={24} badge="none" />}
                   <IconScout size={11} className={`vs-scout-ico shrink-0 ${scouting ? "text-[#F05A36]" : "text-[#8C7E6E]"}`} />
                 </button>
               )}
@@ -1862,11 +1941,11 @@ export default function App() {
                 slim snap-scroll cells so all 8 colonies read in a single glance,
                 never the old two-row wall that ate the prep screen. */}
             <div className={`deck-ladder px-2 pb-1.5 pt-1 sm:px-3 ${inCombat ? "hidden min-[720px]:block" : ""}`}>
-              <div className="mb-0.5 flex items-center justify-between">
+              <div className="ladder-title mb-0.5 flex items-center justify-between">
                 <span className="label text-[6px] text-[#8C7E6E]">{t("Colony ladder")}</span>
                 <span className="label text-[6px] text-[#8C7E6E]">{t("1 survivor wins")}</span>
               </div>
-              <div className={`ladder-strip ${focusedColony ? "ladder-strip--detail" : ""}`} role="list">
+              <div className={`ladder-strip ${focusedColony ? "ladder-strip--detail" : ""}`} role="list" aria-label={t("Colony ladder")}>
                 {ladderRows.map((s, i) => (
                   <div
                     key={s.key}
@@ -1915,7 +1994,7 @@ export default function App() {
                 </div>
               )}
               {elsewhere.length > 0 && (
-                <div className="mt-0.5 flex items-center gap-x-2 overflow-hidden whitespace-nowrap">
+                <div className="ladder-elsewhere mt-0.5 flex items-center gap-x-2 overflow-hidden whitespace-nowrap">
                   <span className="label shrink-0 text-[5.5px] text-[#6E6252]">{t("ELSEWHERE THIS ROUND")}</span>
                   <span className="label truncate text-[5.5px] text-[#9C8F7E]">
                     {elsewhere.map((f, i) => (
@@ -1997,6 +2076,8 @@ export default function App() {
               battle={phase === "prep" ? null : battleSnap}
               battleRef={phase === "prep" ? undefined : battleRef}
               battleSpeed={speed}
+              drawerZoom={drawerZoom}
+              advancedEffects={advancedGame}
               selectedUid={selected}
               canDeployMore={canDeployMore}
               interactive={phase === "prep"}
@@ -2005,15 +2086,26 @@ export default function App() {
               treasure={!!treasure}
               onCell={onCell}
               onUnit={onUnit}
-              className="h-full w-full"
+              className={advancedGame ? "battle-stage__scene h-full" : "h-full w-full"}
             />
+            {advancedGame && (
+              <div className="drawer-zoom" role="group" aria-label={t("Drawer zoom")} data-zoom={drawerZoom}>
+                <button type="button" aria-label={t("Zoom in drawer")} title={t("Zoom in drawer")}
+                  disabled={drawerZoomIndex === DRAWER_ZOOM_LEVELS.length - 1}
+                  onClick={() => setDrawerZoomIndex(index => Math.min(DRAWER_ZOOM_LEVELS.length - 1, index + 1))}>+</button>
+                <output aria-live="polite">{Math.round(drawerZoom * 100)}%</output>
+                <button type="button" aria-label={t("Zoom out drawer")} title={t("Zoom out drawer")}
+                  disabled={drawerZoomIndex === 0}
+                  onClick={() => setDrawerZoomIndex(index => Math.max(0, index - 1))}>−</button>
+              </div>
+            )}
 
             {/* Compact Opponent Corner Tag — desktop staple; on phones combat
                 hides it (the deck VS plaque already carries the matchup) so
                 the stage stays clean mid-fight */}
             {!sel && !treasure && (
               <div className={`pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-2 border border-[#3B322A]/90 bg-[#120D09]/90 px-2 py-1 ${inCombat ? "hidden min-[720px]:flex" : ""}`}>
-                {treasure ? <ChestIcon size={30} /> : <><SpecimenIcon id={foe.cmd} size={30} badge="none" /><RankBadge id={foe.cmd} size={14} /></>}
+                {treasure ? <ChestIcon size={30} advanced={advancedGame} /> : <><SpecimenIcon id={foe.cmd} size={30} badge="none" /><RankBadge id={foe.cmd} size={14} /></>}
                 <div className="leading-tight">
                   <div className="label text-[7px] text-[#F0A93B]">
                     {inCombat ? t("FIGHTING") : "VS"} {treasure ? t("TREASURE GUARDS") : foe.name}{(phase === "result" ? report?.echo : roundFixture?.echo) ? " / ECHO" : ""}
@@ -2024,7 +2116,7 @@ export default function App() {
             )}
 
             {/* Subtle Onboarding Prompt when Drawer is Empty */}
-            {phase === "prep" && boardUnits.length === 0 && !sel && (
+            {!advancedGame && phase === "prep" && boardUnits.length === 0 && !sel && (
               <div className="stage-hint pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 border border-[#3B322A] bg-[#120D09]/92 px-2.5 py-1 label text-[7.5px] text-[#EDE2CB]">
                 {(cmd ?? "matriarch") === "worm"
                   ? t("THE WORM DIGS A HOLE BENEATH THE STRONGEST FOE — STEPPING IN STUNS & EXPOSES")
@@ -2040,7 +2132,7 @@ export default function App() {
         <aside className="panel-wood game-dock safe-b flex min-h-0 flex-col border-t-2 border-[#3B322A] lg:border lg:border-t">
           {/* Desktop Specimen Inspector — prep only; in combat the telemetry dock gets the room */}
           {!inCombat && (
-          <div className="hidden border-b border-[#3B322A] p-3 lg:block">
+          <div className="specimen-inspector hidden border-b border-[#3B322A] p-3 lg:block">
             <div className="label mb-1.5 text-[7.5px] text-[#8C7E6E]">{t("SPECIMEN INSPECTOR")}</div>
             {sel ? (
               <div className="flex items-start gap-3">
@@ -2112,7 +2204,7 @@ export default function App() {
 
           {inCombat && battleSnap ? (
             /* ── BATTLE TELEMETRY DOCK ────────────────────────── */
-            <div className="dock-in flex flex-1 flex-col justify-between p-2.5 sm:p-3">
+            <div className="combat-dock dock-in flex flex-1 flex-col justify-between p-2.5 sm:p-3">
               <div>
                 <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                   <span className="label text-[8px] text-[#56DCA8]">{t("COMBAT TELEMETRY")}</span>
@@ -2343,10 +2435,17 @@ export default function App() {
               {/* Bench Row (6 Slots) */}
               <div className="bench-section px-2 pt-1.5 pb-1.5 sm:px-3">
                 <div className="section-heading mb-1 flex items-center justify-between">
-                  <span className="label text-[7.5px] text-[#9C8F7E]">
-                    {t("BENCH")} ({benchUnits.length}/{BENCH_SIZE})
-                  </span>
+                  <div className="bench-heading-title">
+                    <span className="label text-[7.5px] text-[#9C8F7E]">
+                      {t("BENCH")} ({benchUnits.length}/{BENCH_SIZE})
+                    </span>
+                    {advancedGame && <button type="button" className="bench-settings" aria-label={t("SETTINGS")} title={t("SETTINGS")}
+                      onClick={() => setSettingsOpen(true)}><IconSettings size={15} /></button>}
+                  </div>
                   <div className="bench-heading-actions">
+              {advancedGame && boardUnits.length === 0 && benchUnits.length === 0 && pendingRewards.length === 0 && (
+                <span className="bench-empty-hint label" title={t("RECRUIT SPECIMENS FROM PIPKIN SUPPLY BELOW")}>{t("RECRUIT FROM SUPPLY ↓")}</span>
+              )}
               {pendingRewards.length > 0 && <div className="treasure-queue" role="region" aria-label={t("Treasure rewards")}>
                 <button type="button" onClick={() => {
                   const id = pendingRewards[0];
@@ -2423,7 +2522,7 @@ export default function App() {
                 <div className="section-heading shop-heading mb-1 flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <span className="label text-[7.5px] text-[#9C8F7E]">{t("PIPKIN SUPPLY")}</span>
-                    <span className="ml-2 hidden items-center gap-1.5 min-[480px]:ml-2 min-[480px]:flex">
+                    <span className="shop-rarities ml-2 hidden items-center gap-1.5 min-[480px]:ml-2 min-[480px]:flex">
                       {RARITIES.map((r) => (
                         <span key={r} className="flex items-center gap-0.5">
                           <span className="h-[4px] w-[4px] rounded-full" style={{ background: RARITY_STYLE[r] }} />
@@ -2439,6 +2538,7 @@ export default function App() {
                     <button
                       onClick={() => setScouting((v) => !v)}
                       title={t("Scout the next opponent (V)")}
+                      aria-label={t("SCOUT")}
                       aria-pressed={scouting}
                       className={`shop-toggle label hit-y relative flex min-h-[32px] items-center gap-1 border px-2 text-[7px] ${
                         scouting
@@ -2452,6 +2552,7 @@ export default function App() {
                     <button
                       onClick={toggleLock}
                       title={t("Lock the shop so it carries into the next drawer (L)")}
+                      aria-label={t(shopLocked ? "LOCKED" : "LOCK")}
                       aria-pressed={shopLocked}
                       className={`shop-toggle shop-lock label hit-y relative flex min-h-[32px] items-center gap-1 border px-2 text-[7px] ${
                         shopLocked
@@ -2508,7 +2609,7 @@ export default function App() {
                             </span>
 
                             <SpecimenIcon id={id} size={44} badge="none" />
-                            <span className="mt-0.5 flex w-full min-w-0 items-center justify-center gap-1">
+                            <span className="shop-card-name mt-0.5 flex w-full min-w-0 items-center justify-center gap-1">
                               <RankBadge id={id} size={12} />
                               <span className="label truncate text-[7px] text-[#EDE2CB]">{BUGS[id].short}</span>
                             </span>
@@ -2600,11 +2701,11 @@ export default function App() {
         </aside>
       </div>
 
-      {/* Round-start FIGHT flare (rendered once the sim actually starts) */}
-      {simLive && fightFlash > 0 && phase === "battle" && (
+      {/* Play the fight flare in pre-roll for a test-build roar, otherwise at combat start. */}
+      {(simLive || fightHasRoar.current) && fightFlash > 0 && phase === "battle" && (
         <div key={fightFlash} className="fight-flare pointer-events-none fixed inset-0 z-30 grid place-items-center" aria-hidden="true">
           <div className="fight-banner" data-treasure={treasure ? "1" : "0"}>
-            <div className="fight-banner__crest">{treasure ? <ChestIcon size={27} /> : <IconClash size={23} />}</div>
+            <div className="fight-banner__crest">{treasure ? <ChestIcon size={27} advanced={advancedGame} /> : <IconClash size={23} />}</div>
             <span className="fight-flare__round label">{tf("PERIOD {p} · ROUND {n}/{total}", { p: period.period, n: period.round, total: period.length })}</span>
             <span className="fight-flare__word font-pixel">{treasure ? t("TREASURE") : t("FIGHT")}</span>
             <span className="fight-banner__sub label">{treasure ? t("DEFEAT THE GUARDS") : t("COLONY CLASH")}</span>
@@ -2640,7 +2741,7 @@ export default function App() {
               </span>
             </div>
 
-            <div className="result-period"><RoundTrack period={period.period} round={period.round} length={period.length}
+            <div className="result-period"><RoundTrack advanced={advancedGame} period={period.period} round={period.round} length={period.length}
               label={tf("PERIOD {p} · ROUND {n}/{total}", { p: period.period, n: period.round, total: period.length })} /></div>
             <h2 id="round-result-title" className="mt-2 font-pixel text-[20px] text-[#241B14]">
               {match.winnerId === PLAYER_ID ? t("LAST COLONY!") : hp <= 0 ? t("ELIMINATED") : report.win ? t("VICTORY") : t("DEFEAT")}
@@ -2663,7 +2764,7 @@ export default function App() {
 
             {report.treasure && (
               <div className="treasure-result" role="status">
-                <PixelTreasure open={report.win} />
+                {advancedGame ? <TreasureChest3D open={report.win} /> : <PixelTreasure open={report.win} />}
                 <div><strong>{report.win ? t("TREASURE UNLOCKED!") : t("CHEST STILL GUARDED")}</strong>
                   <div>{report.win ? `${report.rewards?.map(id => t(BUGS[id].name)).join(" · ")}${report.treasureGold ? ` · +${report.treasureGold}G` : ""}` : t("Defeat the guards to earn the treasure.")}</div>
                   {report.win && <div className="treasure-loot" aria-hidden="true">{report.rewards?.map((id, i) => <span key={i}><SpecimenIcon id={id} size={26} badge="none" /></span>)}</div>}

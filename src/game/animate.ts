@@ -1,5 +1,6 @@
 import type { VoxModel } from "./voxel";
 import type { AirstrikePose } from "./airstrike";
+import { sampleSpiderRoar } from "./spider-roar-visual";
 
 /* ── Procedural Articulated Insect Animation Driver ──────────
    Every joint target is resolved once per frame, then eased toward
@@ -35,6 +36,7 @@ export function animateInsectRig(
   baseY = 0,
   flightPose?: AirstrikePose,
   roarProgress?: number,
+  enhancedRoar = false,
 ) {
   const p: Pose = {
     torsoX: 0, torsoY: 0, torsoZ: 0, torsoS: 1, torsoPosY: 0, torsoPosZ: 0,
@@ -329,16 +331,29 @@ export function animateInsectRig(
       // The bite rears the front half up and STABS both fangs down-forward;
       // the web spit rears higher with the fangs spread wide.
       if (roarProgress !== undefined) {
-        const phase = Math.max(0, Math.min(1, roarProgress));
-        const swell = Math.sin(Math.PI * phase);
-        const tremble = Math.sin(phase * Math.PI * 12) * swell;
-        p.torsoX = -0.34 * swell;
-        p.torsoPosY = 0.1 * swell;
-        p.headX = -0.3 * swell + tremble * 0.07;
-        p.laX = p.raX = -0.5 * swell;
-        p.laZ = -0.65 * swell; p.raZ = 0.65 * swell;
-        p.legsAX = -0.18 * swell; p.legsBX = 0.18 * swell;
-        p.rootY = 0.06 * swell;
+        if (enhancedRoar) {
+          const { rear, release, tremble } = sampleSpiderRoar(roarProgress);
+          // Keep the torso rotation fixed during the cast. The head, fangs,
+          // legs and pressure waves still carry the roar's expressive pose.
+          p.torsoPosY = 0.07 * rear;
+          p.headX = -0.43 * rear + tremble * 0.045 + release * 0.09;
+          p.headPosY = 0.04 * rear;
+          p.laX = p.raX = -0.68 * rear + release * 0.12;
+          p.laZ = -0.82 * rear; p.raZ = 0.82 * rear;
+          p.legsAX = -0.24 * rear; p.legsBX = 0.24 * rear;
+          p.rootY = 0.055 * rear;
+        } else {
+          const phase = Math.max(0, Math.min(1, roarProgress));
+          const swell = Math.sin(Math.PI * phase);
+          const tremble = Math.sin(phase * Math.PI * 12) * swell;
+          p.torsoX = -0.34 * swell;
+          p.torsoPosY = 0.1 * swell;
+          p.headX = -0.3 * swell + tremble * 0.07;
+          p.laX = p.raX = -0.5 * swell;
+          p.laZ = -0.65 * swell; p.raZ = 0.65 * swell;
+          p.legsAX = -0.18 * swell; p.legsBX = 0.18 * swell;
+          p.rootY = 0.06 * swell;
+        }
       } else if (cp > 0) {
         const rear = Math.sin(Math.min(1, cp / 0.75) * Math.PI);
         p.torsoX = -0.2 * rear;
@@ -509,16 +524,22 @@ export function animateInsectRig(
   const kFast = 1 - Math.exp(-dt * 26);  // strikes
   const kBody = 1 - Math.exp(-dt * 15);  // weight & breath
 
-  m.torso.rotation.x = ease(m.torso.rotation.x, p.torsoX, kBody);
-  m.torso.rotation.y = ease(m.torso.rotation.y, p.torsoY, kBody);
-  m.torso.rotation.z = ease(m.torso.rotation.z, p.torsoZ, kBody);
+  // Do not pitch, yaw or roll the Spider's body while Battle Roar is active,
+  // even when hit, moving, or retargeting. Resume normal easing afterward.
+  if (!(enhancedRoar && id === "spider" && roarProgress !== undefined && !dead)) {
+    m.torso.rotation.x = ease(m.torso.rotation.x, p.torsoX, kBody);
+    m.torso.rotation.y = ease(m.torso.rotation.y, p.torsoY, kBody);
+    m.torso.rotation.z = ease(m.torso.rotation.z, p.torsoZ, kBody);
+  }
   const s = ease(m.torso.scale.z, p.torsoS, kBody);
   m.torso.scale.set(1 + (s - 1) * 0.55, 1 + (s - 1) * 0.55, s);
   m.torso.position.y = R.torso.y + ease(m.torso.position.y - R.torso.y, p.torsoPosY, kBody);
   m.torso.position.z = R.torso.z + ease(m.torso.position.z - R.torso.z, p.torsoPosZ, kFast);
 
   m.head.rotation.x = ease(m.head.rotation.x, p.headX, kFast);
-  m.head.rotation.y = ease(m.head.rotation.y, p.headY, kBody);
+  // The head stays aligned with the opposing side rather than idly swaying.
+  m.head.rotation.y = enhancedRoar && id === "spider" && roarProgress !== undefined && !dead
+    ? 0 : ease(m.head.rotation.y, p.headY, kBody);
   m.head.rotation.z = ease(m.head.rotation.z, p.headZ, kFast);
   m.head.position.y = R.head.y + ease(m.head.position.y - R.head.y, p.headPosY, kBody);
   m.head.position.z = R.head.z + ease(m.head.position.z - R.head.z, p.headPosZ, kFast);

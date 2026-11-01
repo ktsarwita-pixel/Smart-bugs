@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { isRenderResolution, type RenderResolution } from "./game/render-quality";
 
 export type Lang = "en" | "id";
 
@@ -8,12 +9,15 @@ export interface Settings {
   background: "dark" | "light";
   /** Potato mode: minimal renderer workload for weak devices. */
   potato: boolean;
+  /** Resolution of the 3D canvas; the rest of the interface stays sharp. */
+  resolution: RenderResolution;
 }
 
 interface Ctx extends Settings {
   setLang: (lang: Lang) => void;
   setMotion: (motion: Settings["motion"]) => void;
   setPotato: (potato: boolean) => void;
+  setResolution: (resolution: RenderResolution) => void;
   setBackground: (background: Settings["background"]) => void;
   /** Translates an English UI string; falls back to English. */
   t: (en: string) => string;
@@ -45,6 +49,18 @@ const ID: Record<string, string> = {
   "Fullscreen is not available in this browser or embedded view.": "Layar penuh tidak tersedia di browser atau tampilan sematan ini.",
   "Could not change fullscreen mode. Your browser or embedded view may block it.": "Tidak dapat mengubah mode layar penuh. Browser atau tampilan sematan mungkin memblokirnya.",
   "Fullscreen is controlled by your browser; press Escape to exit.": "Layar penuh dikendalikan oleh browser; tekan Escape untuk keluar.",
+  "SIDEWAYS MODE": "MODE MENYAMPING",
+  "Lock sideways orientation": "Kunci orientasi menyamping",
+  "Unlock sideways orientation": "Buka kunci orientasi menyamping",
+  "Turn your device sideways for a wider drawer and a side command panel. Automatic locking depends on your browser.": "Putar perangkat menyamping untuk laci lebih lebar dan panel kontrol di sisi. Penguncian otomatis bergantung pada browser.",
+  "Could not lock orientation. Rotate your device sideways; the layout adjusts automatically.": "Orientasi tidak dapat dikunci. Putar perangkat menyamping; tata letak akan menyesuaikan otomatis.",
+  "Sideways orientation is locked. Unlock it to return to your device's normal rotation.": "Orientasi menyamping terkunci. Buka kunci untuk kembali ke rotasi normal perangkat.",
+  "3D RESOLUTION": "RESOLUSI 3D",
+  "Auto — adaptive": "Otomatis — adaptif",
+  "Low — 50%": "Rendah — 50%",
+  "Medium — 75%": "Sedang — 75%",
+  "High — 100%": "Tinggi — 100%",
+  "Presets scale the capped device resolution for 3D; the interface stays sharp. Auto adapts on the battlefield. Potato mode may lower it further.": "Pilihan mengatur skala resolusi perangkat yang dibatasi untuk 3D; antarmuka tetap tajam. Otomatis menyesuaikan di medan tempur. Mode kentang dapat menurunkannya lagi.",
   "POTATO MODE": "MODE KENTANG",
   "Potato mode": "Mode kentang",
   "On — weakest devices": "Nyala — perangkat paling lemah",
@@ -52,6 +68,8 @@ const ID: Record<string, string> = {
   "Potato mode turns off shadows and glow, drops the render resolution, and hides fireflies. For weaker phones and laptops.": "Mode kentang mematikan bayangan dan glow, menurunkan resolusi render, dan menyembunyikan kunang-kunang. Untuk ponsel serta laptop yang lebih lemah.",
   "UI DOCTOR": "DOKTER UI",
   "On — find broken taps": "Nyala — cari tombol bermasalah",
+  "On — find UI and visual bugs": "Nyala — cari masalah UI dan visual",
+  "Scans touch, layout, chest alignment, Spider facing and rendering. Deep Scan watches for flashes, rotation and stalled animation; visual history records brief issues while enabled.": "Memeriksa sentuhan, tata letak, arah peti dan Laba-laba, serta render. Pemindaian mendalam mencari kedipan, putaran, dan animasi macet; riwayat visual mencatat masalah singkat saat aktif.",
   "Off — normal play": "Mati — main normal",
   "Overlay that hunts unresponsive UI: tiny tap targets, covered buttons, clipped panels, and dropped frames. Shows an FPS meter and a copyable report.": "Lapisan pemeriksa yang mencari UI tak responsif: target sentuh kecil, tombol tertutup, panel terpotong, dan frame yang jatuh. Menampilkan meter FPS dan laporan yang bisa disalin.",
   "PRIVATE": "PRIBADI",
@@ -258,6 +276,10 @@ const ID: Record<string, string> = {
   "THE WORM DIGS A HOLE BENEATH THE STRONGEST FOE — STEPPING IN STUNS & EXPOSES": "CACING MENGGALI LUBANG DI BAWAH MUSUH TERKUAT — MENGINJAKNYA STUN & RENTAN",
   "TAP YOUR BENCH BUG BELOW OR HIT ENGAGE TO AUTO-DEPLOY": "KETUK SERANGGA CADANGAN DI BAWAH, ATAU TEKAN SERANG UNTUK TURUN OTOMATIS",
   "RECRUIT SPECIMENS FROM PIPKIN SUPPLY BELOW": "REKRUT SPESIMEN DARI PASOKAN Pipkin DI BAWAH",
+  "RECRUIT FROM SUPPLY ↓": "REKRUT DARI PASOKAN ↓",
+  "Drawer zoom": "Zoom laci",
+  "Zoom in drawer": "Perbesar laci",
+  "Zoom out drawer": "Perkecil laci",
   "BENCH IT": "CADANGKAN",
   "Deselect": "Batalkan pilihan",
   "Click any bug on the 3D drawer or bench to inspect, reposition, or sell. Three identical bugs moult into a crowned higher star!": "Klik serangga apa pun di laci 3D atau bangku cadangan untuk memeriksa, memindah posisi, atau menjual. Tiga serangga yang sama akan berganti kulit (moult) jadi bintang yang lebih tinggi!",
@@ -445,10 +467,20 @@ const ID: Record<string, string> = {
   "EPIC": "EPIK",
   "ELSEWHERE THIS ROUND": "DI TEMPAT LAIN RONDE INI",
   "THE COLONY WARS": "PERANG KOLONI",
+  "Choose Auto, Low, Medium or High 3D resolution in Settings. Auto adapts on the battlefield; smoother rendering reduces high-refresh and GPU work without changing game rules. UI Doctor reports the active render size.": "Pilih resolusi 3D Otomatis, Rendah, Sedang, atau Tinggi di Pengaturan. Otomatis menyesuaikan di medan tempur; render lebih lancar mengurangi beban layar refresh tinggi dan GPU tanpa mengubah aturan. Dokter UI melaporkan ukuran render aktif.",
+  "Fixed close-zoom framing in fullscreen: the drawer grows while both commanders stay visible. UI Doctor now checks commander clipping at every zoom level.": "Perbaikan tampilan zoom dekat di layar penuh: laci membesar dan kedua komandan tetap terlihat. Dokter UI kini memeriksa komandan terpotong pada setiap tingkat zoom.",
+  "Sideways mode puts the drawer beside a compact bench, shop and controls on landscape phones. Turn your device sideways, or request an orientation lock in Settings when your browser supports it.": "Mode menyamping menempatkan laci di samping bangku, toko, dan kontrol yang ringkas pada ponsel mendatar. Putar perangkat menyamping atau minta kunci orientasi di Pengaturan jika browser mendukungnya.",
+  "The VS chest and round reward chest face you with richer details, a connected hinge and a smoother opening. Reduced motion is respected.": "Peti VS dan peti hadiah ronde menghadapmu dengan detail lebih kaya, engsel tersambung, dan bukaan lebih halus. Pengaturan kurangi gerakan tetap dihormati.",
+  "The whole interface has a fresh field-lab look: a clearer main menu, commander cards, battle deck, shop, bench and round results across phones, tablets and desktop. Use + and − to zoom the battlefield drawer in or out.": "Seluruh antarmuka tampil lebih segar: menu utama, kartu komander, panel pertempuran, toko, bangku, dan hasil ronde lebih jelas di ponsel, tablet, maupun desktop. Gunakan + dan − untuk memperbesar atau memperkecil laci pertempuran.",
+  "The main menu feels softer and more natural. Phone commander portraits stay centered in a compact row with full perks and an expandable rival roster, and battlefield commanders stay in frame. The battle layout fits when space allows; shorter screens can still scroll.": "Menu utama terasa lebih lembut dan alami. Potret komander di ponsel tetap di tengah dalam satu baris ringkas, dengan kemampuan lengkap dan daftar lawan yang dapat dibuka, serta komander di medan pertempuran tetap dalam bingkai. Tata letak pertempuran menyesuaikan layar jika ruang cukup; layar yang lebih pendek tetap dapat digulir.",
+  "The Spider's roar cue and label are smaller and simpler, with a faint ring that leaves the battlefield visible; the label moves clear of the Spider's health bar.": "Efek dan label raungan Laba-laba kini lebih kecil dan sederhana, dengan lingkaran samar agar medan pertempuran tetap terlihat; label bergeser menjauhi bar HP Laba-laba.",
+  "Colony health and the round map now have dedicated space, including long periods and landscape layouts. UI Doctor checks the HUD for overlapping or clipped elements.": "HP koloni dan peta ronde kini punya ruang sendiri, termasuk untuk periode panjang dan layar mendatar. UI Doctor memeriksa elemen HUD yang bertumpuk atau terpotong.",
+  "UI Doctor checks Spider facing, rotation and roar-label placement alongside chest alignment and rendering; it also checks portrait alignment and reports partly off-screen controls.": "Dokter UI memeriksa arah, putaran, dan posisi label raungan Laba-laba bersama arah dan render peti; Dokter juga memeriksa posisi potret dan melaporkan tombol yang sebagian berada di luar layar.",
+  "Spider faces straight toward the opposing side with its body locked throughout Battle Roar; it turns freely afterward.": "Laba-laba menghadap lurus ke sisi lawan dengan badan terkunci selama Raungan Pertempuran; setelah itu ia bebas berputar kembali.",
+  "The round map uses detailed monochrome chest and centered stag pixel art, joined by a clearer timeline.": "Peta ronde memakai seni piksel peti monokrom yang lebih rinci dan rusa yang terpusat, dengan garis waktu yang lebih jelas.",
   "THE BATTLE ROAR": "RAUNGAN PERTEMPURAN",
   "Spider 3★ ultimate replaced: the old whole-board opening web is gone. The Spider now plants itself and roars for 1.5 seconds, then deals exactly 650 damage to every enemy; defeating it during the roar interrupts the hit.": "Ultimate Laba-laba 3★ diganti: jaring pembuka seluruh papan yang lama telah dihapus. Kini Laba-laba berdiri kokoh dan mengaum selama 1,5 detik, lalu memberikan tepat 650 damage kepada setiap musuh; mengalahkannya saat mengaum akan membatalkan serangan.",
   "The roar has a dedicated rearing-and-tremble pose, pressure rings and a final impact flash. The Spider cannot walk or attack while roaring. After Web remains its full-Energy skill.": "Raungan memiliki pose mengangkat badan dan bergetar, cincin tekanan, serta kilatan benturan akhir. Laba-laba tidak dapat berjalan atau menyerang selama mengaum. Jaring Lanjutan tetap menjadi skill saat Energi penuh.",
-  "Round-map art rebuilt as larger monochrome pixel medallions: a rear-latched treasure chest and a centered antlered stag, joined by a clearer timeline.": "Seni peta ronde dibangun ulang sebagai medali piksel monokrom yang lebih besar: peti harta berkunci dan rusa bertanduk yang benar-benar di tengah, disambungkan oleh garis waktu yang lebih jelas.",
   "Edge containment pass: consistent phone gutters and border-box sizing keep in-game frames inside the display; UI Doctor now audits panel overflow and off-screen borders, not only controls.": "Perbaikan tepi: jarak tepi ponsel yang konsisten dan ukuran border-box menjaga bingkai dalam layar; UI Doctor kini memeriksa panel meluap dan bingkai di luar layar, bukan hanya kontrol.",
   "THE FALLEN REST": "YANG GUGUR BERISTIRAHAT",
   "FIXED — fallen bugs no longer blink out mid-death-fall. Corpses now play the full death pose, REST on the tile, then sink into the soil and fade — each kill lands with a dust puff, a soft ring and a grounded shadow.": "DIPERBAIKI — serangga yang gugur tidak lagi menghilang mendadak saat jatuh. Bangkai kini memainkan pose kematian penuh, BERISTIRAHAT di petaknya, lalu tenggelam ke dalam tanah dan memudar — setiap KO terasa dengan debu tanah, cincin lembut, dan bayangan di tanah.",
@@ -656,12 +688,22 @@ const ID: Record<string, string> = {
 
 const SettingsCtx = createContext<Ctx | null>(null);
 const KEY = "smartbugs.settings";
+// Kept separately so visiting the older public build cannot erase the new
+// advanced-only option when it saves its own version of smartbugs.settings.
+const RESOLUTION_KEY = "smartbugs.renderResolution";
+function loadResolution(): RenderResolution {
+  try {
+    const saved = localStorage.getItem(RESOLUTION_KEY);
+    return isRenderResolution(saved) ? saved : "auto";
+  } catch { return "auto"; }
+}
 /** v2: everyone lands back in ENGLISH once (players who picked Bahasa
  *  Indonesia can still switch back in Settings — it just stops being the
  *  remembered default from before this update). */
 const SETTINGS_REV = 2;
 
 function load(): Settings {
+  const resolution = loadResolution();
   try {
     const raw = localStorage.getItem(KEY);
     const parsed = raw ? (JSON.parse(raw) as Partial<Settings & { rev?: number }>) : {};
@@ -672,12 +714,13 @@ function load(): Settings {
         motion: parsed.motion === "reduced" ? "reduced" : "full",
         potato: parsed.potato === true,
         background: parsed.background === "light" ? "light" : "dark",
+        resolution,
       };
     }
   } catch {
     /* storage may be unavailable */
   }
-  return { lang: "en", motion: "full", potato: false, background: "dark" };
+  return { lang: "en", motion: "full", potato: false, background: "dark", resolution };
 }
 
 /** Pure lookup so translation can be tested without mounting React. */
@@ -700,7 +743,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(KEY, JSON.stringify({ ...settings, rev: SETTINGS_REV }));
+      const { resolution, ...sharedSettings } = settings;
+      localStorage.setItem(KEY, JSON.stringify({ ...sharedSettings, rev: SETTINGS_REV }));
+      localStorage.setItem(RESOLUTION_KEY, resolution);
     } catch {
       /* ignore */
     }
@@ -708,6 +753,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.dataset.motion = settings.motion;
     document.documentElement.dataset.potato = settings.potato ? "1" : "0";
     document.documentElement.dataset.background = settings.background;
+    document.documentElement.dataset.resolution = settings.resolution;
   }, [settings]);
 
   useEffect(() => {
@@ -715,14 +761,19 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     window.dispatchEvent(new CustomEvent("sb-potato"));
   }, [settings.potato]);
 
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("sb-resolution"));
+  }, [settings.resolution]);
+
   const setLang = useCallback((lang: Lang) => setSettings((s) => ({ ...s, lang })), []);
   const setMotion = useCallback(
     (motion: Settings["motion"]) => setSettings((s) => ({ ...s, motion })),
     [],
   );
   const setPotato = useCallback((potato: boolean) => setSettings((s) => ({ ...s, potato })), []);
+  const setResolution = useCallback((resolution: RenderResolution) => setSettings((s) => ({ ...s, resolution })), []);
   const setBackground = useCallback((background: Settings["background"]) => setSettings((s) => ({ ...s, background })), []);
-  const reset = useCallback(() => setSettings({ lang: "en", motion: "full", potato: false, background: "dark" }), []);
+  const reset = useCallback(() => setSettings({ lang: "en", motion: "full", potato: false, background: "dark", resolution: "auto" }), []);
 
   const value = useMemo<Ctx>(() => {
     const lang = settings.lang;
@@ -731,11 +782,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       setLang,
       setMotion,
       setPotato,
+      setResolution,
       setBackground,
       reset,
       t: (en: string) => translate(en, lang),
     };
-  }, [settings, setLang, setMotion, setPotato, setBackground, reset]);
+  }, [settings, setLang, setMotion, setPotato, setResolution, setBackground, reset]);
 
   return <SettingsCtx.Provider value={value}>{children}</SettingsCtx.Provider>;
 }
@@ -750,9 +802,11 @@ const FALLBACK: Ctx = {
   motion: "full",
   potato: false,
   background: "dark",
+  resolution: "auto",
   setLang: () => {},
   setMotion: () => {},
   setPotato: () => {},
+  setResolution: () => {},
   setBackground: () => {},
   reset: () => {},
   t: (en: string) => en,

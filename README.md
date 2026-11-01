@@ -129,6 +129,16 @@ The normal `npm run build` alone is a single development bundle, not the
 public/test split. Locally, `/?advenced` enables test-only visuals and `/`
 keeps the original versions of those visuals.
 
+Pushing to GitHub does **not** deploy here — Vercel's GitHub app is not
+connected to this project, so branch builds stop with `git_info_fail`. The
+working deployments therefore carry just `smartbugs-build.sh` + `vercel.json`
+and let the script download the source itself: set `PREVIEW_REF` (default
+`refs/heads/arena/ec287bd6-smart-bugs`, i.e. the session branch) and the
+script fetches it from codeload before building, while `/` keeps being built
+from the pinned public commit. Publishing the test build is: push the branch,
+then create a **production** deployment of the `smart-bugs` Vercel project
+with those two files.
+
 ### Mobile UI smoke test
 
 With a Chromium executable installed, start the Vite server and run:

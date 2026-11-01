@@ -23,7 +23,8 @@ try {
   assert.match(text,/Auto, Low, Medium or High 3D resolution/); assert.match(text,/UI Doctor reports the active render size/);
   assert.match(text,/Fixed close-zoom framing in fullscreen/); assert.match(text,/Sideways mode puts the drawer beside/);
   assert.match(text,/cropped battlefield/); assert.match(text,/FIT button/); assert.match(text,/swipeable colony ladder/); assert.match(text,/scrollable bench\/supply dock/); assert.match(text,/clipped drawer frame/);
-  assert.equal(await entry.locator('li').count(),19,'the single v0.62 entry retains all 14 existing notes and adds the 5 drawer fixes');
+  assert.match(text,/straight push-in/); assert.match(text,/no longer tilts the battlefield/); assert.match(text,/keeps its label inside its border/);
+  assert.equal(await entry.locator('li').count(),20,'the single v0.62 entry retains all 19 notes and adds the untilted zoom toolbar fix');
   for (const width of [280,320,390]) {
     await page.setViewportSize({width,height:653});
     const layout=await version.evaluate(el=>{
@@ -52,6 +53,8 @@ try {
   assert.match(translated,/satu baris tangga koloni yang dapat digeser/,'portrait ladder note is translated');
   assert.match(translated,/dok bangku\/toko yang dapat digulir/,'sideways dock note is translated');
   assert.match(translated,/bingkai laci terpotong/,'Doctor drawer audit note is translated');
+  assert.match(translated,/mendorong kamera lurus/,'untilted zoom note is translated');
+  assert.match(translated,/labelnya tetap di dalam bingkainya/,'FIT label note is translated');
   assert.deepEqual(errors,[]);
-  console.log('PASS single v0.62 patch notes: 19 retained and extra updates, translations and narrow layouts');
+  console.log('PASS single v0.62 patch notes: 20 retained and extra updates, translations and narrow layouts');
 } finally {await browser.close();}

@@ -2871,13 +2871,52 @@ html, body, #root { max-width: 100%; overflow-x: clip; }
 .advanced-ui .drawer-zoom {
   position: static; order: 2; z-index: 5;
   display: flex; flex-direction: row; align-items: center; justify-content: center;
-  width: 100%; height: 44px; flex: 0 0 44px; gap: 10px;
+  width: 100%; height: 44px; flex: 0 0 44px; gap: 8px;
   border-top: 1px solid #4f4532; background: linear-gradient(180deg, #171a12, #10130d);
   padding: 0 8px;
 }
-.advanced-ui .drawer-zoom button { width: 40px; height: 40px; border-radius: 6px; font-size: 20px; }
-.advanced-ui .drawer-zoom__fit { width: auto; min-width: 44px; padding: 0 8px; font: 700 9px/1 var(--font-mono); letter-spacing: .08em; }
-.advanced-ui .drawer-zoom output { min-width: 44px; font-size: 10px; color: #f0e2c4; }
+/* The arrows and the live percentage share one shell, so the toolbar reads as
+   a single stepper strip instead of four loose buttons. */
+.advanced-ui .drawer-zoom__step {
+  display: flex; align-items: center; overflow: hidden;
+  border: 1px solid #4f4936; border-radius: 8px; background: #0e110c;
+  box-shadow: inset 0 1px #ffffff0a;
+}
+.advanced-ui .drawer-zoom button {
+  display: grid; place-items: center;
+  width: 40px; height: 40px; padding: 0;
+  border: 0; border-radius: 0; background: transparent;
+  color: #f4d49a; font: 700 20px/1 var(--font-mono); touch-action: manipulation;
+  transition: background-color .12s ease, color .12s ease, border-color .12s ease;
+}
+.advanced-ui .drawer-zoom button:focus-visible { outline: 2px solid #a6dfb2; outline-offset: -2px; }
+.advanced-ui .drawer-zoom__step button:hover:not(:disabled) { background: #2c3a28; color: #dcffe4; }
+.advanced-ui .drawer-zoom__step button:active:not(:disabled) { background: #3b4f35; }
+.advanced-ui .drawer-zoom button:disabled { opacity: .32; }
+.advanced-ui .drawer-zoom output {
+  display: grid; place-items: center;
+  min-width: 52px; height: 40px;
+  border-left: 1px solid #2f3529; border-right: 1px solid #2f3529;
+  color: #f0e2c4; font: 700 10px/1 var(--font-mono);
+  font-variant-numeric: tabular-nums; letter-spacing: .02em;
+}
+/* FIT pill. The `button.` prefix outranks the generic arrow rule above —
+   without it the 40px square width won and "FIT" spilled over its border. */
+.advanced-ui .drawer-zoom button.drawer-zoom__fit {
+  width: auto; min-width: 56px; height: 42px; padding: 0 12px;
+  border: 1px solid #6b593d; border-radius: 8px;
+  background: #1c2118; color: #f4d49a;
+  font: 700 9px/1 var(--font-mono); letter-spacing: .1em; text-transform: uppercase;
+  white-space: nowrap;
+}
+.advanced-ui .drawer-zoom button.drawer-zoom__fit:hover:not(:disabled) {
+  background: #344634; border-color: #a6dfb2; color: #e6ffee;
+}
+.advanced-ui .drawer-zoom button.drawer-zoom__fit:active:not(:disabled) { background: #3b4f35; }
+.advanced-ui .drawer-zoom button.drawer-zoom__fit[data-active="true"] {
+  border-color: #8d7a4c; color: #ffe9b8; background: #232a1c;
+  box-shadow: inset 0 0 0 1px #f4d49a1f;
+}
 .advanced-ui .game-dock { container: command-dock / inline-size; display: flex; flex-direction: column; }
 .advanced-ui .prep-dock { min-height: 0; flex: 1 1 auto; }
 .advanced-ui .dock-scroll { min-height: 0; flex: 0 0 auto; }

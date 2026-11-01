@@ -23,6 +23,7 @@ const VERSIONS: VersionEntry[] = [
       "Portrait phones get a compact command deck and a single swipeable colony ladder, giving the battlefield much more height. Bench, supply and actions keep readable touch targets.",
       "Sideways mode keeps the drawer on the left and a scrollable bench/supply dock on the right while Reroll, Line +1 and Engage stay pinned in view. Labels return when the dock is wide enough.",
       "UI Doctor now reports a clipped drawer frame as well as clipped commanders, and the framing regression checks the whole cabinet envelope at every zoom and aspect ratio.",
+      "Zoom is a straight push-in now: the camera holds its angle at every step instead of swinging down over the board, so +/− no longer tilts the battlefield under your finger. 100% is the fitted framing, and the toolbar is one −/percent/+ stepper with a FIT pill that keeps its label inside its border.",
       "Spider 3★ ultimate replaced: the old whole-board opening web is gone. The Spider now plants itself and roars for 1.5 seconds, then deals exactly 650 damage to every enemy; defeating it during the roar interrupts the hit.",
       "Spider faces straight toward the opposing side with its body locked throughout Battle Roar; it turns freely afterward.",
       "The roar has a dedicated rearing-and-tremble pose, pressure rings and a final impact flash. The Spider cannot walk or attack while roaring. After Web remains its full-Energy skill.",

@@ -2090,15 +2090,18 @@ export default function App() {
             />
             {advancedGame && (
               <div className="drawer-zoom" role="group" aria-label={t("Drawer zoom")} data-zoom={drawerZoom}>
-                <button type="button" aria-label={t("Zoom in drawer")} title={t("Zoom in drawer")}
-                  disabled={drawerZoomIndex === DRAWER_ZOOM_LEVELS.length - 1}
-                  onClick={() => setDrawerZoomIndex(index => Math.min(DRAWER_ZOOM_LEVELS.length - 1, index + 1))}>+</button>
+                <span className="drawer-zoom__step">
+                  <button type="button" aria-label={t("Zoom out drawer")} title={t("Zoom out drawer")}
+                    disabled={drawerZoomIndex === 0}
+                    onClick={() => setDrawerZoomIndex(index => Math.max(0, index - 1))}>−</button>
+                  <output aria-live="polite">{Math.round(drawerZoom * 100)}%</output>
+                  <button type="button" aria-label={t("Zoom in drawer")} title={t("Zoom in drawer")}
+                    disabled={drawerZoomIndex === DRAWER_ZOOM_LEVELS.length - 1}
+                    onClick={() => setDrawerZoomIndex(index => Math.min(DRAWER_ZOOM_LEVELS.length - 1, index + 1))}>+</button>
+                </span>
                 <button type="button" className="drawer-zoom__fit" aria-label={t("Fit drawer")} title={t("Fit drawer")}
+                  data-active={drawerZoomIndex === 2 ? "true" : "false"}
                   onClick={() => setDrawerZoomIndex(2)}>{t("FIT")}</button>
-                <output aria-live="polite">{Math.round(drawerZoom * 100)}%</output>
-                <button type="button" aria-label={t("Zoom out drawer")} title={t("Zoom out drawer")}
-                  disabled={drawerZoomIndex === 0}
-                  onClick={() => setDrawerZoomIndex(index => Math.max(0, index - 1))}>−</button>
               </div>
             )}
 

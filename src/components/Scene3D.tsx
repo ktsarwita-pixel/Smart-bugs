@@ -2070,14 +2070,15 @@ export function Scene3D({
 
        Fit the *projected envelope* instead: every corner of the cabinet,
        both plinths, and a conservative commander volume must land inside a
-       safe NDC rectangle. The reference distance is solved at maximum zoom,
-       then divided by the live zoom. Zoom therefore still moves the camera,
-       but even 132% keeps the whole drawer on screen. */
+       safe NDC rectangle. That distance is solved once and then divided by
+       the live zoom, so 100% is exactly the fitted framing. */
     const MAX_DRAWER_ZOOM = 1.32;
     const elev = showcase ? 0.36 : 0.84;
-    const zoomElevation = (zoom: number) => !showcase && advancedEffects
-      ? elev - Math.max(0, zoom - 1) * 0.9
-      : elev;
+    /* Zoom is a pure dolly. The old framing lowered the camera as the player
+       zoomed in (`elev - (zoom - 1) * 0.9`) to keep the plinths inside the
+       frame; on a phone that reads as the whole board swinging down under
+       your finger. The elevation is now fixed, so + and − slide the camera
+       straight along its axis and the perspective never changes. */
     const cameraZoom = () => !showcase && advancedEffects
       ? Math.min(MAX_DRAWER_ZOOM, Math.max(0.74, P.current.drawerZoom || 1))
       : 1;
@@ -2145,24 +2146,17 @@ export function Scene3D({
         const vFov = (camera.fov * Math.PI) / 180;
         const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
         camDistTarget = Math.max(2.55 / 2 / Math.tan(vFov / 2), 4.8 / 2 / Math.tan(hFov / 2));
-      } else if (!advancedEffects) {
-        camDistTarget = solveFitDistance(elev, camera.aspect);
       } else {
-        // Elevation changes with zoom, so a distance that is safe at 132% is
-        // not automatically safe at 100%. Solve the whole supported range and
-        // keep one reference distance; live distance is reference / zoom.
-        camDistTarget = Math.max(
-          solveFitDistance(zoomElevation(0.74), camera.aspect) * 0.74,
-          solveFitDistance(zoomElevation(1), camera.aspect),
-          solveFitDistance(zoomElevation(MAX_DRAWER_ZOOM), camera.aspect) * MAX_DRAWER_ZOOM,
-        );
+        // Elevation never changes, so one solve covers every zoom step: the
+        // live distance is this reference divided by the zoom (see tick()).
+        camDistTarget = solveFitDistance(elev, camera.aspect);
       }
       const zoom = cameraZoom();
       if (!cameraInitialized || resized) {
         // Resize/fullscreen/orientation changes snap to the new safe fit.
         // Easing here would show a cropped intermediate frame for ~1s.
         camDist = camDistTarget / zoom;
-        camElev = zoomElevation(zoom);
+        camElev = elev;
         camera.position.set(target.x, target.y + Math.sin(camElev) * camDist, target.z + Math.cos(camElev) * camDist);
         camera.lookAt(target);
         cameraInitialized = true;
@@ -3524,20 +3518,22 @@ export function Scene3D({
       const shake = impactShake * impactShake;
       const zoom = cameraZoom();
       const distanceTarget = camDistTarget / zoom;
-      const elevationTarget = zoomElevation(zoom);
       if (advancedEffects && !showcase && (document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches)) {
         camDist = distanceTarget;
-        camElev = elevationTarget;
       } else {
-        const cameraEase = 1 - Math.exp(-dt * 4.5);
-        camDist += (distanceTarget - camDist) * cameraEase;
-        camElev += (elevationTarget - camElev) * cameraEase;
+        camDist += (distanceTarget - camDist) * (1 - Math.exp(-dt * 4.5));
       }
-      // Mouse parallax should not push the near model back out of frame at
-      // high zoom; keep a subtle tilt, with less range as the camera closes in.
-      const tiltRange = advancedEffects && !showcase ? 0.07 * (1 - Math.max(0, zoom - 1) * 2.4) : 0.07;
+      // Fixed elevation: zooming only dollies the camera along its own axis.
+      camElev = elev;
+      // Pointer parallax is the only tilt left, and it follows the pointer —
+      // never the zoom level.
+      const tiltRange = 0.07;
       const el2 = camElev - parallax.y * tiltRange;
-      if (advancedEffects && !showcase && renderer.domElement.dataset.drawerZoom !== zoom.toFixed(2)) renderer.domElement.dataset.drawerZoom = zoom.toFixed(2);
+      if (advancedEffects && !showcase) {
+        if (renderer.domElement.dataset.drawerZoom !== zoom.toFixed(2)) renderer.domElement.dataset.drawerZoom = zoom.toFixed(2);
+        const elevation = camElev.toFixed(3);
+        if (renderer.domElement.dataset.cameraElevation !== elevation) renderer.domElement.dataset.cameraElevation = elevation;
+      }
       camera.position.set(
         target.x + Math.sin(az) * Math.cos(el2) * camDist + Math.sin(t * 91) * shake * 0.075,
         target.y + Math.sin(el2) * camDist + Math.cos(t * 113) * shake * 0.05,

@@ -34,24 +34,37 @@ try {
   const plus=page.getByRole('button',{name:'Zoom in drawer'}), minus=page.getByRole('button',{name:'Zoom out drawer'}), output=page.locator('.drawer-zoom output');
   const normal=await settle(1);
   assert.equal(await output.innerText(),'100%');
+  // 100% is the fitted framing: the whole envelope has to be on screen.
+  await page.waitForTimeout(1200);
+  const fitState=await page.locator('.battle-stage canvas').evaluate(c=>({elevation:c.dataset.cameraElevation,drawer:JSON.parse(c.dataset.drawerBounds)}));
+  assert.ok(fitState.drawer.every(n=>n>=-.01&&n<=1.01),`100% must fit the whole drawer envelope: ${JSON.stringify(fitState.drawer)}`);
+  const fittedElevation=fitState.elevation;
+  assert.ok(fittedElevation,'the canvas must expose its camera elevation for the tilt regression');
   const initialGold=await page.locator('.deck-resources').innerText();
   await plus.tap(); const closer=await settle(1.15);
   assert.ok(closer<normal*.92,`zoom in did not move the actual camera: ${normal} -> ${closer}`);
   await plus.tap(); await settle(1.32); assert.equal(await plus.isDisabled(),true,'zoom-in limit');
   assert.equal(await output.innerText(),'132%');
   await page.waitForTimeout(1200); // allow the commander entrance and audit sample to settle
-  const closeBounds=await page.locator('.battle-stage canvas').evaluate(c=>JSON.parse(c.dataset.commanderBounds));
-  assert.ok(closeBounds.ally?.every(n=>n>=0&&n<=1),`commander must stay visible at maximum zoom: ${JSON.stringify(closeBounds)}`);
-  const drawerBounds=await page.locator('.battle-stage canvas').evaluate(c=>JSON.parse(c.dataset.drawerBounds));
-  assert.ok(drawerBounds.every(n=>n>=0&&n<=1),`the whole drawer envelope must stay inside the canvas at maximum zoom: ${JSON.stringify(drawerBounds)}`);
+  const canvasState=async ()=>page.locator('.battle-stage canvas').evaluate(c=>({elevation:c.dataset.cameraElevation,drawer:JSON.parse(c.dataset.drawerBounds)}));
+  const closeState=await canvasState();
+  // Zoom must be a pure dolly: the camera keeps the same angle at every step.
+  assert.equal(closeState.elevation,fittedElevation,`zooming must not tilt the camera: ${fittedElevation} -> ${closeState.elevation}`);
+  // Above 100% the board is deliberately magnified, so the outer envelope is
+  // allowed to leave the frame — but it has to actually magnify.
+  assert.ok(closeState.drawer.some(n=>n<-.001||n>1.001),`132% must magnify past the fitted frame: ${JSON.stringify(closeState.drawer)}`);
   await page.getByRole('button',{name:'Open UI Doctor'}).tap();
   await page.getByRole('button',{name:'SCAN SCREEN'}).tap();
-  assert.doesNotMatch(await page.locator('.ui-doctor__body').innerText(),/Commander model clipped/,'the real close-zoom view must not clip the commander');
+  assert.doesNotMatch(await page.locator('.ui-doctor__body').innerText(),/Commander model clipped/,'an intentionally magnified view must not be reported as clipped');
   await page.getByRole('button',{name:'Minimize UI Doctor'}).tap();
   for(let i=0;i<4;i++) await minus.tap();
   const farther=await settle(.74); assert.ok(farther>normal*1.25,`zoom out did not move actual camera: ${normal} -> ${farther}`);
   assert.equal(await minus.isDisabled(),true,'zoom-out limit');
   assert.equal(await output.innerText(),'74%');
+  await page.waitForTimeout(900);
+  assert.equal(await page.locator('.battle-stage canvas').getAttribute('data-camera-elevation'),fittedElevation,'zooming out must not tilt the camera either');
+  const farDrawer=await page.locator('.battle-stage canvas').evaluate(c=>JSON.parse(c.dataset.drawerBounds));
+  assert.ok(farDrawer.every(n=>n>=-.01&&n<=1.01),`74% must stay inside the frame: ${JSON.stringify(farDrawer)}`);
   assert.equal(await page.locator('.deck-resources').innerText(),initialGold,'zoom must not spend gold or alter gameplay');
   await page.getByRole('button',{name:'Fit drawer'}).tap(); await settle(1);
   assert.equal(await output.innerText(),'100%','FIT returns to the reference framing');

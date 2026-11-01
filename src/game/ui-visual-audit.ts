@@ -185,6 +185,11 @@ export function auditVisuals(scope: ParentNode): VisualAudit {
   }
   for (const canvas of scope.querySelectorAll<HTMLCanvasElement>("canvas[data-commander-bounds]")) {
     if (!visible(canvas)) continue;
+    // Above 100% the drawer toolbar deliberately magnifies the board, so the
+    // plinths and commander totems are expected to leave the frame. Only audit
+    // clipping at the fitted framing (≤100%), where it is a real regression.
+    const zoom = Number(canvas.dataset.drawerZoom || "1");
+    const magnified = Number.isFinite(zoom) && zoom > 1.02;
     try {
       const bounds: Record<string, unknown> = JSON.parse(canvas.dataset.commanderBounds || "{}");
       for (const [side, value] of Object.entries(bounds)) {
@@ -193,7 +198,7 @@ export function auditVisuals(scope: ParentNode): VisualAudit {
         const [left, top, right, bottom] = value as number[];
         // The board may grow past the frame, but commanders must remain
         // visible at every zoom level, including during camera transitions.
-        if (left < -.01 || top < -.01 || right > 1.01 || bottom > 1.01) {
+        if (!magnified && (left < -.01 || top < -.01 || right > 1.01 || bottom > 1.01)) {
           add("VISUAL", "warning", "Commander model clipped", `The ${side} commander's projected 3D artwork extends beyond the battlefield edge.`, canvas);
         }
       }
@@ -203,7 +208,7 @@ export function auditVisuals(scope: ParentNode): VisualAudit {
       if (Array.isArray(drawer) && drawer.length === 4 && drawer.every(v => typeof v === "number" && Number.isFinite(v))) {
         checked++;
         const [left, top, right, bottom] = drawer as number[];
-        if (left < -.01 || top < -.01 || right > 1.01 || bottom > 1.01) {
+        if (!magnified && (left < -.01 || top < -.01 || right > 1.01 || bottom > 1.01)) {
           add("VISUAL", "high", "Drawer frame clipped", "The cabinet, plinths or commander envelope extends beyond the battlefield edge. Use FIT or zoom out.", canvas);
         }
       }

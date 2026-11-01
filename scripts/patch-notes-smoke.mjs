@@ -6,14 +6,14 @@ const errors=[];page.on('pageerror',e=>errors.push(e.message));
 const base=process.env.BASE_URL||'http://127.0.0.1:5173';
 try {
   await page.goto(base+'/?advenced');
-  assert.match(await page.locator('body').innerText(),/v0\.62/i,'advanced home shows v0.62');
-  assert.doesNotMatch(await page.locator('body').innerText(),/v0\.63/i);
+  assert.match(await page.locator('body').innerText(),/v0\.7/i,'advanced home shows v0.7');
+  assert.doesNotMatch(await page.locator('body').innerText(),/v0\.62/i);
   await page.getByRole('button',{name:'PATCH NOTES'}).tap();
   const dialog=page.getByRole('dialog',{name:'PATCH NOTES'});
-  const version=dialog.locator('.relative.mb-3').getByText('v0.62',{exact:true});
-  assert.equal(await version.count(),1,'all changes appear in one v0.62 entry');
-  assert.doesNotMatch(await dialog.innerText(),/0\.63/,'the extra updates must not look like a new release');
-  assert.match(await dialog.locator('h3').innerText(),/v0\.62/,'current heading uses the same version');
+  const version=dialog.locator('.relative.mb-3').getByText('v0.7',{exact:true});
+  assert.equal(await version.count(),1,'all changes appear in one v0.7 entry');
+  assert.doesNotMatch(await dialog.innerText(),/0\.62/,'the old version number is gone');
+  assert.match(await dialog.locator('h3').innerText(),/v0\.7/,'current heading uses the same version');
   assert.equal(await dialog.getByText('v0.61',{exact:true}).count(),1,'previous version follows naturally');
   const entry=version.locator('..').locator('..');
   const text=await entry.innerText();
@@ -25,7 +25,7 @@ try {
   assert.match(text,/cropped battlefield/); assert.match(text,/FIT button/); assert.match(text,/swipeable colony ladder/); assert.match(text,/scrollable bench\/supply dock/); assert.match(text,/clipped drawer frame/);
   assert.match(text,/straight push-in/); assert.match(text,/no longer tilts the battlefield/); assert.match(text,/keeps its label inside its border/);
   assert.match(text,/DAMAGE SHOWER chart/); assert.match(text,/credited to the bug that caused it/); assert.match(text,/SHOW ENEMY DAMAGE/); assert.match(text,/320px screens/);
-  assert.equal(await entry.locator('li').count(),25,'the single v0.62 entry keeps every note and carries the 5 DAMAGE SHOWER notes too');
+  assert.equal(await entry.locator('li').count(),27,'the single v0.7 entry keeps every note and carries the new fixes and the DAMAGE SHOWER notes');
   for (const width of [280,320,390]) {
     await page.setViewportSize({width,height:653});
     const layout=await version.evaluate(el=>{
@@ -39,7 +39,7 @@ try {
   await page.reload();
   await page.getByRole('button',{name:'CATATAN PEMBARUAN'}).tap();
   const indonesian=page.getByRole('dialog',{name:'CATATAN PEMBARUAN'});
-  const merged=indonesian.locator('.relative.mb-3').getByText('v0.62',{exact:true}).locator('..').locator('..');
+  const merged=indonesian.locator('.relative.mb-3').getByText('v0.7',{exact:true}).locator('..').locator('..');
   const translated=await merged.innerText();
   assert.match(translated,/Laba-laba menghadap lurus ke sisi lawan/,'gameplay correction is translated');
   assert.match(translated,/Peti VS/,'chest update remains translated');
@@ -61,5 +61,5 @@ try {
   assert.match(translated,/Serangga yang gugur tetap menyimpan angkanya/,'damage attribution note is translated');
   assert.doesNotMatch(translated,/DAMAGE SHOWER chart in the battle telemetry dock/,'no English note leaks into the Indonesian card');
   assert.deepEqual(errors,[]);
-  console.log('PASS single v0.62 patch notes: 25 notes including the DAMAGE SHOWER set, all translated, narrow layouts intact');
+  console.log('PASS single v0.7 patch notes: 27 notes including the DAMAGE SHOWER set, all translated, narrow layouts intact');
 } finally {await browser.close();}

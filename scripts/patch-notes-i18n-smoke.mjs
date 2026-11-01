@@ -43,7 +43,7 @@ const {VERSIONS, PatchNotesModal, SettingsProvider, hasTranslation, translate, G
 
 // ── The newest card is the version the build claims to be ─────────────────
 assert.equal(VERSIONS[0].v, GAME_INFO.version, 'the top patch-notes card must match GAME_INFO.version');
-assert.equal(GAME_INFO.version, '0.62', '0.63 was folded into the 0.62 card');
+assert.equal(GAME_INFO.version, '0.7', 'the shipped build is v0.7');
 
 const seen = new Set();
 for (const entry of VERSIONS) {
@@ -88,7 +88,9 @@ assert.deepEqual(identical, [], 'these notes have no real Indonesian translation
   const html = renderToStaticMarkup(
     createElement(SettingsProvider, null, createElement(PatchNotesModal, {open: true, onClose: () => {}})),
   );
-  assert.match(html, /v0\.62/, 'the current card renders');
+  assert.match(html, /v0\.7/, 'the current card renders');
+  assert.match(html, /Dokter UI kini berbicara dalam bahasamu/, 'the Doctor note is translated');
+  assert.match(html, /panel kesehatan yang pas dengan relnya/, 'the ladder-fit note is translated');
   assert.doesNotMatch(html, /DAMAGE SHOWER chart in the battle telemetry dock/, 'no English note text in the Indonesian modal');
   assert.match(html, /Grafik STATISTIK DAMAGE baru di panel telemetri tempur/, 'the Damage Shower note is translated');
   assert.match(html, /STATISTIK DAMAGE/, 'the chart name is translated in the copy');

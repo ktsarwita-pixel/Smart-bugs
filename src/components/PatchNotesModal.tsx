@@ -15,9 +15,11 @@ interface VersionEntry {
 
 export const VERSIONS: VersionEntry[] = [
   {
-    v: "0.62",
+    v: "0.7",
     title: "THE BATTLE ROAR",
     items: [
+      "UI Doctor now speaks your language: the panel header, buttons, FPS readout, status messages, the copied report and every finding label and sentence are translated into Bahasa Indonesia instead of printing English — DEEP SCAN included.",
+      "Tapping a colony in the ladder now opens a health panel that fits the rail exactly: same width, same height, same edges, inside the deck border on phones and desktop, with no size jump.",
       "New DAMAGE SHOWER chart in the battle telemetry dock: every bug on your line is listed with the damage it actually dealt this fight, sorted from the heaviest hitter down, with a bar showing its share of your line's output.",
       "Damage is credited to the bug that caused it, not the bug that touched it — Battle Roar, Enraged poison, After Web snares, Dig Hole vuln hits and the Dragonfly's airstrike ticks all land on their real owner's row. Defeated bugs keep their numbers so the chart still tells the whole story.",
       "Tap the chart header to fold it away, and the SHOW ENEMY DAMAGE button underneath to reveal the enemy line's damage totals in the same layout. Both toggles remember their state while you battle.",

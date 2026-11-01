@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
-# Publish two independent bundles: the original remains at the pinned public
-# commit, while /?advenced is built from this checkout (the test branch).
+# Publish the current branch as BOTH builds:
+#   /            the original server — now the same v0.7 release
+#   /preview/    the opt-in test build (adds the ADVANCED TEST BUILD banner)
+#
+# Both are the exact same bundle; the URL only decides whether the test banner
+# and test-only visuals switch on (`isAdvancedGameLocation`), so the original
+# server can never drift behind the test one again.
 #
 # This recipe works in both deployment shapes:
 #   - full source uploaded            -> builds the uploaded checkout in place
@@ -12,7 +17,6 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
-PUBLIC_COMMIT="723715b"
 PREVIEW_REF="${PREVIEW_REF:-refs/heads/arena/ec287bd6-smart-bugs}"
 
 cd "$ROOT"
@@ -24,26 +28,21 @@ if [ ! -f package.json ] || [ ! -f package-lock.json ]; then
   PREVIEW_SRC="$WORK/preview"
 fi
 
-# Vercel's install command is intentionally a no-op; install exactly the lockfile
-# for both projects here. The test build must not fetch a different branch.
+# Vercel's install command is intentionally a no-op; install exactly the lockfile.
 (cd "$PREVIEW_SRC" && npm ci --include=dev --no-audit --no-fund --loglevel=error && npm run build)
-cp "$PREVIEW_SRC/dist/index.html" "$WORK/preview.html"
-
-mkdir "$WORK/public"
-curl -fsSL "https://codeload.github.com/ktsarwita-pixel/Smart-bugs/tar.gz/$PUBLIC_COMMIT" | tar xz --strip-components=1 -C "$WORK/public"
-(cd "$WORK/public" && npm ci --include=dev --no-audit --no-fund --loglevel=error && npm run build)
+cp "$PREVIEW_SRC/dist/index.html" "$WORK/game.html"
 
 rm -rf "$ROOT/dist"
 mkdir -p "$ROOT/dist/preview" "$ROOT/dist/advanced" "$ROOT/dist/advenced"
-# Static files can take precedence over Vercel's query redirect. Preserve the
-# existing fallback router in the public HTML; the public game itself remains
-# the pinned build and does not include any test-build visual changes.
-PUBLIC_HTML="$WORK/public/dist/index.html" OUTPUT_HTML="$ROOT/dist/index.html" node <<'JSROUTE'
+# Static files take precedence over Vercel's query redirect, so `/` gets the
+# existing router: a bare visit loads the v0.7 game, `?advenced` hands off to
+# /preview/ where the test banner lives. Everything ships the same bundle.
+GAME_HTML="$WORK/game.html" OUTPUT_HTML="$ROOT/dist/index.html" node <<'JSROUTE'
 const fs = require("fs");
-const html = fs.readFileSync(process.env.PUBLIC_HTML, "utf8");
+const html = fs.readFileSync(process.env.GAME_HTML, "utf8");
 const router = "<script>if(new URLSearchParams(location.search).has('advenced'))location.replace('/preview/'+location.search+location.hash);</script>";
 fs.writeFileSync(process.env.OUTPUT_HTML, html.replace("<head>", "<head>" + router));
 JSROUTE
-cp "$WORK/public/dist/index.html" "$ROOT/dist/advanced/index.html"
-cp "$WORK/public/dist/index.html" "$ROOT/dist/advenced/index.html"
-cp "$WORK/preview.html" "$ROOT/dist/preview/index.html"
+cp "$WORK/game.html" "$ROOT/dist/preview/index.html"
+cp "$WORK/game.html" "$ROOT/dist/advanced/index.html"
+cp "$WORK/game.html" "$ROOT/dist/advenced/index.html"

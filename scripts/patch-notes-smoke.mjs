@@ -13,7 +13,7 @@ try {
   assert.equal(await dialog.getByText('v0.62',{exact:true}).count(),0,'old 0.62 entry must not be duplicated');
   const entry=version.locator('..').locator('..');
   const text=await entry.innerText();
-  assert.match(text,/650 damage/); assert.match(text,/opening enemy/); assert.match(text,/reward chest/); assert.match(text,/UI Doctor/);
+  assert.match(text,/650 damage/); assert.match(text,/opposing side/); assert.match(text,/reward chest/); assert.match(text,/UI Doctor/);
   assert.equal(await entry.locator('li').count(),7,'merged entry retains both sets of changes');
   for (const width of [280,320,390]) {
     await page.setViewportSize({width,height:653});
@@ -29,7 +29,7 @@ try {
   await page.getByRole('button',{name:'CATATAN PEMBARUAN'}).tap();
   const indonesian=page.getByRole('dialog',{name:'CATATAN PEMBARUAN'});
   const merged=indonesian.getByText('v0.62–0.63',{exact:true}).locator('..').locator('..');
-  assert.match(await merged.innerText(),/Laba-laba menghadap musuh awal/,'new correction is translated');
+  assert.match(await merged.innerText(),/Laba-laba menghadap lurus ke sisi lawan/,'new correction is translated');
   assert.match(await merged.innerText(),/Peti VS/,'chest update remains translated');
   assert.deepEqual(errors,[]);
   console.log('PASS merged 0.62–0.63 patch notes, retained changes, translations and narrow layouts');

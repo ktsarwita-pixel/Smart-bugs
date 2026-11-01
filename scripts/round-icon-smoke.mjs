@@ -27,6 +27,7 @@ for (const [name,rows] of [['chest',icons.ADVANCED_CHEST_PIXELS], ['stag beetle'
   assert.equal(new Set(rows.join('').replaceAll('.','')).size,5,`${name}: missing a shading layer`);
 }
 assert.match(icons.ADVANCED_CHEST_PIXELS[9], /hooh/, 'chest needs a central keyhole');
+assert.match(icons.ADVANCED_CHEST_PIXELS[12], /mllm/, "round-map chest shares the centered maker's mark");
 assert.match(icons.ADVANCED_CHEST_PIXELS[7], /^oo[l]+oo$/, 'chest needs a symmetric bright lid band');
 assert.ok(icons.ADVANCED_STAG_PIXELS[1].includes('lh'), 'stag needs inward-hooked mandible tips');
 assert.ok(icons.ADVANCED_STAG_PIXELS[11].startsWith('msss'), 'stag needs visible paired legs');

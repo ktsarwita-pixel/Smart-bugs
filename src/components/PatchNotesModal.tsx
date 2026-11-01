@@ -19,7 +19,7 @@ const VERSIONS: VersionEntry[] = [
     title: "THE BATTLE ROAR",
     items: [
       "Spider 3★ ultimate replaced: the old whole-board opening web is gone. The Spider now plants itself and roars for 1.5 seconds, then deals exactly 650 damage to every enemy; defeating it during the roar interrupts the hit.",
-      "Spider faces its opening enemy and keeps its body still throughout Battle Roar; it resumes tracking afterward.",
+      "Spider faces straight toward the opposing side with its body locked throughout Battle Roar; it turns freely afterward.",
       "The roar has a dedicated rearing-and-tremble pose, pressure rings and a final impact flash. The Spider cannot walk or attack while roaring. After Web remains its full-Energy skill.",
       "The VS chest and round reward chest face you with richer details, a connected hinge and a smoother opening. Reduced motion is respected.",
       "The round map uses detailed monochrome chest and centered stag pixel art, joined by a clearer timeline.",

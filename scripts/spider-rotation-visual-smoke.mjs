@@ -9,15 +9,17 @@ try {
   const prepFacing=await page.locator('.ov-unit[data-unit-id="1"]').getAttribute('data-spider-facing');
   assert.ok(Math.abs(Number(prepFacing))<.0001,`allied Spider must face the enemy's half during prep: ${prepFacing}`);
   assert.equal(await page.locator('.ov-unit[data-unit-id="1"]').getAttribute('data-roar-facing'),null);
-  // Compute expected headings from the actual nearest opposing unit, before
-  // battle begins. The Spider sculpt faces local -Z, not +Z.
-  const openingTargets=await page.evaluate(()=>[1,3].map(id=>{
-    const units=window.roarHarness.battle.units, spider=units.find(u=>u.uid===id);
-    const enemy=units.filter(u=>u.side!==spider.side && !u.dead).reduce((a,b)=>
-      Math.hypot(a.x-spider.x,a.y-spider.y)<=Math.hypot(b.x-spider.x,b.y-spider.y)?a:b);
-    const dx=enemy.x-spider.x, dz=enemy.y-spider.y;
-    return {dx,dz,angle:Math.atan2(-dx,-dz),enemy:enemy.uid};
-  }));
+  // Put the nearest enemies diagonally off-center. A lock to the target
+  // would turn both Spiders away from straight across the opposing side.
+  const targetOffsets=await page.evaluate(()=>{
+    const units=window.roarHarness.battle.units;
+    const ally=units.find(u=>u.uid===1), foe=units.find(u=>u.uid===3);
+    const allyStag=units.find(u=>u.uid===2), foeStag=units.find(u=>u.uid===4);
+    Object.assign(allyStag,{x:foe.x-1,y:foe.y+1});
+    Object.assign(foeStag,{x:ally.x+1,y:ally.y-1});
+    return [Math.atan2(-(foeStag.x-ally.x),-(foeStag.y-ally.y)),Math.atan2(-(allyStag.x-foe.x),-(allyStag.y-foe.y))];
+  });
+  assert.ok(Math.abs(targetOffsets[0])>.2 && Math.abs(targetOffsets[1]-Math.PI)>.2,'fixture must present diagonal targets');
   await page.evaluate(()=>window.roarHarness.start());
   await page.waitForFunction(()=>[1,3].every(id=>document.querySelector(`.ov-unit[data-unit-id="${id}"]`)?.dataset.roarBody),null,{timeout:20000,polling:100});
   const transforms=()=>page.evaluate(()=>[1,3].map(id=>{
@@ -26,18 +28,17 @@ try {
   }));
   const initial=await transforms();
   for (const [index,pose] of initial.entries()) {
-    const {dx,dz,angle,enemy}=openingTargets[index], facing=Number(pose.facing);
-    const difference=Math.atan2(Math.sin(facing-angle),Math.cos(facing-angle));
-    assert.ok(Math.abs(difference)<.0001,`${index ? 'opposing' : 'allied'} Spider must face opening enemy ${enemy}: ${JSON.stringify(pose)}`);
-    assert.ok((-Math.sin(facing)*dx-Math.cos(facing)*dz)/Math.hypot(dx,dz)>.99999,'sculpt face normal must point at the enemy');
-    assert.equal(pose.aim,pose.facing,'Doctor must record the opening enemy direction');
+    const expected=index===0?0:Math.PI, facing=Number(pose.facing);
+    const difference=Math.atan2(Math.sin(facing-expected),Math.cos(facing-expected));
+    assert.ok(Math.abs(difference)<.0001,`${index ? 'foe' : 'ally'} Spider must face straight across the opposing side: ${JSON.stringify(pose)}`);
+    assert.equal(pose.aim,pose.facing,'Doctor must record the straight-ahead direction');
     assert.equal(pose.spiderFacing,pose.facing);
-    assert.equal(pose.head,'0.00000','head must stay aligned with the enemy');
+    assert.equal(pose.head,'0.00000','head must stay aligned with the body');
   }
   await page.getByRole('button',{name:'Open UI Doctor'}).tap();
   await page.getByRole('button',{name:'SCAN SCREEN'}).tap();
   let report=await page.locator('.ui-doctor__body').innerText();
-  assert.doesNotMatch(report,/Spider not facing its opening enemy/,'Doctor must accept the healthy enemy-facing roar');
+  assert.doesNotMatch(report,/Spider not facing the enemy side/,'Doctor must accept the healthy straight-ahead roar');
   await page.getByRole('button',{name:'DEEP SCAN'}).tap();
   await page.evaluate(()=>{
     const b=window.roarHarness.battle;
@@ -47,7 +48,7 @@ try {
   });
   await page.getByText('WATCHING…').waitFor({state:'hidden',timeout:15000});
   report=await page.locator('.ui-doctor__body').innerText();
-  assert.doesNotMatch(report,/Spider body rotated during roar|Spider not facing its opening enemy/,'healthy retargeting must not trigger Doctor');
+  assert.doesNotMatch(report,/Spider body rotated during roar|Spider not facing the enemy side/,'healthy retargeting must not trigger Doctor');
   assert.match(await page.locator('.ui-doctor__history summary').innerText(),/0 events/,'healthy roar must not pollute passive history');
   await page.getByRole('button',{name:'Minimize UI Doctor'}).tap();
   for (let i=0;i<5;i++) {
@@ -64,10 +65,19 @@ try {
   }
   await page.evaluate(()=>window.roarHarness.step(5));
   await page.waitForFunction(()=>[1,3].every(id=>!document.querySelector(`.ov-unit[data-unit-id="${id}"]`)?.dataset.roarBody),null,{timeout:30000,polling:100});
-  await page.waitForFunction(initial=>[1,3].some((id,i)=>{
-    const now=Number(document.querySelector(`.ov-unit[data-unit-id="${id}"]`)?.dataset.spiderFacing), before=Number(initial[i].facing);
-    return Math.abs(Math.atan2(Math.sin(now-before),Math.cos(now-before)))>.05;
-  }),initial,{timeout:30000,polling:100});
+  // After the roar, force each side to track targets first left, then right.
+  for (const [offset,expected] of [[-.4,Math.PI/2],[.4,-Math.PI/2]]) {
+    await page.evaluate(offset=>{
+      const units=window.roarHarness.battle.units;
+      const ally=units.find(u=>u.uid===1), foe=units.find(u=>u.uid===3);
+      Object.assign(units.find(u=>u.uid===2),{x:foe.x+offset,y:foe.y});
+      Object.assign(units.find(u=>u.uid===4),{x:ally.x+offset,y:ally.y});
+    },offset);
+    await page.waitForFunction(expected=>[1,3].every(id=>{
+      const now=Number(document.querySelector(`.ov-unit[data-unit-id="${id}"]`)?.dataset.spiderFacing);
+      return Math.abs(Math.atan2(Math.sin(now-expected),Math.cos(now-expected)))<.15;
+    }),expected,{timeout:30000,polling:100});
+  }
   assert.deepEqual(errors,[]);
-  console.log('PASS both Spiders aim at the opening enemy, stay still through retargeting, then resume tracking');
+  console.log('PASS both Spiders face straight across the opposing side through roar and turn freely afterward');
 } finally {await browser.close();}

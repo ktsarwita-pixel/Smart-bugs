@@ -7,7 +7,7 @@ import { COLS, ROWS, SPIDER_ROAR_SECONDS, boardXY, type BattleState, type BUnit,
 import { GRAND_WEB_GROW_SECONDS, grandWebGrowth, visualGrandImpactReady, setGrandWebScale } from "../game/web-growth";
 import { buildVoxelModel, dotTexture, warmVoxelCache, V, type VoxModel } from "../game/voxel";
 import { animateInsectRig } from "../game/animate";
-import { sampleRoarWave } from "../game/spider-roar-visual";
+import { sampleRoarWave, spiderRoarFacing } from "../game/spider-roar-visual";
 import { useSettings } from "../i18n";
 import {
   AIRSTRIKE_RADIUS, AIRSTRIKE_SECONDS, createAirstrikePose, sampleAirstrikeDive,
@@ -2440,6 +2440,7 @@ export function Scene3D({
       let u = units.get(uid);
       if (u && u.id === id && u.star === star) {
         u.side = side;
+        if (u.el.dataset.side !== side) u.el.dataset.side = side;
         return u;
       }
       const hadPrev = !u;
@@ -2828,17 +2829,16 @@ export function Scene3D({
       const phaseChanged = (flight?.phase ?? "grounded") !== u.prevPhase;
       if (flight && dive) wantRot = Math.atan2(-(dive.toX - dive.fromX), -(dive.toY - dive.fromY));
 
-      // Face the opposing half in prep. On the first roar frame, aim at the
-      // opening enemy once, then keep that direction fixed until the cast ends
-      // even if the nearest target changes. Combat targeting is untouched.
+      // Face straight across the board before and throughout the roar.
+      // Do not turn toward an off-center target until the roar is over.
       const enemyFacingPreview = advancedEffects && id === "spider" && !battleOn && !dead;
       const holdSpiderBody = advancedEffects && id === "spider" && roarProgress !== undefined && !dead;
       if (enemyFacingPreview) {
-        u.rotY = side === "ally" ? 0 : Math.PI;
+        u.rotY = spiderRoarFacing(side);
       } else if (holdSpiderBody) {
         if (u.prevRoarProgress < 0) {
-          u.rotY = wantRot;
-          u.el.dataset.roarAim = wantRot.toFixed(5);
+          u.rotY = spiderRoarFacing(side);
+          u.el.dataset.roarAim = u.rotY.toFixed(5);
         }
       } else {
         let dRot = wantRot - u.rotY;

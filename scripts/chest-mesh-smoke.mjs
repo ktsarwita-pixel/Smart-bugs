@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
+import { Color } from 'three';
 const result=await build({entryPoints:['src/game/treasure-voxel.ts'],bundle:true,platform:'node',format:'esm',write:false});
 const {createChestGeometry}=await import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].contents).toString('base64')}`);
 const bounds={};
@@ -11,6 +12,13 @@ for (const detailed of [false, true]) for (const part of ['body','lid']) {
     const key=points.sort().join('|');
     assert.ok(!faces.has(key), `${part} has duplicate coplanar triangles`); faces.add(key);
     const normal=Math.hypot(n.getX(i),n.getY(i),n.getZ(i)); assert.ok(normal>0.99,`${part} invalid normal`);
+  }
+  if (part==='body') {
+    const c=geo.getAttribute('color'), mark=new Color(0xf1bf5b);
+    let markVertices=0;
+    for(let i=0;i<p.count;i++) if(Math.abs(p.getX(i))<=.041 && p.getY(i)>=.119 && p.getY(i)<=.161 && p.getZ(i)>.299 &&
+      Math.abs(c.getX(i)-mark.r)<1e-5 && Math.abs(c.getY(i)-mark.g)<1e-5 && Math.abs(c.getZ(i)-mark.b)<1e-5) markVertices++;
+    assert.equal(markVertices>0,detailed,`${part}: maker's mark belongs only to the advanced front`);
   }
   assert.ok(faces.size>100); assert.ok(Math.abs(geo.boundingBox.min.x+geo.boundingBox.max.x)<1e-6, `${part} silhouette must be centered`); bounds[`${part}-${detailed}`]=geo.boundingBox.clone(); geo.dispose(); console.log(`PASS ${part} detailed=${detailed}: ${faces.size} unique exposed triangles`);
 }

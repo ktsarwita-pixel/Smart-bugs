@@ -63,8 +63,8 @@ try {
   const proof=await page.evaluate(()=>({marks:window.__roarMarks,poses:window.__roarPoses,words:window.__roarWords,growth:window.__grandGrowth,cues:window.__cues,waveFrames:window.__waveFrames,banner:window.__bannerOpacity}));
   const values=proof.marks.map(([,v])=>v), charging=proof.cues.filter(c=>c.state==='charging'), impact=proof.cues.find(c=>c.state==='impact');
   assert.ok(values.length>=2,`roar needs rendered frames: ${values}`);
-  assert.ok(proof.poses.every(p=>Math.abs(Math.atan2(Math.sin(Number(p.facing)-Number(p.aim)),Math.cos(Number(p.facing)-Number(p.aim))))<.0001 && p.head==='0.00000' && p.body),`live Spider must stay aimed at its opening enemy: ${JSON.stringify(proof.poses)}`);
-  assert.ok(Math.cos(Number(proof.poses[0].facing))>0,'allied Spider must face the enemy half, not the player');
+  assert.ok(proof.poses.every(p=>Math.abs(Math.atan2(Math.sin(Number(p.facing)-Number(p.aim)),Math.cos(Number(p.facing)-Number(p.aim))))<.0001 && p.head==='0.00000' && p.body),`live Spider must stay facing the opposing side: ${JSON.stringify(proof.poses)}`);
+  assert.ok(proof.poses.every(p=>Math.abs(Number(p.facing))<.0001),'allied Spider must face straight toward the enemy side');
   assert.equal(new Set(proof.poses.map(p=>p.body)).size,1,'live Spider body must not rotate during roar');
   if (reduced) {
     assert.ok(values.every(v=>v===50),`reduced motion should hold one clear roar pose: ${values}`);

@@ -537,7 +537,7 @@ export function animateInsectRig(
   m.torso.position.z = R.torso.z + ease(m.torso.position.z - R.torso.z, p.torsoPosZ, kFast);
 
   m.head.rotation.x = ease(m.head.rotation.x, p.headX, kFast);
-  // The head stays aligned with the opening enemy rather than idly swaying.
+  // The head stays aligned with the opposing side rather than idly swaying.
   m.head.rotation.y = enhancedRoar && id === "spider" && roarProgress !== undefined && !dead
     ? 0 : ease(m.head.rotation.y, p.headY, kBody);
   m.head.rotation.z = ease(m.head.rotation.z, p.headZ, kFast);

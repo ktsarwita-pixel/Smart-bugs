@@ -178,6 +178,8 @@ function ChestIcon({ size = 24, advanced = false }: { size?: number; advanced?: 
     <path fill="#6b3418" d="M5 20h22v2H5zM5 25h22v1H5z" />
     <path data-chest-grain fill="#eb9b49" d="M11 11h3v1h-3zM18 11h3v1h-3zM11 17h3v1h-3zM18 17h3v1h-3zM11 22h3v1h-3zM18 22h3v1h-3z" />
     <path fill="#713719" d="M12 19h3v1h-3zM17 19h3v1h-3zM12 24h3v1h-3zM17 24h3v1h-3z" />
+    <path data-chest-corners fill="#c58a34" d="M4 22h2v3h3v2H4zM26 22h2v5h-5v-2h3z" />
+    <path data-chest-emblem fill="#f4c462" d="M15 22h2v1h1v1h-1v1h-2v-1h-1v-1h1z" />
     <path fill="#9f671f" d="M7 9h4v17H7zM21 9h4v17h-4zM4 14h24v3H4zM4 25h24v2H4z" />
     <path fill="#e4a846" d="M8 9h2v5H8zM22 9h2v5h-2zM8 17h2v8H8zM22 17h2v8h-2zM5 15h22v1H5zM5 25h22v1H5z" />
     <path className="chest-icon__shine" fill="#ffe39b" d="M9 9h1v4H9zM22 9h1v4h-1zM9 17h1v7H9zM22 17h1v7h-1zM6 15h20v1H6z" />

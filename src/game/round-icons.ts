@@ -76,7 +76,7 @@ export const ADVANCED_CHEST_PIXELS = [
   'osmmmlhoohlmmmso',
   'osmmmlhoohlmmmso',
   'osmmmlhhhhlmmmso',
-  'osmmmlmssmlmmmso',
+  'osmmmlmllmlmmmso',
   'osssslsssslsssso',
   '.oooooooooooooo.',
   '................',

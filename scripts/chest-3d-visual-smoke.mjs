@@ -19,6 +19,8 @@ try {
   assert.equal(await chest.locator('.pixel-treasure,canvas').count(),0,'no legacy sprite or delayed canvas swap');
   assert.equal(await chest.locator('.treasure-chest-3d__body-front > svg[shape-rendering="crispEdges"]').count(),1,'pixel grain is part of the body face');
   assert.equal(await chest.locator('.treasure-chest-3d__lid-bottom > svg[shape-rendering="crispEdges"]').count(),1,'pixel inlay is part of the opening lid');
+  assert.equal(await chest.locator('.treasure-chest-3d__body-front [data-chest-emblem]').count(),1,'front emblem is integrated into the body face');
+  assert.equal(await chest.locator('.treasure-chest-3d__lid-ridge-top [data-chest-ridge]').count(),1,'lid grain belongs to the attached top plane');
   let initial=await geometry();
   assert.ok(Math.abs(initial.yaw)<.001 && initial.center<1,'closed chest faces and centers on the player');
   assert.ok(Math.abs(initial.pitch)<.1 && initial.gap<.5 && initial.depth==='preserve-3d','closed lid is connected to the actual 3D body');

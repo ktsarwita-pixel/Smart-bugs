@@ -1,5 +1,9 @@
 /** Visual-only timing for the Spider's 1.5s opening roar. The combat engine
  * remains authoritative: these samples never affect movement or damage. */
+/** Spider's sculpt faces local -Z. Both sides look straight across the board
+ * during the opening roar; target-following resumes when the cast ends. */
+export const spiderRoarFacing = (side: "ally" | "foe") => side === "ally" ? 0 : Math.PI;
+
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 const smoothstep = (a: number, b: number, value: number) => {
   const t = clamp01((value - a) / (b - a));

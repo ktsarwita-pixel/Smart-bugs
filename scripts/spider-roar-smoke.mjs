@@ -9,7 +9,8 @@ const load=async name=>{
 };
 const {createBattle,stepBattle,SPIDER_ROAR_SECONDS,SPIDER_ROAR_DAMAGE}=await load('engine');
 const {animateInsectRig}=await load('animate');
-const {sampleSpiderRoar,sampleRoarWave}=await load('spider-roar-visual');
+const {sampleSpiderRoar,sampleRoarWave,spiderRoarFacing}=await load('spider-roar-visual');
+assert.equal(spiderRoarFacing('ally'),0); assert.equal(spiderRoarFacing('foe'),Math.PI);
 const {buildVoxelModel}=await load('voxel');
 const sculpt=buildVoxelModel('spider',3), eyes=sculpt.head.children.find(child=>child.geometry && child.material===sculpt.glowMat);
 assert.ok(sculpt.head.position.z<sculpt.torso.position.z,'Spider head must be on its local -Z front');

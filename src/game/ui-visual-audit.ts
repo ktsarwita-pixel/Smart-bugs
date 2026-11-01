@@ -1,3 +1,5 @@
+import { spiderRoarFacing } from "./spider-roar-visual";
+
 /** Non-destructive, opt-in checks for visible presentation. These inspect
  * measurable structure and timing, not subjective artwork quality. */
 export type VisualKind = "VISUAL" | "RENDER" | "ANIMATION";
@@ -28,10 +30,11 @@ const pitchDegrees = (el: Element) => {
   return m ? Math.atan2(m.m23, m.m22) * 180 / Math.PI : NaN;
 };
 const spriteVisible = (root: Element) => Array.from(root.querySelectorAll(".pixel-treasure")).some(visible);
-// Compare with the enemy direction captured when the roar began, not the
-// current target: body rotation is intentionally locked during retargeting.
+// Compare to the opponent's board side, not to a moving/diagonal target or
+// the recorded aim itself; this catches even an incorrectly recorded aim.
 const spiderFacingError = (el: HTMLElement) => {
-  const facing = Number(el.dataset.roarFacing), aim = Number(el.dataset.roarAim);
+  const facing = Number(el.dataset.roarFacing), side = el.dataset.side;
+  const aim = side === "ally" || side === "foe" ? spiderRoarFacing(side) : NaN;
   return Math.abs(Math.atan2(Math.sin(facing - aim), Math.cos(facing - aim))) * 180 / Math.PI;
 };
 
@@ -58,6 +61,14 @@ export function auditVisuals(scope: ParentNode): VisualAudit {
       add("VISUAL", "high", "Chest part missing", "The body, lid or shared hinge anchor is missing or detached from the model.", chest);
       continue;
     }
+    const bodyFaces = ["body-back", "body-side--left", "body-side--right", "floor", "cavity"];
+    const lidFaces = ["lid-back", "lid-side--left", "lid-side--right", "lid-top", "lid-bottom", "lid-front", "lid-ridge-top"];
+    const missingFaces = [...bodyFaces.filter(face => !world.querySelector(`.treasure-chest-3d__${face}`)),
+      ...lidFaces.filter(face => !lid.querySelector(`.treasure-chest-3d__${face}`))];
+    if (missingFaces.length) add("VISUAL", "high", "Chest 3D face missing", `Missing ${missingFaces.join(", ")}; the model may look disconnected or hollow.`, chest);
+    if (!front.querySelector("[data-chest-emblem]") || !lid.querySelector("[data-chest-ridge]")) {
+      add("VISUAL", "warning", "Chest pixel detailing missing", "The integrated front emblem or lid grain is missing from the 3D model.", chest);
+    }
     if (getComputedStyle(world).transformStyle !== "preserve-3d" || getComputedStyle(lid).transformStyle !== "preserve-3d") {
       add("RENDER", "warning", "Chest depth flattened", "The browser is not preserving the 3D transforms of the body and lid.", chest);
     }
@@ -78,6 +89,9 @@ export function auditVisuals(scope: ParentNode): VisualAudit {
     if (!visible(icon)) continue;
     checked++;
     const lock = icon.querySelector<SVGGraphicsElement>("[data-chest-lock]");
+    if (!icon.querySelector("[data-chest-emblem]") || !icon.querySelector("[data-chest-corners]")) {
+      add("VISUAL", "warning", "VS chest detailing missing", "The icon's front emblem or corner guards are missing.", icon.parentElement as HTMLElement);
+    }
     try {
       if (!lock) throw new Error("missing lock");
       const box = lock.getBBox(), view = icon.viewBox.baseVal;
@@ -86,12 +100,16 @@ export function auditVisuals(scope: ParentNode): VisualAudit {
       }
     } catch { add("VISUAL", "warning", "VS chest icon incomplete", "The icon is missing its centered lock or cannot be measured.", icon.parentElement as HTMLElement); }
   }
-  for (const spider of scope.querySelectorAll<HTMLElement>('.ov-unit[data-roaring="true"][data-roar-facing]')) {
+  for (const spider of scope.querySelectorAll<HTMLElement>('.ov-unit[data-roaring="true"]')) {
     if (!visible(spider)) continue;
     checked++;
-    const facing = spiderFacingError(spider), head = Math.abs(Number(spider.dataset.roarHeadYaw ?? 0)) * 180 / Math.PI;
+    const body = spider.dataset.roarBody?.split(",").map(Number);
+    if (!body || body.length !== 9 || body.some(value => !Number.isFinite(value))) {
+      add("RENDER", "warning", "Spider roar pose unavailable", "Body rotation cannot be checked because its rendered pose is missing or invalid.", spider);
+    }
+    const facing = spiderFacingError(spider), head = spider.dataset.roarHeadYaw === undefined ? NaN : Math.abs(Number(spider.dataset.roarHeadYaw)) * 180 / Math.PI;
     if (!Number.isFinite(facing) || !Number.isFinite(head) || facing > 2 || head > 2) {
-      add("VISUAL", "warning", "Spider not facing its opening enemy", `During Battle Roar the body is ${Number.isFinite(facing) ? facing.toFixed(1) : "an unknown number of"}° from its initial target and the head is ${Number.isFinite(head) ? head.toFixed(1) : "unknown"}° off-center.`, spider);
+      add("VISUAL", "warning", "Spider not facing the enemy side", `During Battle Roar the body is ${Number.isFinite(facing) ? facing.toFixed(1) : "an unknown number of"}° away from the opposing side and the head is ${Number.isFinite(head) ? head.toFixed(1) : "unknown"}° off-center.`, spider);
     }
   }
   for (const canvas of scope.querySelectorAll<HTMLCanvasElement>("canvas[data-chest-facing-error]")) {
@@ -183,7 +201,7 @@ export function monitorVisuals(onChange: (events: VisualEvent[]) => void) {
     const previous = spiderPrevious.get(spider) ?? { facing, body, head, turned: false, offFront: false };
     const facingError = spiderFacingError(spider), headAngle = Math.abs(Number(head)) * 180 / Math.PI;
     const offFront = !Number.isFinite(facingError) || !Number.isFinite(headAngle) || facingError > 2 || headAngle > 2;
-    if (offFront && !previous.offFront) { log("Spider faced away from its opening enemy during Battle Roar."); previous.offFront = true; }
+    if (offFront && !previous.offFront) { log("Spider faced away from the enemy side during Battle Roar."); previous.offFront = true; }
     if ((facing !== previous.facing || body !== previous.body || head !== previous.head) && !previous.turned) {
       log("Spider body rotated during Battle Roar."); previous.turned = true;
     }
@@ -219,7 +237,7 @@ export function monitorVisuals(onChange: (events: VisualEvent[]) => void) {
     }
     check(chest);
   };
-  observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-renderer", "data-roar-facing", "data-roar-body", "data-roar-head-yaw", "data-roar-aim"] });
+  observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-renderer", "data-roar-facing", "data-roar-body", "data-roar-head-yaw", "data-roar-aim", "data-side", "data-roaring"] });
   document.querySelectorAll<HTMLElement>(".treasure-chest-3d").forEach(register);
   document.querySelectorAll<HTMLElement>('.ov-unit[data-unit-id][data-roaring="true"]').forEach(checkSpider);
   onChange(visualHistory());

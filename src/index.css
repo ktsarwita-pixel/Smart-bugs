@@ -958,6 +958,272 @@ html[data-motion="reduced"] * {
   height: 100%;
   transition: width 180ms steps(5);
 }
+
+/* ── DAMAGE SHOWER ─────────────────────────────────────────────────────
+   Per-bug battle damage chart in the combat dock. Everything is a grid
+   with `minmax(0, 1fr)` in the middle column, so a long Indonesian label
+   ("BOMBARDIER", "SEBARAN DAMAGE") truncates instead of pushing the number
+   out of its border on a 320px phone. */
+.damage-shower {
+  margin-top: 8px;
+  border-top: 1px solid #2d231b;
+  padding-top: 6px;
+  min-width: 0;
+}
+.damage-shower__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  border: 1px solid #3b322a;
+  background: #100c09;
+  padding: 3px 7px;
+  color: #f0a93b;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+}
+.damage-shower__head:hover,
+.damage-shower__head[aria-expanded="true"] {
+  border-color: #5a4832;
+  background: #150f0a;
+}
+.damage-shower__head:focus-visible {
+  outline: 2px solid #f0a93b;
+  outline-offset: 1px;
+}
+.damage-shower__head > svg {
+  flex: 0 0 auto;
+}
+.damage-shower__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.damage-shower__sum {
+  flex: 0 0 auto;
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  color: #ede2cb;
+}
+.damage-shower__chev {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  color: #8c7e6e;
+  transition: transform 160ms ease;
+}
+.damage-shower__head[aria-expanded="true"] .damage-shower__chev {
+  transform: rotate(90deg);
+  color: #f0a93b;
+}
+.damage-shower__body {
+  margin-top: 5px;
+  min-width: 0;
+}
+.damage-shower__empty {
+  font-size: 11px;
+  color: #6b5f52;
+}
+
+.damage-list {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 164px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.damage-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  grid-template-areas:
+    "icon name val"
+    "bar bar bar";
+  align-items: center;
+  column-gap: 5px;
+  row-gap: 3px;
+  border: 1px solid #2d231b;
+  background: #0d0a08;
+  padding: 3px 5px;
+  min-width: 0;
+}
+.damage-row[data-side="ally"] {
+  border-left: 3px solid #1f7a5a;
+}
+.damage-row[data-side="foe"] {
+  border-right: 3px solid #962b16;
+}
+.damage-row[data-dead="1"] {
+  opacity: 0.55;
+}
+.damage-row[data-zero="1"] .damage-row__val {
+  color: #6b5f52;
+}
+.damage-row__icon {
+  grid-area: icon;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+}
+.damage-row__name {
+  grid-area: name;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 7px;
+  color: #ede2cb;
+  white-space: nowrap;
+}
+.damage-row__bug {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.damage-row__ko {
+  flex: 0 0 auto;
+  border: 1px solid #4a2a2e;
+  background: #1c1012;
+  padding: 0 3px;
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  font-weight: 400;
+  color: #e8a0a8;
+}
+.damage-row__taken {
+  display: none;
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+  letter-spacing: 0.04em;
+  color: #8c7e6e;
+  text-transform: none;
+}
+.damage-row__val {
+  grid-area: val;
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: #f0a93b;
+}
+.damage-row[data-side="foe"] .damage-row__val {
+  color: #f0734a;
+}
+.damage-row__track {
+  grid-area: bar;
+  display: block;
+  height: 4px;
+  border: 1px solid #241c15;
+  background: #050302;
+  overflow: hidden;
+}
+.damage-row__track > i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: #56dca8;
+  transition: width 200ms steps(6);
+}
+.damage-row[data-side="foe"] .damage-row__track > i {
+  background: #f05a36;
+}
+
+.damage-shower__enemy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  margin-top: 5px;
+  border: 1px dashed #4a3828;
+  background: #0b0705;
+  padding: 3px 7px;
+  color: #c9bda9;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
+}
+.damage-shower__enemy > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.damage-shower__enemy:hover,
+.damage-shower__enemy[aria-expanded="true"] {
+  border-style: solid;
+  border-color: #962b16;
+  background: #170b08;
+  color: #f0a08a;
+}
+.damage-shower__enemy:focus-visible {
+  outline: 2px solid #f05a36;
+  outline-offset: 1px;
+}
+.damage-shower__enemy-sum {
+  flex: 0 0 auto;
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+}
+
+/* Wide docks can afford the "taken" figure next to each name. */
+@media (min-width: 560px) {
+  .damage-row__taken {
+    display: inline;
+  }
+  .damage-row {
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+  }
+}
+/* Two columns of battle cards on desktop → keep the chart in one readable
+   column instead of stretching rows across the whole dock. */
+@media (min-width: 1024px) {
+  .damage-list {
+    max-height: 210px;
+  }
+}
+/* Tiny phones: keep the name from ever colliding with the number. */
+@media (max-width: 359.98px) {
+  .damage-row__val {
+    font-size: 9.5px;
+  }
+  .damage-row__ko {
+    display: none;
+  }
+  .damage-shower__head,
+  .damage-shower__enemy {
+    font-size: 7.5px;
+    letter-spacing: 0.06em;
+  }
+}
 .bar-shell.energy {
   height: 4px;
 }

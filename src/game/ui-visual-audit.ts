@@ -84,6 +84,82 @@ export function auditVisuals(scope: ParentNode): VisualAudit {
       add("VISUAL", "warning", "Specimen portrait misaligned", `The artwork is ${dx.toFixed(1)}px horizontally and ${dy.toFixed(1)}px vertically off-center${outside ? " and extends beyond its plate" : ""}.`, plate);
     }
   }
+  // ── Damage Shower: a chart whose numbers must never leave the frame ──
+  // The chart's middle column is `minmax(0, 1fr)`, so this cannot overflow by
+  // design; measuring it keeps a future change (or a longer translation) from
+  // silently pushing the "taken"/KO figures out of their border.
+  const insideBox = (el: Element, box: DOMRect, tol = 1) => {
+    const r = el.getBoundingClientRect();
+    return r.left >= box.left - tol && r.right <= box.right + tol && r.top >= box.top - tol && r.bottom <= box.bottom + tol;
+  };
+  for (const shower of scope.querySelectorAll<HTMLElement>(".game-dock .damage-shower")) {
+    if (!visible(shower)) continue;
+    checked++;
+    for (const control of shower.querySelectorAll<HTMLElement>(".damage-shower__head, .damage-shower__enemy")) {
+      if (!visible(control)) continue;
+      checked++;
+      const box = control.getBoundingClientRect();
+      const spilled = Array.from(control.children).filter((child) => visible(child) && !insideBox(child, box));
+      if (spilled.length) {
+        add("VISUAL", "high", "Damage chart label outside its frame",
+          `${spilled.length} part(s) of "${(control.textContent ?? "").trim().slice(0, 22)}" are painted outside its border; long labels must truncate instead.`, control);
+      }
+    }
+    for (const row of shower.querySelectorAll<HTMLElement>(".damage-row")) {
+      if (!visible(row)) continue;
+      checked++;
+      const box = row.getBoundingClientRect();
+      const spilled = Array.from(row.children).filter((child) => visible(child) && !insideBox(child, box));
+      if (spilled.length) {
+        add("VISUAL", "high", "Damage row spills out of its frame",
+          `${spilled.length} cell(s) of this row extend beyond the row border and may overlap the dock edge.`, row);
+      }
+      const track = row.querySelector<HTMLElement>(".damage-row__track");
+      const bar = track?.firstElementChild as HTMLElement | null | undefined;
+      if (track && visible(track)) {
+        checked++;
+        const t = track.getBoundingClientRect(), b = bar?.getBoundingClientRect();
+        if (!bar || t.width < 8) {
+          add("VISUAL", "warning", "Damage share bar missing", "The damage bar is missing or collapsed to nothing, so the row reads as an empty slot.", row);
+        } else if (b && b.right > t.right + 1) {
+          add("VISUAL", "warning", "Damage share bar overshoots", `The bar is ${(b.right - t.right).toFixed(1)}px wider than its track.`, row);
+        }
+      }
+      const name = row.querySelector<HTMLElement>(".damage-row__name");
+      const val = row.querySelector<HTMLElement>(".damage-row__val");
+      if (name && val && visible(name) && visible(val)) {
+        checked++;
+        const a = name.getBoundingClientRect(), c = val.getBoundingClientRect();
+        if (a.right > c.left + 1 && a.left < c.right - 1) {
+          add("VISUAL", "high", "Damage name overlaps the number", "The bug label collides with its damage figure; the row cannot be read at this width.", row);
+        }
+      }
+    }
+  }
+  // ── Long translated labels ────────────────────────────────────────────
+  // Indonesian runs ~25-35% longer than English, so the dock is where a label
+  // used to push past its own border. Clipped elements (`.truncate`, ellipsis)
+  // are deliberate and skipped: only text that visibly escapes is reported.
+  for (const el of scope.querySelectorAll<HTMLElement>(".game-dock .label, .game-dock button, .game-dock .latin")) {
+    if (!visible(el) || !(el.textContent ?? "").trim()) continue;
+    const st = getComputedStyle(el);
+    if (!/visible/.test(st.overflowX) || st.textOverflow === "ellipsis") continue;
+    const box = el.getBoundingClientRect();
+    if (box.width < 8) continue;
+    let ink: DOMRect;
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      ink = range.getBoundingClientRect();
+    } catch { continue; }
+    checked++;
+    if (ink.width < 1) continue;
+    const over = Math.max(ink.left - box.left, ink.right - box.right);
+    if (over > 2) {
+      add("VISUAL", "warning", "Dock label overflows its frame",
+        `"${(el.textContent ?? "").trim().slice(0, 28)}" runs ${over.toFixed(0)}px past its border (overflow is visible, so nothing truncates it).`, el);
+    }
+  }
   for (const chest of scope.querySelectorAll<HTMLElement>(".treasure-chest-3d")) {
     if (!visible(chest)) continue;
     checked++;

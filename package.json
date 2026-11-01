@@ -20,7 +20,8 @@
     "test:commander-framing": "node scripts/commander-framing-smoke.mjs",
     "test:drawer-zoom": "node scripts/drawer-zoom-smoke.mjs",
     "test:sideways": "node scripts/fullscreen-sideways-smoke.mjs",
-    "test:resolution": "node scripts/resolution-perf-smoke.mjs"
+    "test:resolution": "node scripts/resolution-perf-smoke.mjs",
+    "test:damage": "node scripts/damage-shower-smoke.mjs && node scripts/damage-shower-dom.mjs"
   },
   "dependencies": {
     "clsx": "2.1.1",

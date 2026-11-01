@@ -19,6 +19,60 @@ export function combinedTeamAtk(b: BattleState, side: "ally" | "foe"): number {
   return sum;
 }
 
+/**
+ * Damage Shower: one row per bug that took part, with the damage it actually
+ * dealt this battle (every hit funnels through damage(), so basics, skills,
+ * airstrike ticks, roars, webs, traps and poison are all counted exactly as
+ * the pop-up numbers show them).
+ */
+export interface DamageRow {
+  uid: number;
+  side: "ally" | "foe";
+  bugId: BugId;
+  star: number;
+  dead: boolean;
+  dealt: number;
+  taken: number;
+  kills: number;
+  /** 0..1 share of that side's total damage — drives the bar width. */
+  share: number;
+}
+
+export interface DamageLedger {
+  ally: DamageRow[];
+  foe: DamageRow[];
+  allyTotal: number;
+  foeTotal: number;
+}
+
+export function damageLedger(b: BattleState): DamageLedger {
+  const rows: DamageRow[] = b.units.map((u) => ({
+    uid: u.uid,
+    side: u.side,
+    bugId: u.bugId,
+    star: u.star,
+    dead: u.dead,
+    dealt: u.dealt,
+    taken: u.taken,
+    kills: u.kills,
+    share: 0,
+  }));
+  const allyTotal = rows.reduce((n, r) => n + (r.side === "ally" ? r.dealt : 0), 0);
+  const foeTotal = rows.reduce((n, r) => n + (r.side === "foe" ? r.dealt : 0), 0);
+  const order = (a: DamageRow, c: DamageRow) =>
+    c.dealt - a.dealt || c.kills - a.kills || c.star - a.star || a.uid - c.uid;
+  for (const r of rows) {
+    const total = r.side === "ally" ? allyTotal : foeTotal;
+    r.share = total > 0 ? Math.min(1, r.dealt / total) : 0;
+  }
+  return {
+    ally: rows.filter((r) => r.side === "ally").sort(order),
+    foe: rows.filter((r) => r.side === "foe").sort(order),
+    allyTotal,
+    foeTotal,
+  };
+}
+
 export const COLS = 7;
 export const ROWS = 6;
 export const TICK = 0.1;
@@ -68,6 +122,12 @@ export interface BUnit {
   poisonLeft: number;
   poisonIn: number;
   poisonDmg: number;
+  /** uid of the bug that applied the poison, so its ticks are credited. */
+  poisonFrom: number;
+  /** Battle ledger — damage this bug has dealt / taken and killing blows. */
+  dealt: number;
+  taken: number;
+  kills: number;
 }
 
 export interface Pop {
@@ -300,6 +360,10 @@ function mkUnit(uid: number, bugId: BugId, star: number, side: "ally" | "foe", x
     poisonLeft: 0,
     poisonIn: 0,
     poisonDmg: 0,
+    poisonFrom: 0,
+    dealt: 0,
+    taken: 0,
+    kills: 0,
   };
 }
 
@@ -416,7 +480,7 @@ function pop(b: BattleState, u: BUnit, text: string, kind: Pop["kind"]) {
   if (b.pops.length > 30) b.pops.shift();
 }
 
-function damage(b: BattleState, _src: BUnit, tgt: BUnit, raw: number, projectile = false, exact = false) {
+function damage(b: BattleState, src: BUnit, tgt: BUnit, raw: number, projectile = false, exact = false) {
   if (tgt.dead) return;
   // Airborne: a diving dragonfly is metres above the soil. Nothing —
   // melee, shells, fields or traps — can touch it until touchdown.
@@ -439,12 +503,18 @@ function damage(b: BattleState, _src: BUnit, tgt: BUnit, raw: number, projectile
   const slipstream = !exact && tgt.bugId === "dragonfly" && !projectile ? 0.5 : 1;
   const dmg = Math.max(1, Math.round(raw * amp * slipstream));
   tgt.hp -= dmg;
+  // Damage Shower ledger. Only hostile damage is credited: traps, webs and
+  // fields fall back to the victim when their owner is already dead, and a
+  // self-hit (poison on oneself) must not top anyone's chart.
+  tgt.taken += dmg;
+  if (src && src !== tgt && src.side !== tgt.side) src.dealt += dmg;
   tgt.flash = 0.3;
   tgt.energy = Math.min(tgt.maxEnergy, tgt.energy + 8);
   pop(b, tgt, String(dmg), "dmg");
   if (tgt.hp <= 0) {
     tgt.hp = 0;
     tgt.dead = true;
+    if (src && src !== tgt && src.side !== tgt.side) src.kills += 1;
     tgt.fade = 1;
     tgt.deadT = 0;
     tgt.dive = null;
@@ -580,6 +650,7 @@ function attack(b: BattleState, u: BUnit, t: BUnit) {
       t.poisonLeft = 3;
       t.poisonIn = 1;
       t.poisonDmg = Math.max(1, Math.round(u.atk * (u.star >= 3 ? 0.8 : 0.5)));
+      t.poisonFrom = u.uid;
       pop(b, t, "POISON", "skill");
     }
     u.energy = Math.min(u.maxEnergy, u.energy + 20);
@@ -904,7 +975,8 @@ export function stepBattle(b: BattleState, dt: number): BattleState {
       if (u.poisonIn <= 0) {
         u.poisonIn = 1;
         u.poisonLeft -= 1;
-        damage(b, u, u, u.poisonDmg);
+        const poisoner = u.poisonFrom ? b.units.find((s2) => s2.uid === u.poisonFrom) : undefined;
+        damage(b, poisoner ?? u, u, u.poisonDmg);
       }
     }
   }

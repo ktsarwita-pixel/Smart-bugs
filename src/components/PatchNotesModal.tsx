@@ -15,6 +15,17 @@ interface VersionEntry {
 
 const VERSIONS: VersionEntry[] = [
   {
+    v: "0.63",
+    title: "THE DAMAGE SHOWER",
+    items: [
+      "New DAMAGE SHOWER chart in the battle telemetry dock: every bug on your line is listed with the damage it actually dealt this fight, sorted from the heaviest hitter down, with a bar showing its share of your line's output.",
+      "Damage is credited to the bug that caused it, not the bug that touched it — Battle Roar, Enraged poison, After Web snares, Dig Hole vuln hits and the Dragonfly's airstrike ticks all land on their real owner's row. Defeated bugs keep their numbers so the chart still tells the whole story.",
+      "Tap the chart header to fold it away, and the SHOW ENEMY DAMAGE button underneath to reveal the enemy line's damage totals in the same layout. Both toggles remember their state while you battle.",
+      "The chart is built for phones, including Indonesian copy: long labels truncate instead of pushing numbers out of their frame, rows scroll inside the dock instead of crushing the battlefield, and KO/kill badges drop out on 320px screens.",
+      "Rows carry the damage each bug took as well as dealt — visible on tablets and desktop, kept in the row tooltip everywhere.",
+    ],
+  },
+  {
     v: "0.62",
     title: "THE BATTLE ROAR",
     items: [

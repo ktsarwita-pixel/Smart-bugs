@@ -25,6 +25,41 @@ pip install fonttools brotli
 python3 scripts/make-direct.py   # writes Smart-Bugs-RUN-DIRECTLY.html
 ```
 
+No internet (or fonts.gstatic.com is unreachable)? Rebuild only the HTML with the
+font subsets already embedded in the previous direct-run file — the script
+re-embeds them and checks that the UI copy still has every glyph it needs:
+
+```bash
+python3 scripts/make-direct.py --reuse-fonts=Smart-Bugs-RUN-DIRECTLY.html
+```
+
+## 📊 Damage Shower — the in-battle damage chart
+
+The combat dock lists every bug on your line with the damage it **actually dealt**
+this fight, sorted from the heaviest hitter down, plus a bar for its share of the
+line's output. The header folds the chart away, and `SHOW ENEMY DAMAGE` reveals the
+enemy line in the same layout. Tables show the damage each bug took on tablets and
+desktop, and every row keeps it in its tooltip.
+
+Attribution is exact because every hit in `src/game/engine.ts` funnels through the
+single `damage()` function, which credits `src.dealt`, `tgt.taken` and `src.kills`:
+
+| Damage source | Credited to |
+|---|---|
+| Basic attacks, Pincer Lock, Caustic Burst, Raking Slash, shells | the attacker |
+| Battle Roar (exact, ignores modifiers) | the roaring Spider |
+| Enraged poison ticks | the Spider that applied the poison (`poisonFrom`) |
+| After Web 3×3 snare | the web's owner; the victim if that owner is gone |
+| Airstrike field ticks | the Dragonfly that called it (`zone.srcUid`) |
+| Dig Hole / vuln hits | the attacker of the hit that follows |
+
+`damageLedger(battle)` returns both lines already sorted, with 0..1 `share` values —
+plain, JSON-safe data that survives the 4 Hz HUD snapshot.
+
+```bash
+npm run test:damage   # engine ledger + bilingual panel rendering (no browser needed)
+```
+
 ## 📦 Import formats in this package (flexible)
 
 | Format | Where | Use it when |

@@ -72,7 +72,9 @@ import {
   combinedTeamAtk,
   airstrikeTickDamage,
   AIRSTRIKE_TEAM_ATK_MULT,
+  damageLedger,
   type BattleState,
+  type DamageRow,
   type PrepUnit,
 } from "./game/engine";
 import {
@@ -2406,6 +2408,9 @@ export default function App() {
                     </div>
                   ))}
                 </div>
+
+                {/* ── DAMAGE SHOWER: what each bug actually dealt this battle ── */}
+                <DamageShower snap={battleSnap} />
               </div>
 
               <div className="mt-2 hidden border-t border-[#2D231B] pt-1.5 min-[720px]:block">
@@ -2847,6 +2852,98 @@ export default function App() {
         {adminPanel}
         <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
         <UiDoctor />
+    </div>
+  );
+}
+
+/* ── DAMAGE SHOWER ────────────────────────────────────────────────────
+   A per-bug damage chart for the fight in progress. Every hit in the
+   engine funnels through damage(), so these totals match the floating
+   numbers exactly — basics, skills, the Spider's roar and poison, webs,
+   traps and the Dragonfly's airstrike are all credited to their caster.
+   Your own line is listed as soon as the dock opens; the enemy line sits
+   behind one tap so a phone never pays for numbers it did not ask for. */
+export function DamageShower({ snap }: { snap: BattleState }) {
+  const { t, lang } = useSettings();
+  const [open, setOpen] = useState(true);
+  const [enemyOpen, setEnemyOpen] = useState(false);
+  const led = useMemo(() => damageLedger(snap), [snap]);
+  const fmt = (n: number) => Math.round(n).toLocaleString(lang === "id" ? "id-ID" : "en-US");
+
+  const renderRows = (rows: DamageRow[], side: "ally" | "foe") => (
+    <ul className="damage-list" data-side={side}>
+      {rows.map((r) => (
+        <li
+          key={r.uid}
+          className="damage-row"
+          data-side={side}
+          data-dead={r.dead ? 1 : 0}
+          data-zero={r.dealt > 0 ? 0 : 1}
+          title={`${t(BUGS[r.bugId].name)} ${r.star}★ — ${fmt(r.dealt)} ${t("damage dealt")} · ${fmt(r.taken)} ${t("damage taken")}${r.kills ? ` · ${r.kills} KO` : ""}`}
+        >
+          <span className="damage-row__icon">
+            <SpecimenIcon id={r.bugId} size={20} star={r.star} dim={r.dead} badge="none" />
+          </span>
+          <span className="damage-row__name label">
+            <span className="damage-row__bug">{BUGS[r.bugId].short}</span>
+            {r.kills > 0 && <b className="damage-row__ko">{r.kills} KO</b>}
+            <span className="damage-row__taken">{t("taken")} {fmt(r.taken)}</span>
+          </span>
+          <span className="damage-row__val">{fmt(r.dealt)}</span>
+          <span className="damage-row__track">
+            <i style={{ width: `${Math.round(r.share * 100)}%` }} />
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+
+  return (
+    <div className="damage-shower">
+      <button
+        type="button"
+        className="damage-shower__head"
+        aria-expanded={open}
+        aria-controls="damage-shower-body"
+        title={t("Damage each of your bugs dealt this battle")}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <IconClash size={11} />
+        <span className="damage-shower__title">{t("DAMAGE SHOWER")}</span>
+        <span className="damage-shower__sum" title={t("Total damage your line dealt")}>
+          {fmt(led.allyTotal)}
+        </span>
+        <span className="damage-shower__chev" aria-hidden="true">
+          <IconChevronRight size={11} />
+        </span>
+      </button>
+
+      {open && (
+        <div id="damage-shower-body" className="damage-shower__body">
+          {led.ally.length === 0 ? (
+            <p className="latin damage-shower__empty">{t("No bugs on the drawer yet.")}</p>
+          ) : (
+            renderRows(led.ally, "ally")
+          )}
+          {led.foe.length > 0 && (
+            <>
+              <button
+                type="button"
+                className="damage-shower__enemy"
+                aria-expanded={enemyOpen}
+                aria-controls="damage-shower-enemy"
+                onClick={() => setEnemyOpen((v) => !v)}
+              >
+                <span>{enemyOpen ? t("HIDE ENEMY DAMAGE") : t("SHOW ENEMY DAMAGE")}</span>
+                <span className="damage-shower__enemy-sum">{fmt(led.foeTotal)}</span>
+              </button>
+              {enemyOpen && (
+                <div id="damage-shower-enemy">{renderRows(led.foe, "foe")}</div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

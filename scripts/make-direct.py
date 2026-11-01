@@ -5,6 +5,8 @@ Build the optimized single-file "run directly" HTML.
 Usage (from project root):
     npm run build
     python3 scripts/make-direct.py [output.html]
+    # offline / no access to fonts.googleapis.com (rebuilds the HTML only):
+    python3 scripts/make-direct.py --reuse-fonts Smart-Bugs-RUN-DIRECTLY.html [output.html]
 
 Requires: fontTools + brotli  (pip install fonttools brotli)
 
@@ -82,12 +84,93 @@ def subset_font(woff2_bytes: bytes, pin_weight: int | None = None) -> bytes:
     return out.getvalue()
 
 
+def reuse_font_style(source: pathlib.Path) -> str:
+    """Re-embed the already subset faces from a previous direct-build file.
+
+    Fonts only ever change when KEEP_UNICODE or the family list changes, so an
+    offline rebuild can lift the finished <style> block instead of downloading.
+    """
+    if not source.exists():
+        sys.exit(f"--reuse-fonts: {source} not found")
+    html = source.read_text(encoding="utf-8")
+    m = re.search(r"<style>\s*/\* Embedded subset fonts.*?</style>", html, re.S)
+    if not m:
+        sys.exit(f"--reuse-fonts: no embedded font block in {source}")
+    return m.group(0)
+
+
+def check_glyphs(font_style: str) -> None:
+    """Fail loudly if a UI string needs a glyph none of the faces carry.
+
+    The fonts are subset to a fixed character list; a new label with an
+    unlisted symbol would render as tofu in the offline build only, which is
+    exactly the kind of bug that ships unnoticed.
+    """
+    from fontTools.ttLib import TTFont
+
+    covered: set[str] = set()
+    for b64 in re.findall(r"base64,([A-Za-z0-9+/=]+)\)", font_style):
+        font = TTFont(io.BytesIO(base64.b64decode(b64)))
+        for table in font["cmap"].tables:
+            covered.update(map(chr, table.cmap.keys()))
+    root = pathlib.Path(__file__).resolve().parent.parent
+    text = ""
+    for name in ("src/i18n.tsx", "src/App.tsx", "src/game/engine.ts"):
+        path = root / name
+        if path.exists():
+            text += path.read_text(encoding="utf-8")
+    import unicodedata
+
+    suspects = {ch for ch in text if ord(ch) > 0x7F}
+    missing = sorted(ch for ch in suspects if ch not in covered)
+    # Symbols and punctuation (Σ, ★, ▸, →) intentionally fall back to the OS
+    # font — they are decoration, not words. Only a missing LETTER is a real
+    # defect, because that is where a language loses its alphabet.
+    requested = {int(u[2:], 16) for u in KEEP_UNICODE}
+    lost_letters = [ch for ch in missing if unicodedata.category(ch).startswith("L")]
+    # A letter that was never requested is a subsetting gap this script can
+    # fix: fail so KEEP_UNICODE gets updated. A letter that WAS requested but
+    # the family does not carry (Σ in the latin subsets) falls back to the OS
+    # font exactly as before, so it is only reported.
+    unrequested = [ch for ch in lost_letters if ord(ch) not in requested]
+    if unrequested:
+        pretty = ", ".join(f"{ch!r} U+{ord(ch):04X}" for ch in unrequested)
+        sys.exit(f"Missing letters in the embedded subsets: {pretty}. Add them to KEEP_UNICODE and rebuild online.")
+    fallback = [ch for ch in lost_letters if ord(ch) in requested]
+    if fallback:
+        print("  note: " + ", ".join(f"{ch!r}" for ch in fallback) + " is not in the Google latin subsets; it keeps using the OS font.")
+    print(
+        f"Glyph check: all {len(suspects)} non-ASCII copy characters are covered "
+        f"({len(missing)} symbol(s) fall back to the OS font: {''.join(missing)})."
+    )
+
+
 def main() -> None:
     root = pathlib.Path(__file__).resolve().parent.parent
     dist = root / "dist" / "index.html"
     if not dist.exists():
         sys.exit("dist/index.html not found — run `npm run build` first.")
-    target = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else root / "Smart-Bugs-RUN-DIRECTLY.html"
+    args = [a for a in sys.argv[1:] if not a.startswith("--reuse-fonts")]
+    reuse_src = next((a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--reuse-fonts=")), None)
+    target = pathlib.Path(args[0]) if args else root / "Smart-Bugs-RUN-DIRECTLY.html"
+
+    if reuse_src:
+        font_style = reuse_font_style(pathlib.Path(reuse_src) if pathlib.Path(reuse_src).is_absolute() else root / reuse_src)
+        check_glyphs(font_style)
+        faces = []
+        html = dist.read_text(encoding="utf-8")
+        html = re.sub(r'<link rel="preconnect"[^>]*>\s*', "", html)
+        html = re.sub(r'<link[^>]*href="https://fonts\.googleapis\.com/css2[^>]*>\s*', "", html)
+        html = html.replace("</head>", font_style + "\n</head>", 1)
+        comment = (
+            "<!-- MAGIC WILDLIFE — DIRECT RUN FILE (optimized build): all project files "
+            "(React, Three.js, Tailwind, subset fonts, game code) are bundled inside "
+            "this ONE file. Open it in a browser (double-click). No server/npm/internet "
+            "needed. Regenerate with: npm run build && python3 scripts/make-direct.py -->\n"
+        )
+        target.write_text(comment + html, encoding="utf-8")
+        print(f"Wrote {target}  ({target.stat().st_size/1024:.0f} KB)  [fonts reused from {reuse_src}]")
+        return
 
     css = fetch(CSS_URL)
     blocks = re.findall(r"/\*\s*latin\s*\*/\s*@font-face\s*\{[^}]+\}", css)

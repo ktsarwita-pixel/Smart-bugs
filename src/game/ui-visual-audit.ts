@@ -153,6 +153,21 @@ export function auditVisuals(scope: ParentNode): VisualAudit {
     if (!Number.isFinite(facing) || !Number.isFinite(head) || facing > 2 || head > 2) {
       add("VISUAL", "warning", "Spider not facing the enemy side", `During Battle Roar the body is ${Number.isFinite(facing) ? facing.toFixed(1) : "an unknown number of"}° away from the opposing side and the head is ${Number.isFinite(head) ? head.toFixed(1) : "unknown"}° off-center.`, spider);
     }
+    // This badge is decorative rather than clickable, so the generic target
+    // scan cannot tell when it has been placed over the unit's HP/energy.
+    const layer = spider.closest(".ov-layer");
+    const cue = Array.from(layer?.querySelectorAll<HTMLElement>(".roar-cue") ?? []).find(el => el.dataset.roarUnit === spider.dataset.unitId);
+    const badge = cue?.querySelector<HTMLElement>(".roar-cue__badge"), bars = spider.querySelector<HTMLElement>(".ov-bars");
+    if (layer && cue && badge && bars && visible(cue) && visible(bars)) {
+      checked++;
+      const a = badge.getBoundingClientRect(), b = bars.getBoundingClientRect(), boundary = layer.getBoundingClientRect();
+      if (a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1) {
+        add("VISUAL", "high", "Spider roar label covers health", "The Battle Roar label overlaps the Spider's HP or energy bar.", badge);
+      }
+      if (a.left < boundary.left - 1 || a.right > boundary.right + 1 || a.top < boundary.top - 1 || a.bottom > boundary.bottom + 1) {
+        add("VISUAL", "warning", "Spider roar label clipped", "The Battle Roar label extends beyond the battlefield's visible edge.", badge);
+      }
+    }
   }
   for (const canvas of scope.querySelectorAll<HTMLCanvasElement>("canvas[data-chest-facing-error]")) {
     if (!visible(canvas)) continue;

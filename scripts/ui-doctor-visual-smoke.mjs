@@ -49,11 +49,15 @@ try {
     const chest=document.querySelector('.treasure-chest-3d');
     chest.querySelector('.treasure-chest-3d__lid').getAnimations()[0].pause();
     chest.dataset.renderer='fallback';
-    setTimeout(()=>{chest.dataset.renderer='webgl';document.querySelector('#old-chest-fixture')?.remove();},650);
   });
   await page.getByRole('button',{name:'Open UI Doctor'}).tap();
   await page.getByRole('button',{name:'DEEP SCAN'}).tap();
-  await page.evaluate(()=>{ document.querySelector('#bad-spider').dataset.roarBody='0,0.5,0'; });
+  // Schedule the injected swap only after observation has actually started;
+  // slow WebGL/CI must not let a timer expire while Doctor is still opening.
+  await page.evaluate(()=>{
+    document.querySelector('#bad-spider').dataset.roarBody='0,0.5,0';
+    setTimeout(()=>{document.querySelector('.treasure-chest-3d').dataset.renderer='webgl';document.querySelector('#old-chest-fixture')?.remove();},250);
+  });
   await page.getByText('WATCHING…').waitFor({state:'hidden',timeout:10000});
   text=await page.locator('.ui-doctor__body').innerText();
   assert.match(text,/Chest artwork changed during scan/,'deep scan catches a late renderer swap');

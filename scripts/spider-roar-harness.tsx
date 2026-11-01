@@ -9,6 +9,8 @@ import "../src/index.css";
 
 const unit = (uid: number, bugId: PrepUnit["bugId"], star: number, slot: number): PrepUnit => ({ uid, bugId, star, slot, zone: "board" });
 const params = new URLSearchParams(location.search);
+// Match the shortest real landscape battle stage from the first render.
+if (params.has("short")) document.getElementById("root")!.style.height = "180px";
 const edge = params.has("edge");
 const prep = [unit(1, "spider", 3, edge ? 0 : 4), unit(2, "stag", 3, 1)];
 const foes = [unit(3, "spider", 3, edge ? 6 : 4), unit(4, "stag", 3, 1)];

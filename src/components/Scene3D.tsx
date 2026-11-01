@@ -3191,16 +3191,13 @@ export function Scene3D({
       }
 
       // Project the effect around the body (not the health-bar anchor).
+      let roarCenter: { x: number; y: number } | null = null;
       if (u.roarCue && !u.roarCue.root.hidden) {
         proj.set(u.holder.position.x, u.holder.position.y + 0.28 + u.inner.position.y, u.holder.position.z).project(camera);
         const cx = (proj.x * 0.5 + 0.5) * W;
         const cy = (-proj.y * 0.5 + 0.5) * H;
+        roarCenter = { x: cx, y: cy };
         u.roarCue.root.style.transform = `translate3d(${cx.toFixed(1)}px,${cy.toFixed(1)}px,0) translate(-50%,-50%)`;
-        // Keep even the longer translated badge inside the stage when a
-        // spider is on an outermost tile, without moving its centred waves.
-        const safeHalf = Math.min(50, W / 2);
-        const labelShift = Math.max(safeHalf, Math.min(W - safeHalf, cx)) - cx;
-        u.roarCue.root.style.setProperty("--roar-label-shift", `${labelShift.toFixed(1)}px`);
       }
 
       // Project & dirty-write DOM HUD tag
@@ -3210,11 +3207,6 @@ export function Scene3D({
       const sy = (-proj.y * 0.5 + 0.5) * H;
       const vis = proj.z < 1 && !(dead && fade <= 0.02) ? 1 : 0;
 
-      if (Math.abs(sx - u.lx) > 0.25 || Math.abs(sy - u.ly) > 0.25) {
-        u.lx = sx;
-        u.ly = sy;
-        u.el.style.transform = `translate3d(${sx.toFixed(1)}px,${sy.toFixed(1)}px,0) translate(-50%,-100%)`;
-      }
       if (vis !== u.lvis) {
         u.lvis = vis;
         u.el.style.opacity = vis ? "1" : "0";
@@ -3285,6 +3277,41 @@ export function Scene3D({
         u.lpips = starStr;
         const starSvg = '<svg viewBox="0 0 12 12" width="9" height="9" class="inline-block mx-[0.5px]" style="filter:drop-shadow(0 1px 2px #000);"><polygon points="6,1 7.5,4.5 11,6 7.5,7.5 6,11 4.5,7.5 1,6 4.5,4.5" fill="#F0A93B" stroke="#4A2E10" stroke-width="0.8"/><polygon points="6,3 7,5 9,6 7,7 6,9 5,7 3,6 5,5" fill="#FFF8E0" opacity="0.85"/></svg>';
         u.pipsEl.innerHTML = Array(star).fill(starSvg).join("");
+      }
+      let tagX = sx, tagY = sy;
+      if (roarCenter && u.roarCue) {
+        // Status labels and camera zoom can move health relative to the
+        // body's effect. Keep the tag in the stage and place the small roar
+        // badge above it, or beside it when the top edge leaves no room.
+        // Measurements are limited to the brief active cue, not every unit.
+        const tagWidth = u.el.offsetWidth, tagHeight = u.el.offsetHeight;
+        tagX = Math.max(tagWidth / 2 + 2, Math.min(W - tagWidth / 2 - 2, sx));
+        tagY = Math.max(tagHeight + 2, Math.min(H - 2, sy));
+        const badge = u.roarCue.badge.parentElement!;
+        const badgeWidth = badge.offsetWidth, badgeHeight = badge.offsetHeight;
+        const barWidth = u.hpEl.parentElement?.parentElement?.offsetWidth ?? 46;
+        // Matches the badge's CSS top: 18% - 18px, measured from a
+        // cue whose origin is centered (18% - 50% = -32%).
+        const defaultBottom = roarCenter.y - u.roarCue.root.offsetWidth * 0.32 - 18;
+        const healthTop = tagY - tagHeight;
+        let badgeBottom = Math.min(defaultBottom, healthTop - 3);
+        const half = badgeWidth / 2 + 2;
+        let badgeX = Math.max(half, Math.min(W - half, roarCenter.x));
+        if (badgeBottom < badgeHeight + 2) {
+          badgeBottom = badgeHeight + 2;
+          const distance = barWidth / 2 + badgeWidth / 2 + 3;
+          const left = tagX - distance, right = tagX + distance;
+          // Prefer the side toward the middle of the stage, then the other.
+          const candidates = tagX > W / 2 ? [left, right] : [right, left];
+          badgeX = candidates.find(x => x >= half && x <= W - half) ?? badgeX;
+        }
+        u.roarCue.root.style.setProperty("--roar-label-shift", `${(badgeX - roarCenter.x).toFixed(1)}px`);
+        u.roarCue.root.style.setProperty("--roar-label-lift", `${(badgeBottom - defaultBottom).toFixed(1)}px`);
+      }
+      if (Math.abs(tagX - u.lx) > 0.25 || Math.abs(tagY - u.ly) > 0.25) {
+        u.lx = tagX;
+        u.ly = tagY;
+        u.el.style.transform = `translate3d(${tagX.toFixed(1)}px,${tagY.toFixed(1)}px,0) translate(-50%,-100%)`;
       }
     }
 

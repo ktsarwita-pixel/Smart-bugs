@@ -1479,23 +1479,42 @@ export default function App() {
      SCREEN 2 — COMMANDER SELECTION
      ════════════════════════════════════════════════════════════ */
   if (phase === "cmd") {
+    const selectedCommander = cmdById(pick);
+    const rivalGrid = (
+      <div className="rival-grid mt-2 grid grid-cols-3 gap-2">
+        {BOTS.map((b) => (
+          <div key={b.id} className="flex items-center gap-2 border border-[#2B221B] bg-[#100C09] p-2">
+            <SpecimenIcon id={b.cmd} size={28} badge="none" />
+            <RankBadge id={b.cmd} size={13} />
+            <div className="min-w-0">
+              <div className="label truncate text-[8px] text-[#EDE2CB]">{b.short}</div>
+              <div className="latin truncate text-[11px] text-[#56DCA8]">{b.latin}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
     return (
       <div className={`${advancedGame ? "advanced-ui " : ""}cabinet-bg safe-t safe-b relative min-h-[100dvh] w-full overflow-x-hidden`}>
         <Ambience />
         <div className="commander-layout relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[780px] flex-col justify-between px-4 py-4 pb-28 sm:px-6 sm:py-7 md:pb-7">
-          <div>
+          <div className="commander-content">
             <div className="commander-header flex items-center justify-between border-b border-[#3B322A] pb-3">
               <button
                 onClick={() => setPhase("title")}
-                className="lift flex min-h-[44px] items-center gap-1.5 border border-[#3B322A] bg-[#16110D] px-2.5 py-1.5 label text-[8px] text-[#B3A594] hover:border-[#F0A93B] hover:text-[#EDE2CB]"
+                className="commander-back lift flex min-h-[44px] items-center gap-1.5 border border-[#3B322A] bg-[#16110D] px-2.5 py-1.5 label text-[8px] text-[#B3A594] hover:border-[#F0A93B] hover:text-[#EDE2CB]"
               >
                 <IconArrowLeft size={11} />
                 <span>{t("MENU")}</span>
               </button>
-              <span className="label text-[8.5px] text-[#F0A93B]">{t("SELECT 1 OF")} {GAME_INFO.commanders} {t("COMMANDERS")}</span>
+              <span className="commander-header-label label text-[8.5px] text-[#F0A93B]">
+                <span className="commander-header-full">{t("SELECT 1 OF")} {GAME_INFO.commanders} {t("COMMANDERS")}</span>
+                {advancedGame && <span className="commander-header-compact">{GAME_INFO.commanders} {t("COMMANDERS")}</span>}
+              </span>
               <button
                 onClick={() => setGuideOpen(true)}
-                className="lift flex min-h-[44px] min-w-[44px] shrink-0 items-center gap-1.5 border border-[#3B322A] bg-[#16110D] px-2.5 py-1.5 label text-[8px] text-[#F0A93B]"
+                aria-label={t("GUIDE")}
+                className="commander-guide lift flex min-h-[44px] min-w-[44px] shrink-0 items-center gap-1.5 border border-[#3B322A] bg-[#16110D] px-2.5 py-1.5 label text-[8px] text-[#F0A93B]"
               >
                 <IconHelp size={11} />
                 <span>{t("GUIDE")}</span>
@@ -1511,10 +1530,10 @@ export default function App() {
               {adminButton()}
             </div>
 
-            <h2 className="mt-4 font-pixel text-[15px] leading-relaxed text-[#EDE2CB] sm:text-[18px]">
+            <h2 className="commander-title mt-4 font-pixel text-[15px] leading-relaxed text-[#EDE2CB] sm:text-[18px]">
               {t("CHOOSE YOUR")} <span className="text-[#56DCA8]">{t("COLONY GENERAL")}</span>
             </h2>
-            <p className="latin mt-1 text-[14px] text-[#B3A594]">
+            <p className="commander-intro latin mt-1 text-[14px] text-[#B3A594]">
               {GAME_INFO.colonies} {t("colonies enter. One survives. Your general grants a unique passive for the entire match.")}
             </p>
 
@@ -1526,20 +1545,21 @@ export default function App() {
                     key={c.id}
                     onClick={() => setPick(c.id)}
                     aria-pressed={on}
+                    aria-label={t(c.name)}
                     className={`commander-card paper-card lift relative flex flex-col justify-between border-2 p-4 text-left ${
                       on ? "border-[#F0A93B]" : "border-[#3B322A] opacity-85 hover:opacity-100"
                     }`}
-                    style={{
+                    style={advancedGame ? undefined : {
                       boxShadow: on
                         ? "0 0 0 2px #F0A93B, 0 8px 0 rgba(0,0,0,.5)"
                         : "0 6px 0 rgba(0,0,0,.45)",
                     }}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="shrink-0 border border-[#241B14]/30 bg-[#16110D] p-2">
+                    <div className="commander-card-top flex items-start gap-3">
+                      <div className="commander-portrait shrink-0 border border-[#241B14]/30 bg-[#16110D] p-2">
                         <SpecimenIcon id={c.id} size={64} selected={on} badge="none" />
                       </div>
-                      <div className="min-w-0 flex-1">
+                      <div className="commander-identity min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-1">
                           <span className="flex min-w-0 items-center gap-1.5">
                             <RankBadge id={c.id} size={16} />
@@ -1556,7 +1576,8 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="mt-3 border-t border-[#241B14]/20 pt-2.5">
+                    {advancedGame && <span className="commander-short" aria-hidden="true">{t(c.short)}</span>}
+                    <div className="commander-perk mt-3 border-t border-[#241B14]/20 pt-2.5">
                       <span className="label inline-block bg-[#8E2A16] px-1.5 py-0.5 text-[7.5px] text-[#FFF3DC]">
                         {t("PERK")} · {t(c.perk)}
                       </span>
@@ -1567,22 +1588,29 @@ export default function App() {
               })}
             </div>
 
-            {/* Rival Colonies Preview */}
-            <div className="mt-4 border border-[#3B322A] bg-[#16110D] p-3">
-              <div className="label text-[8px] text-[#9C8F7E]">{t("RIVAL COLONIES IN THIS CASE")}</div>
-              <div className="rival-grid mt-2 grid grid-cols-3 gap-2">
-                {BOTS.map((b) => (
-                  <div key={b.id} className="flex items-center gap-2 border border-[#2B221B] bg-[#100C09] p-2">
-                    <SpecimenIcon id={b.cmd} size={28} badge="none" />
-                    <RankBadge id={b.cmd} size={13} />
-                    <div className="min-w-0">
-                      <div className="label truncate text-[8px] text-[#EDE2CB]">{b.short}</div>
-                      <div className="latin truncate text-[11px] text-[#56DCA8]">{b.latin}</div>
-                    </div>
-                  </div>
-                ))}
+            {advancedGame && (
+              <div className="commander-current paper-card" role="status" aria-live="polite">
+                <div className="commander-current__heading">
+                  <strong>{t(selectedCommander.name)}</strong>
+                  <span>{t(selectedCommander.perk)}</span>
+                </div>
+                <p>{t(selectedCommander.desc)}</p>
               </div>
-            </div>
+            )}
+
+            {/* Optional roster details stay available without forcing a long
+                scroll before the player can start on a phone. */}
+            {advancedGame ? (
+              <details className="rival-preview">
+                <summary><span>{t("RIVAL COLONIES IN THIS CASE")}</span><b>{GAME_INFO.rivals}</b><IconChevronRight size={13} /></summary>
+                {rivalGrid}
+              </details>
+            ) : (
+              <div className="mt-4 border border-[#3B322A] bg-[#16110D] p-3">
+                <div className="label text-[8px] text-[#9C8F7E]">{t("RIVAL COLONIES IN THIS CASE")}</div>
+                {rivalGrid}
+              </div>
+            )}
           </div>
 
           {/* The advanced layout keeps the mobile confirmation in flow, so it
@@ -1608,7 +1636,7 @@ export default function App() {
               setMatch(createMatch(pick));
               setPhase("prep");
             }}
-            className="lift mt-5 hidden w-full border-2 border-[#56DCA8] bg-[#1F7A5A] py-3.5 font-pixel text-[12px] text-[#090604] shadow-[0_5px_0_#0D3B2A] md:block"
+            className="commander-start-desktop lift mt-5 hidden w-full border-2 border-[#56DCA8] bg-[#1F7A5A] py-3.5 font-pixel text-[12px] text-[#090604] shadow-[0_5px_0_#0D3B2A] md:block"
           >
             <span className="flex items-center justify-center gap-2">
               <span>{t("BEGIN ROUND 1")}</span>

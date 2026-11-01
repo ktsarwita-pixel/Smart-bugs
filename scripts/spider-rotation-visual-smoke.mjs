@@ -38,7 +38,27 @@ try {
   await page.getByRole('button',{name:'Open UI Doctor'}).tap();
   await page.getByRole('button',{name:'SCAN SCREEN'}).tap();
   let report=await page.locator('.ui-doctor__body').innerText();
-  assert.doesNotMatch(report,/Spider not facing the enemy side/,'Doctor must accept the healthy straight-ahead roar');
+  assert.doesNotMatch(report,/Spider not facing the enemy side|Spider roar label covers health|Spider roar label clipped/,'Doctor must accept the healthy straight-ahead roar');
+  // Inject the exact non-interactive label/health overlap the Doctor should
+  // catch, then restore the normal layout before observing animation.
+  await page.evaluate(()=>{
+    const cue=document.querySelector('.roar-cue[data-roar-unit="1"]');
+    const badge=cue.querySelector('.roar-cue__badge');
+    const bars=document.querySelector('.ov-unit[data-unit-id="1"] .ov-bars');
+    const delta=bars.getBoundingClientRect().top-badge.getBoundingClientRect().bottom+6;
+    badge.style.transform=`translate(calc(-50% + var(--roar-label-shift, 0px)), calc(-100% + ${delta}px))`;
+  });
+  await page.getByRole('button',{name:'SCAN SCREEN'}).tap();
+  report=await page.locator('.ui-doctor__body').innerText();
+  assert.match(report,/Spider roar label covers health/,'Doctor must detect a decorative roar label over HP');
+  await page.evaluate(()=>{
+    const badge=document.querySelector('.roar-cue[data-roar-unit="1"] .roar-cue__badge');
+    badge.style.transform=''; badge.style.top='-1000px';
+  });
+  await page.getByRole('button',{name:'SCAN SCREEN'}).tap();
+  report=await page.locator('.ui-doctor__body').innerText();
+  assert.match(report,/Spider roar label clipped/,'Doctor must detect a clipped roar label');
+  await page.evaluate(()=>{document.querySelector('.roar-cue[data-roar-unit="1"] .roar-cue__badge').style.top='';});
   await page.getByRole('button',{name:'DEEP SCAN'}).tap();
   await page.evaluate(()=>{
     const b=window.roarHarness.battle;

@@ -68,12 +68,74 @@ const checkDeck = async (width, height, count) => {
   assert.ok(result.viewportWidth <= width, `${width}/${count}: horizontal page overflow`);
 };
 
+
+const overlaps = (a, b) => a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1;
+const checkTitle = async (width, height) => {
+  await page.setViewportSize({ width, height });
+  const layout = await page.evaluate(() => {
+    const rect = el => { const r = el.getBoundingClientRect(); return { left:r.left, right:r.right, top:r.top, bottom:r.bottom, width:r.width, height:r.height }; };
+    return {
+      brand: rect(document.querySelector('.title-brand')),
+      header: [...document.querySelectorAll('.title-header > button')].map(rect),
+      actions: [...document.querySelectorAll('.hero-actions > button')].map(rect),
+      heading: rect(document.querySelector('.hero-copy h1')),
+      width: document.documentElement.scrollWidth,
+    };
+  });
+  assert.ok(layout.width <= width, `${width}: title page overflows horizontally`);
+  for (const group of [[layout.brand, ...layout.header], [layout.heading, ...layout.actions]]) {
+    for (let i = 0; i < group.length; i++) {
+      const a = group[i];
+      assert.ok(a.left >= -1 && a.right <= width + 1, `${width}: menu item is off-screen: ${JSON.stringify(layout)}`);
+      for (const b of group.slice(i + 1)) assert.ok(!overlaps(a,b), `${width}: menu items overlap: ${JSON.stringify(layout)}`);
+    }
+  }
+  assert.ok([...layout.header, ...layout.actions].every(b => b.width >= 40 && b.height >= 40), `${width}: menu actions must be tappable`);
+};
+const checkCommander = async (width, height, expectedPerk) => {
+  await page.setViewportSize({ width, height });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const layout = await page.evaluate(() => {
+    const rect = el => { const r = el.getBoundingClientRect(); return { left:r.left, right:r.right, top:r.top, bottom:r.bottom, width:r.width, height:r.height }; };
+    const shown = el => el && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().width > 0;
+    const current = document.querySelector('.commander-current');
+    const confirm = [...document.querySelectorAll('.commander-confirm button, .commander-start-desktop')].find(shown);
+    const description = current.querySelector('p');
+    return {
+      cards: [...document.querySelectorAll('.commander-card')].map(rect),
+      header: [...document.querySelectorAll('.commander-header > button')].map(rect),
+      current: shown(current) ? rect(current) : null,
+      summary: rect(document.querySelector('.rival-preview summary')), confirm: rect(confirm),
+      description: shown(current) ? { text: current.innerText, scroll: description.scrollWidth, client: description.clientWidth } : null,
+      width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight,
+    };
+  });
+  assert.ok(layout.width <= width, `${width}x${height}: commander page overflows horizontally`);
+  assert.ok(layout.height <= height + 1, `${width}x${height}: compact selection unexpectedly needs scrolling: ${JSON.stringify(layout)}`);
+  assert.ok(layout.confirm.bottom <= height, `${width}x${height}: start button below viewport`);
+  assert.ok(layout.cards.every(c => c.left >= 0 && c.right <= width && c.width >= 44 && c.height >= 44), `${width}: commander portraits must fit and be tappable`);
+  assert.ok(layout.header.every(c => c.width >= 40 && c.height >= 40), `${width}: utility controls must remain tappable`);
+  const areas = [...layout.cards, layout.summary, layout.confirm, ...(layout.current ? [layout.current] : [])];
+  for (let i = 0; i < areas.length; i++) for (const other of areas.slice(i + 1)) {
+    assert.ok(!overlaps(areas[i], other), `${width}x${height}: commander controls or details overlap: ${JSON.stringify(layout)}`);
+  }
+  for (let i = 0; i < layout.header.length; i++) for (const other of layout.header.slice(i + 1)) {
+    assert.ok(!overlaps(layout.header[i], other), `${width}: header controls overlap`);
+  }
+  if (layout.description) {
+    assert.ok(layout.description.text.includes(expectedPerk), `${width}: selected perk did not update: ${layout.description.text}`);
+    assert.ok(layout.description.scroll <= layout.description.client + 1, `${width}: selected perk is clipped`);
+  }
+};
+
 try {
   await page.goto(`${base}/?advenced`);
   await page.evaluate(() => { sessionStorage.setItem('smartbugs.admin.unlocked', '1'); localStorage.setItem('smartbugs.settings', JSON.stringify({ rev: 2, lang: 'en', motion: 'reduced', potato: false, background: 'dark' })); });
   await page.reload();
   assert.equal(await page.locator('.advanced-ui .hero-copy').count(), 1);
   assert.equal(await page.getByRole('button', { name: 'FIELD GUIDE' }).count(), 1);
+  for (const [width, height] of [[280,653],[320,568],[390,844],[480,800],[812,375],[768,1024],[1280,800]]) await checkTitle(width, height);
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.locator('.showcase-selector button').nth(2).tap();
   assert.equal(await page.locator('.showcase-selector button').nth(2).locator('.spec-icon--sel').count(), 1, 'showcase selection responds');
   await page.getByRole('button', { name: 'SETTINGS' }).tap();
@@ -81,20 +143,34 @@ try {
   await page.getByRole('button', { name: 'PLAY MATCH' }).tap();
   const commanders = page.locator('.commander-card');
   assert.equal(await commanders.count(), 3);
-  for (const [width, height] of [[280,653],[320,568],[390,844]]) {
+  const commanderSizes = [[280,653],[320,568],[360,740],[390,844],[480,320],[568,320],[640,360],[812,375],[768,1024],[1280,800]];
+  const perks = ['Brood Hymn', 'Night Signal', 'Dig Hole'];
+  for (const [width, height] of commanderSizes) {
     await page.setViewportSize({ width, height });
-    const layout = await page.evaluate(() => {
-      const rect = el => { const r = el.getBoundingClientRect(); return { left:r.left, right:r.right, top:r.top, bottom:r.bottom }; };
-      return { confirm: rect(document.querySelector('.commander-confirm')), cards: [...document.querySelectorAll('.commander-card')].map(rect), pageWidth: document.documentElement.scrollWidth };
-    });
-    assert.ok(layout.cards.every(card => card.bottom <= layout.confirm.top), `${width}: confirmation covers a commander card`);
-    assert.ok(layout.pageWidth <= width, `${width}: commander page overflows`);
+    for (let i = 0; i < 3; i++) {
+      await commanders.nth(i).tap();
+      assert.equal(await commanders.nth(i).getAttribute('aria-pressed'), 'true', 'commander selection responds');
+      assert.equal(await page.locator('.commander-card[aria-pressed="true"]').count(), 1);
+      await checkCommander(width, height, perks[i]);
+    }
+    console.log(`PASS compact commander ${width}x${height}`);
   }
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.locator('.rival-preview summary').tap();
+  assert.equal(await page.locator('.rival-preview[open] .rival-grid > div').count(), 7, 'all rivals stay available on demand');
+  await page.locator('.rival-preview summary').tap();
+  assert.equal(await page.locator('.rival-preview[open]').count(), 0);
+  await page.getByRole('button', { name: 'GUIDE', exact: true }).tap();
+  const guide = page.getByRole('dialog', { name: 'SPECIMEN FIELD GUIDE' });
+  assert.equal(await guide.count(), 1, 'guide is an accessible dialog');
+  await guide.getByRole('button', { name: 'CLOSE' }).tap();
+  await page.getByRole('button', { name: 'SETTINGS' }).tap();
+  await page.getByRole('dialog', { name: 'SETTINGS' }).getByRole('button', { name: 'CLOSE' }).first().tap();
   await page.setViewportSize({ width: 390, height: 844 });
   await commanders.nth(1).tap();
-  assert.equal(await commanders.nth(1).getAttribute('aria-pressed'), 'true', 'commander selection responds');
   await page.getByRole('button', { name: 'BEGIN ROUND 1' }).first().tap();
   await page.waitForTimeout(400);
+  assert.equal(await page.locator('.vs-plaque .spec-icon').first().evaluate(el => el.style.getPropertyValue('--accent')), '#7FE0C0', 'selected Oracle must enter the match');
 
   // Intrinsic sizes include large balances and a streak, not only the empty
   // starting state. Long maps model the real 6- and 7-round period markup.
@@ -119,14 +195,26 @@ try {
   await page.getByRole('button', { name: '2×' }).tap();
   assert.equal(await page.getByRole('button', { name: '2×' }).getAttribute('aria-pressed'), 'true');
   await page.getByRole('button', { name: '1×' }).tap();
-  await page.getByRole('button', { name: 'Open admin panel' }).first().tap();
-  await page.getByRole('tab', { name: 'MATCH' }).tap();
-  await page.getByRole('button', { name: 'FORCE WIN' }).tap();
-  await page.getByRole('button', { name: 'Close admin panel' }).tap();
   const result = page.locator('.result-card');
+  // A real battle can finish before the admin tap on a slow WebGL runner.
+  // Accept that result rather than trying to click behind its modal.
+  if (!await result.isVisible()) {
+    try {
+      await page.getByRole('button', { name: 'Open admin panel' }).first().tap({ timeout: 3000 });
+      await page.getByRole('tab', { name: 'MATCH' }).tap();
+      await page.getByRole('button', { name: 'FORCE WIN' }).tap();
+      await page.getByRole('button', { name: 'Close admin panel' }).tap();
+    } catch (error) {
+      if (!await result.isVisible()) throw error;
+      const closeAdmin = page.getByRole('button', { name: 'Close admin panel' });
+      if (await closeAdmin.isVisible()) await closeAdmin.tap();
+    }
+  }
   await result.waitFor();
   assert.ok(['0', '1'].includes(await result.getAttribute('data-win')), 'result must show an actual outcome');
-  assert.equal(await result.locator('.result-health__track').getAttribute('aria-valuenow'), '100');
+  const resultHealth = Number(await result.locator('.result-health__track').getAttribute('aria-valuenow'));
+  assert.ok(resultHealth >= 0 && resultHealth <= 100, 'result must report valid colony health');
+  assert.equal(Number(await result.locator('.result-health__value strong').innerText()), resultHealth, 'health text and accessible value agree');
   const resultBounds = await result.evaluate(el => {
     const a = el.querySelector('.round-track').getBoundingClientRect(), b = el.querySelector('.result-health').getBoundingClientRect();
     return { a: {left:a.left,right:a.right,top:a.top,bottom:a.bottom}, b: {left:b.left,right:b.right,top:b.top,bottom:b.bottom} };
@@ -140,6 +228,14 @@ try {
   await page.evaluate(() => localStorage.setItem('smartbugs.settings', JSON.stringify({ rev: 2, lang: 'id', motion: 'reduced', potato: false, background: 'dark' })));
   await page.reload();
   await page.getByRole('button', { name: 'MAINKAN' }).tap();
+  const indonesianPerks = ['Himne Keturunan', 'Sinyal Malam', 'Gali Lubang'];
+  for (const [width, height] of [[280,653],[320,568],[390,844],[480,320],[568,320],[812,375]]) {
+    await page.setViewportSize({ width, height });
+    for (let i = 0; i < 3; i++) {
+      await page.locator('.commander-card').nth(i).tap();
+      await checkCommander(width, height, indonesianPerks[i]);
+    }
+  }
   await page.getByRole('button', { name: 'MULAI RONDE 1' }).first().tap();
   for (const [width, height] of [[280,653],[320,568],[390,844],[812,375],[1280,800]]) await checkDeck(width, height, 7);
   assert.match(await page.locator('.round-track__caption').innerText(), /PERIODE 1 · RONDE 1\/4/);

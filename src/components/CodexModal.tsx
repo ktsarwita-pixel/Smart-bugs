@@ -43,6 +43,9 @@ export function CodexModal({ open, onClose }: Props) {
     >
       <div
         className="rise flex max-h-[88dvh] w-full max-w-[560px] flex-col border-2 border-[#4A3828] bg-[#16110D] shadow-[0_16px_48px_rgba(0,0,0,.9)]"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("SPECIMEN FIELD GUIDE")}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -56,7 +59,8 @@ export function CodexModal({ open, onClose }: Props) {
           </div>
           <button
             onClick={onClose}
-            className="lift flex items-center gap-1.5 border border-[#4A3828] bg-[#120D09] px-2.5 py-1.5 font-pixel text-[9px] text-[#EDE2CB] hover:border-[#F0A93B]"
+            aria-label={t("CLOSE")}
+            className="lift flex min-h-[44px] min-w-[44px] items-center gap-1.5 border border-[#4A3828] bg-[#120D09] px-2.5 py-1.5 font-pixel text-[9px] text-[#EDE2CB] hover:border-[#F0A93B]"
           >
             <IconClose size={10} />
             <span>{t("CLOSE")}</span>

@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { isRenderResolution, type RenderResolution } from "./game/render-quality";
 
 export type Lang = "en" | "id";
 
@@ -8,12 +9,15 @@ export interface Settings {
   background: "dark" | "light";
   /** Potato mode: minimal renderer workload for weak devices. */
   potato: boolean;
+  /** Resolution of the 3D canvas; the rest of the interface stays sharp. */
+  resolution: RenderResolution;
 }
 
 interface Ctx extends Settings {
   setLang: (lang: Lang) => void;
   setMotion: (motion: Settings["motion"]) => void;
   setPotato: (potato: boolean) => void;
+  setResolution: (resolution: RenderResolution) => void;
   setBackground: (background: Settings["background"]) => void;
   /** Translates an English UI string; falls back to English. */
   t: (en: string) => string;
@@ -45,6 +49,12 @@ const ID: Record<string, string> = {
   "Fullscreen is not available in this browser or embedded view.": "Layar penuh tidak tersedia di browser atau tampilan sematan ini.",
   "Could not change fullscreen mode. Your browser or embedded view may block it.": "Tidak dapat mengubah mode layar penuh. Browser atau tampilan sematan mungkin memblokirnya.",
   "Fullscreen is controlled by your browser; press Escape to exit.": "Layar penuh dikendalikan oleh browser; tekan Escape untuk keluar.",
+  "3D RESOLUTION": "RESOLUSI 3D",
+  "Auto — adaptive": "Otomatis — adaptif",
+  "Low — 50%": "Rendah — 50%",
+  "Medium — 75%": "Sedang — 75%",
+  "High — 100%": "Tinggi — 100%",
+  "Presets scale the capped device resolution for 3D; the interface stays sharp. Auto adapts on the battlefield. Potato mode may lower it further.": "Pilihan mengatur skala resolusi perangkat yang dibatasi untuk 3D; antarmuka tetap tajam. Otomatis menyesuaikan di medan tempur. Mode kentang dapat menurunkannya lagi.",
   "POTATO MODE": "MODE KENTANG",
   "Potato mode": "Mode kentang",
   "On — weakest devices": "Nyala — perangkat paling lemah",
@@ -451,6 +461,7 @@ const ID: Record<string, string> = {
   "EPIC": "EPIK",
   "ELSEWHERE THIS ROUND": "DI TEMPAT LAIN RONDE INI",
   "THE COLONY WARS": "PERANG KOLONI",
+  "Choose Auto, Low, Medium or High 3D resolution in Settings. Auto adapts on the battlefield; smoother rendering reduces high-refresh and GPU work without changing game rules. UI Doctor reports the active render size.": "Pilih resolusi 3D Otomatis, Rendah, Sedang, atau Tinggi di Pengaturan. Otomatis menyesuaikan di medan tempur; render lebih lancar mengurangi beban layar refresh tinggi dan GPU tanpa mengubah aturan. Dokter UI melaporkan ukuran render aktif.",
   "The VS chest and round reward chest face you with richer details, a connected hinge and a smoother opening. Reduced motion is respected.": "Peti VS dan peti hadiah ronde menghadapmu dengan detail lebih kaya, engsel tersambung, dan bukaan lebih halus. Pengaturan kurangi gerakan tetap dihormati.",
   "The whole interface has a fresh field-lab look: a clearer main menu, commander cards, battle deck, shop, bench and round results across phones, tablets and desktop. Use + and − to zoom the battlefield drawer in or out.": "Seluruh antarmuka tampil lebih segar: menu utama, kartu komander, panel pertempuran, toko, bangku, dan hasil ronde lebih jelas di ponsel, tablet, maupun desktop. Gunakan + dan − untuk memperbesar atau memperkecil laci pertempuran.",
   "The main menu feels softer and more natural. Phone commander portraits stay centered in a compact row with full perks and an expandable rival roster, and battlefield commanders stay in frame. The battle layout fits when space allows; shorter screens can still scroll.": "Menu utama terasa lebih lembut dan alami. Potret komander di ponsel tetap di tengah dalam satu baris ringkas, dengan kemampuan lengkap dan daftar lawan yang dapat dibuka, serta komander di medan pertempuran tetap dalam bingkai. Tata letak pertempuran menyesuaikan layar jika ruang cukup; layar yang lebih pendek tetap dapat digulir.",
@@ -669,12 +680,22 @@ const ID: Record<string, string> = {
 
 const SettingsCtx = createContext<Ctx | null>(null);
 const KEY = "smartbugs.settings";
+// Kept separately so visiting the older public build cannot erase the new
+// advanced-only option when it saves its own version of smartbugs.settings.
+const RESOLUTION_KEY = "smartbugs.renderResolution";
+function loadResolution(): RenderResolution {
+  try {
+    const saved = localStorage.getItem(RESOLUTION_KEY);
+    return isRenderResolution(saved) ? saved : "auto";
+  } catch { return "auto"; }
+}
 /** v2: everyone lands back in ENGLISH once (players who picked Bahasa
  *  Indonesia can still switch back in Settings — it just stops being the
  *  remembered default from before this update). */
 const SETTINGS_REV = 2;
 
 function load(): Settings {
+  const resolution = loadResolution();
   try {
     const raw = localStorage.getItem(KEY);
     const parsed = raw ? (JSON.parse(raw) as Partial<Settings & { rev?: number }>) : {};
@@ -685,12 +706,13 @@ function load(): Settings {
         motion: parsed.motion === "reduced" ? "reduced" : "full",
         potato: parsed.potato === true,
         background: parsed.background === "light" ? "light" : "dark",
+        resolution,
       };
     }
   } catch {
     /* storage may be unavailable */
   }
-  return { lang: "en", motion: "full", potato: false, background: "dark" };
+  return { lang: "en", motion: "full", potato: false, background: "dark", resolution };
 }
 
 /** Pure lookup so translation can be tested without mounting React. */
@@ -713,7 +735,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(KEY, JSON.stringify({ ...settings, rev: SETTINGS_REV }));
+      const { resolution, ...sharedSettings } = settings;
+      localStorage.setItem(KEY, JSON.stringify({ ...sharedSettings, rev: SETTINGS_REV }));
+      localStorage.setItem(RESOLUTION_KEY, resolution);
     } catch {
       /* ignore */
     }
@@ -721,6 +745,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.dataset.motion = settings.motion;
     document.documentElement.dataset.potato = settings.potato ? "1" : "0";
     document.documentElement.dataset.background = settings.background;
+    document.documentElement.dataset.resolution = settings.resolution;
   }, [settings]);
 
   useEffect(() => {
@@ -728,14 +753,19 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     window.dispatchEvent(new CustomEvent("sb-potato"));
   }, [settings.potato]);
 
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("sb-resolution"));
+  }, [settings.resolution]);
+
   const setLang = useCallback((lang: Lang) => setSettings((s) => ({ ...s, lang })), []);
   const setMotion = useCallback(
     (motion: Settings["motion"]) => setSettings((s) => ({ ...s, motion })),
     [],
   );
   const setPotato = useCallback((potato: boolean) => setSettings((s) => ({ ...s, potato })), []);
+  const setResolution = useCallback((resolution: RenderResolution) => setSettings((s) => ({ ...s, resolution })), []);
   const setBackground = useCallback((background: Settings["background"]) => setSettings((s) => ({ ...s, background })), []);
-  const reset = useCallback(() => setSettings({ lang: "en", motion: "full", potato: false, background: "dark" }), []);
+  const reset = useCallback(() => setSettings({ lang: "en", motion: "full", potato: false, background: "dark", resolution: "auto" }), []);
 
   const value = useMemo<Ctx>(() => {
     const lang = settings.lang;
@@ -744,11 +774,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       setLang,
       setMotion,
       setPotato,
+      setResolution,
       setBackground,
       reset,
       t: (en: string) => translate(en, lang),
     };
-  }, [settings, setLang, setMotion, setPotato, setBackground, reset]);
+  }, [settings, setLang, setMotion, setPotato, setResolution, setBackground, reset]);
 
   return <SettingsCtx.Provider value={value}>{children}</SettingsCtx.Provider>;
 }
@@ -763,9 +794,11 @@ const FALLBACK: Ctx = {
   motion: "full",
   potato: false,
   background: "dark",
+  resolution: "auto",
   setLang: () => {},
   setMotion: () => {},
   setPotato: () => {},
+  setResolution: () => {},
   setBackground: () => {},
   reset: () => {},
   t: (en: string) => en,

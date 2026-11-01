@@ -1370,8 +1370,13 @@ export function buildVoxelModel(id: string, star = 1): VoxModel {
  *  All 1★ sculpts (title turntable, totems, prep) build synchronously; the
  *  2★/3★ tiers — only needed once a battle actually starts — are chipped in
  *  ~6ms idle slices afterwards so the title screen paints instantly. */
+let voxelWarmupStarted = false;
 export function warmVoxelCache() {
-  const ids = ["stag", "bomb", "mantis", "dragonfly", "matriarch", "lampyris", "worm"];
+  // The cache is shared by every scene. Avoid scheduling identical idle work
+  // on every scene mount (including React StrictMode's development remount).
+  if (voxelWarmupStarted) return;
+  voxelWarmupStarted = true;
+  const ids = ["stag", "bomb", "mantis", "dragonfly", "spider", "matriarch", "lampyris", "worm"];
   for (const id of ids) getCompiledRig(id, 1);
   const rest: [string, number][] = [];
   for (const id of ids) {

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { IconClose, IconGlobe, IconSettings } from "./CustomIcons";
 import { useSettings, type Lang } from "../i18n";
 import { isAdvancedGameLocation } from "../game/build-mode";
+import type { RenderResolution } from "../game/render-quality";
 
 interface Props {
   open: boolean;
@@ -12,13 +13,19 @@ const LANGS: { id: Lang; native: string; latin: string }[] = [
   { id: "en", native: "English", latin: "English" },
   { id: "id", native: "Bahasa Indonesia", latin: "Indonesian" },
 ];
+const RESOLUTIONS: { id: RenderResolution; label: string }[] = [
+  { id: "auto", label: "Auto — adaptive" },
+  { id: "low", label: "Low — 50%" },
+  { id: "medium", label: "Medium — 75%" },
+  { id: "high", label: "High — 100%" },
+];
 
 /**
  * Options sheet. Mobile-first bottom sheet, centred dialog on desktop.
  * Everything here is applied immediately and persisted to localStorage.
  */
 export function SettingsModal({ open, onClose }: Props) {
-  const { lang, setLang, motion, setMotion, potato, setPotato, background, setBackground, t } = useSettings();
+  const { lang, setLang, motion, setMotion, potato, setPotato, resolution, setResolution, background, setBackground, t } = useSettings();
   const [fullscreen, setFullscreen] = useState(() => !!document.fullscreenElement);
   const [fullscreenError, setFullscreenError] = useState(false);
   const fullscreenSupported = !!document.fullscreenEnabled && !!document.documentElement.requestFullscreen;
@@ -126,6 +133,39 @@ export function SettingsModal({ open, onClose }: Props) {
               );
             })}
           </div>
+
+          {advancedDoctor && <>
+            <div className="mt-4 mb-2 flex items-center gap-2">
+              <IconSettings size={13} className="text-[#F0A93B]" />
+              <h3 className="label text-[8px] text-[#F0A93B]">{t("3D RESOLUTION")}</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t("3D RESOLUTION")} aria-describedby="resolution-help"
+              onKeyDown={(event) => {
+                const direction = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1
+                  : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
+                if (!direction) return;
+                event.preventDefault();
+                event.stopPropagation();
+                const index = RESOLUTIONS.findIndex((item) => item.id === resolution);
+                const next = (index + direction + RESOLUTIONS.length) % RESOLUTIONS.length;
+                setResolution(RESOLUTIONS[next].id);
+                event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus();
+              }}>
+              {RESOLUTIONS.map((option) => {
+                const on = resolution === option.id;
+                return <button key={option.id} type="button" role="radio" aria-checked={on} tabIndex={on ? 0 : -1}
+                  onClick={() => setResolution(option.id)}
+                  className={`lift min-h-[48px] border px-3 py-2 text-left font-mono text-[10px] ${on
+                    ? "border-[#56DCA8] bg-[#0F241C] text-[#D6FFEF]"
+                    : "border-[#3B322A] bg-[#17110C] text-[#B3A594]"}`}>
+                  {t(option.label)}
+                </button>;
+              })}
+            </div>
+            <p id="resolution-help" className="mt-2 text-[10px] leading-snug text-[#7B6E5F]">
+              {t("Presets scale the capped device resolution for 3D; the interface stays sharp. Auto adapts on the battlefield. Potato mode may lower it further.")}
+            </p>
+          </>}
 
           <div className="mt-4 mb-2 flex items-center gap-2">
             <IconSettings size={13} className="text-[#F0A93B]" />

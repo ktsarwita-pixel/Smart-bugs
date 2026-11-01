@@ -2068,6 +2068,9 @@ html[data-background="light"] .shop-heading .shop-toggle[aria-pressed="true"] { 
 /* Reserve the bench header height whether or not auto-deploy is available.
    Its controls never overlap bench slots or change the board's dimensions. */
 .bench-section .section-heading { min-height: 40px; flex-wrap: nowrap; }
+.bench-heading-title { display: flex; flex: none; align-items: center; gap: 5px; }
+.bench-settings { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border: 1px solid #5b4b36; background: #171a12; color: #e8d4aa; }
+.bench-settings:hover { border-color: #f0a93b; }
 .bench-heading-actions { display: flex; align-items: center; justify-content: flex-end; min-width: 0; gap: 4px; }
 .bench-empty-hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #b8ae91; font-size: 7px; }
 .bench-inspect-mode { flex: none; min-width: 40px; min-height: 40px; padding: 0 5px; border: 1px solid #5b4b36; background: #17110c; color: #dcc9a7; font-size: 7px; }

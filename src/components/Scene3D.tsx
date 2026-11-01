@@ -8,6 +8,8 @@ import { GRAND_WEB_GROW_SECONDS, grandWebGrowth, visualGrandImpactReady, setGran
 import { buildVoxelModel, dotTexture, warmVoxelCache, V, type VoxModel } from "../game/voxel";
 import { animateInsectRig } from "../game/animate";
 import { sampleRoarWave, spiderRoarFacing } from "../game/spider-roar-visual";
+import { isAdvancedGameLocation } from "../game/build-mode";
+import { RenderFrameGate, renderPixelRatio } from "../game/render-quality";
 import { useSettings } from "../i18n";
 import {
   AIRSTRIKE_RADIUS, AIRSTRIKE_SECONDS, createAirstrikePose, sampleAirstrikeDive,
@@ -141,7 +143,9 @@ export function Scene3D({
   className = "",
   style,
 }: Props) {
-  const { t } = useSettings();
+  const { t, resolution, potato } = useSettings();
+  const qualityRef = useRef({ resolution, potato });
+  qualityRef.current = { resolution, potato };
   const hostRef = useRef<HTMLDivElement>(null);
   const ovRef = useRef<HTMLDivElement>(null);
   const [noGL, setNoGL] = useState(false);
@@ -220,9 +224,10 @@ export function Scene3D({
     const ovEl: HTMLDivElement = ov;
     const showcase = P.current.mode === "showcase";
     const isCompact = window.innerWidth < 640;
-
+    // Showcase has no advancedEffects prop, but its canvas shares the same
+    // resolution preference as the advanced battlefield.
+    const advancedQuality = advancedEffects || isAdvancedGameLocation(window.location);
     const dpr = Math.min(window.devicePixelRatio || 1, isCompact ? 1.65 : 2);
-    renderer.setPixelRatio(dpr);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -248,31 +253,65 @@ export function Scene3D({
     let W = hostEl.clientWidth || 360;
     let H = hostEl.clientHeight || 320;
 
-    // ── Potato mode (weak devices) ─────────────────────────────────────
-    // Settings provider mirrors the flag onto <html data-potato> and fires
-    // "sb-potato". Kills the shadow depth pass (the single biggest cost),
-    // caps the framebuffer well under native, and hides fireflies.
-    let potatoOn = document.documentElement.dataset.potato === "1";
+    // ── Resolution and Potato mode ──────────────────────────────────────
+    // Fixed presets never fight the governor. Auto uses a smaller initial
+    // buffer and adapts under load; Potato adds a ceiling and disables the
+    // expensive shadow pass independently of the selected resolution.
+    let potatoOn = qualityRef.current.potato;
+    let resolutionMode = qualityRef.current.resolution;
+    let pxScale = 1;
+    let ftEma = 16.7;
+    let ftWarmup = 0;
+    let qualityClock = 0;
+    let shadowPhase = 0;
+    let frameParity = 0;
+    let sceneReady = false;
+    const resetGovernor = () => { pxScale = 1; ftEma = 16.7; ftWarmup = 0; qualityClock = 0; };
+    const applyResolution = () => {
+      const ratio = advancedQuality
+        ? renderPixelRatio(resolutionMode, window.devicePixelRatio || 1, window.innerWidth < 640, potatoOn, pxScale)
+        : potatoOn ? Math.min(dpr, 1.6) * 0.6 : dpr * pxScale;
+      const changed = Math.abs(renderer.getPixelRatio() - ratio) > 0.0001;
+      // setPixelRatio already calls setSize internally; don't clear/allocate
+      // the same framebuffer a second time.
+      if (changed) renderer.setPixelRatio(ratio);
+      if (advancedQuality) {
+        renderer.domElement.dataset.renderResolution = resolutionMode;
+        renderer.domElement.dataset.renderDpr = ratio.toFixed(3);
+        renderer.domElement.dataset.renderPotato = potatoOn ? "1" : "0";
+      }
+      return changed;
+    };
     const applyPotato = () => {
+      const shadowChanged = renderer.shadowMap.enabled === potatoOn;
       renderer.shadowMap.enabled = !potatoOn;
-      renderer.setPixelRatio(potatoOn ? Math.min(dpr, 1.6) * 0.6 : dpr);
-      renderer.setSize(W, H, false);
-      // toggling shadowMap.enabled recompiles every lit material
-      scene.traverse((o) => {
-        const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
-        if (!m) return;
-        (Array.isArray(m) ? m : [m]).forEach((mm) => { mm.needsUpdate = true; });
-      });
+      if (shadowChanged) {
+        // Only a shadow change requires material recompilation. Changing the
+        // resolution alone must not rebuild every shader.
+        scene.traverse((o) => {
+          const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+          if (!m) return;
+          (Array.isArray(m) ? m : [m]).forEach((mm) => { mm.needsUpdate = true; });
+        });
+        renderer.shadowMap.needsUpdate = !potatoOn;
+      }
+      const resized = applyResolution();
+      if (sceneReady && (resized || shadowChanged)) renderer.render(scene, camera);
     };
     applyPotato();
     const onPotato = () => {
-      potatoOn = document.documentElement.dataset.potato === "1";
-      pxScale = 1;
-      ftEma = 16.7;
-      ftWarmup = 0;
+      potatoOn = qualityRef.current.potato;
+      resetGovernor();
       applyPotato();
     };
+    const onResolution = () => {
+      if (!advancedQuality) return;
+      resolutionMode = qualityRef.current.resolution;
+      resetGovernor();
+      if (applyResolution() && sceneReady) renderer.render(scene, camera);
+    };
     window.addEventListener("sb-potato", onPotato);
+    window.addEventListener("sb-resolution", onResolution);
 
     const disposables: { dispose: () => void }[] = [];
     const track = <T extends { dispose: () => void }>(o: T) => (disposables.push(o), o);
@@ -310,6 +349,8 @@ export function Scene3D({
     let tilesMesh: THREE.InstancedMesh | null = null;
     let tileRimsMesh: THREE.InstancedMesh | null = null;
     const tileHeights = new Float32Array(COLS * ROWS);
+    const tileColors = new Uint32Array(21);
+    const tileOccupied = new Uint8Array(21);
     let hoverSlot = -1;
     const hoverMeshRef: { mesh: THREE.Mesh | null; mat: THREE.MeshBasicMaterial | null } = {
       mesh: null,
@@ -2031,28 +2072,21 @@ export function Scene3D({
     // this target so the reframing glides instead of jolting the camera.
     let camDistTarget = 11;
     const cameraZoom = () => !showcase && advancedEffects ? Math.min(1.32, Math.max(0.74, P.current.drawerZoom || 1)) : 1;
-    // ── Adaptive resolution ──
-    // Sustained slow frames (EMA of frame time) step the render scale down;
-    // sustained headroom steps it back up. Keeps the scene smooth on weak
-    // GPUs instead of dropping to a slideshow.
-    const baseDpr = dpr;
-    let pxScale = 1;
-    let ftEma = 16.7;
-    let ftWarmup = 0;
-    let qualityClock = 0;
-    let shadowPhase = 0;
-    let frameParity = 0;
-    // Flips once init completes. After that, frame() repaints immediately
-    // after every canvas resize — resizing a WebGL buffer clears it, and
-    // without this repaint the cleared frame shows as a dark flash exactly
-    // when the prep dock hands over to the battle dock.
-    let sceneReady = false;
-
+    // After initialization, resize repaints immediately so the cleared
+    // WebGL buffer cannot flash during the prep-to-battle transition.
     let cameraInitialized = false;
+    let sizeInitialized = false;
     function frame() {
-      W = hostEl.clientWidth || 360;
-      H = hostEl.clientHeight || 280;
-      renderer.setSize(W, H, false);
+      const nextW = hostEl.clientWidth || 360;
+      const nextH = hostEl.clientHeight || 280;
+      const resized = !sizeInitialized || W !== nextW || H !== nextH;
+      W = nextW;
+      H = nextH;
+      const qualityChanged = advancedQuality && applyResolution();
+      if (resized) {
+        renderer.setSize(W, H, false);
+        sizeInitialized = true;
+      }
       camera.aspect = W / H;
       const vFov = (camera.fov * Math.PI) / 180;
       const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
@@ -2066,16 +2100,15 @@ export function Scene3D({
         camera.lookAt(target);
         cameraInitialized = true;
       }
-      if (sceneReady) renderer.render(scene, camera);
+      if (sceneReady && (resized || qualityChanged)) renderer.render(scene, camera);
     }
-    // pre-warm every shader program in the scene so the first battle
-    // doesn't hitch while the GPU compiles materials mid-fight
-    renderer.compile(scene, camera);
 
     frame();
 
     const ro = new ResizeObserver(() => frame());
     ro.observe(hostEl);
+    // Also catch device-DPR changes when moving a desktop window between screens.
+    window.addEventListener("resize", frame);
 
     /* ── Commander Totems ── */
     const totemAuditBox = new THREE.Box3();
@@ -2764,6 +2797,8 @@ export function Scene3D({
     let roarImpactRendered = false;
     let paused = document.hidden;
     let last = performance.now();
+    const frameGate = advancedQuality ? new RenderFrameGate(60) : null;
+    frameGate?.reset(last);
     let t = 0;
     let visualBattleTime = 0;
     let clockBattle: BattleState | null = null;
@@ -3361,6 +3396,9 @@ export function Scene3D({
     function tick(now: number) {
       if (paused) return;
       raf = requestAnimationFrame(tick);
+      // High-refresh phones and monitors no longer render the same scene
+      // 90–144 times a second. Simulation still advances on its own clock.
+      if (frameGate && !frameGate.shouldRender(now)) return;
       const dt = Math.min(0.05, (now - last) / 1000);
       roarImpactRendered = false;
       last = now;
@@ -3382,19 +3420,17 @@ export function Scene3D({
         ftEma += (dt * 1000 - ftEma) * 0.06;
       }
       qualityClock += dt;
-      // Governor is battle-only (and never fights Potato's fixed floor):
-      // a dragged menu spikes frame times and the resulting resolution
-      // switch read as "voxels glitch for a sec".
-      if (qualityClock >= 1.5 && !showcase && !potatoOn) {
+      // The governor is battlefield-only and never changes a manually chosen
+      // preset or fights Potato's cap. The 60 fps gate means headroom is
+      // measured around 16.7ms, not the old 120 Hz-only threshold.
+      if (qualityClock >= 1.5 && !showcase && !potatoOn && (!advancedQuality || resolutionMode === "auto")) {
         qualityClock = 0;
         if (ftEma > 22 && pxScale > 0.6) {
           pxScale = Math.max(0.6, pxScale - 0.15);
-          renderer.setPixelRatio(baseDpr * pxScale);
-          renderer.setSize(W, H, false);
-        } else if (ftEma < 14.5 && pxScale < 1) {
+          applyResolution();
+        } else if (ftEma < (advancedQuality ? 18.5 : 14.5) && pxScale < 1) {
           pxScale = Math.min(1, pxScale + 0.1);
-          renderer.setPixelRatio(baseDpr * pxScale);
-          renderer.setSize(W, H, false);
+          applyResolution();
         }
       }
 
@@ -3623,12 +3659,17 @@ export function Scene3D({
           if (su && su.zone === "board") selSlot = su.slot;
         }
 
+        tileOccupied.fill(0);
+        if (!battleOn) for (const unit of p.prep) {
+          if (unit.zone === "board" && unit.slot >= 0 && unit.slot < tileOccupied.length) tileOccupied[unit.slot] = 1;
+        }
         let matrixDirty = false;
+        let colorDirty = false;
         for (let aIdx = 0; aIdx < 21; aIdx++) {
           const idx = ALLY_ROW_MIN * COLS + aIdx;
           const r = Math.floor(idx / COLS);
           const c = idx % COLS;
-          const occupied = !battleOn && p.prep.some((u) => u.zone === "board" && u.slot === aIdx);
+          const occupied = tileOccupied[aIdx] === 1;
           const isHover = !battleOn && hoverSlot === aIdx;
           const isSelTile = aIdx === selSlot;
 
@@ -3646,20 +3687,21 @@ export function Scene3D({
             matrixDirty = true;
           }
 
-          if (isHover || isSelTile) {
-            cTmp.setHex(0xf0a93b);
-          } else if (hasSel) {
-            cTmp.setHex(occupied ? 0xf0a93b : p.canDeployMore ? 0x68e8b7 : 0x2a3d35);
-          } else {
-            cTmp.setHex(occupied ? 0x4fd3a0 : 0x2b4d3f);
+          const color = isHover || isSelTile ? 0xf0a93b : hasSel
+            ? occupied ? 0xf0a93b : p.canDeployMore ? 0x68e8b7 : 0x2a3d35
+            : occupied ? 0x4fd3a0 : 0x2b4d3f;
+          if (tileColors[aIdx] !== color) {
+            tileColors[aIdx] = color;
+            tileRimsMesh.setColorAt(aIdx, cTmp.setHex(color));
+            colorDirty = true;
           }
-          tileRimsMesh.setColorAt(aIdx, cTmp);
         }
         if (matrixDirty) {
           tilesMesh.instanceMatrix.needsUpdate = true;
           tileRimsMesh.instanceMatrix.needsUpdate = true;
         }
-        if (tileRimsMesh.instanceColor) tileRimsMesh.instanceColor.needsUpdate = true;
+        // Don't re-upload the same 21 highlight colors to the GPU every frame.
+        if (colorDirty && tileRimsMesh.instanceColor) tileRimsMesh.instanceColor.needsUpdate = true;
         (tileRimsMesh.material as THREE.MeshBasicMaterial).opacity = battleOn
           ? 0.14
           : hasSel
@@ -3828,6 +3870,7 @@ export function Scene3D({
       if (paused) cancelAnimationFrame(raf);
       else {
         last = performance.now();
+        frameGate?.reset(last);
         raf = requestAnimationFrame(tick);
       }
     };
@@ -3850,6 +3893,8 @@ export function Scene3D({
       cancelAnimationFrame(raf);
       document.removeEventListener("visibilitychange", syncVisibility);
       window.removeEventListener("sb-potato", onPotato);
+      window.removeEventListener("sb-resolution", onResolution);
+      window.removeEventListener("resize", frame);
       visibilityObserver?.disconnect();
       ro.disconnect();
       el.removeEventListener("pointerdown", onDown);

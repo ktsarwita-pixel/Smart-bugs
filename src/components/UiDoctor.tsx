@@ -6,7 +6,7 @@ import { auditVisuals, watchVisuals, monitorVisuals, visualHistory, clearVisualH
    Scroll findings describe navigation, not necessarily a defect. */
 type Kind = "TAP" | "COVERED" | "INTERACTION" | "CLIPPED" | "OVERFLOW" | "BORDER" | "SCROLL" | VisualFinding["kind"];
 type Issue = { id: number; kind: Kind; severity: "high" | "warning"; label: string; detail: string; el: HTMLElement | null; x: number; y: number };
-type Scan = { issues: Issue[]; width: number; height: number; checked: number; visualChecked: number; deep: boolean; time: string };
+type Scan = { issues: Issue[]; width: number; height: number; checked: number; visualChecked: number; deep: boolean; time: string; render: string | null };
 const KEY = "sb-doctor";
 const initiallyEnabled = () => {
   try { const stored = localStorage.getItem(KEY); return stored === "1" || (stored !== "0" && new URLSearchParams(location.search).get("doctor") === "1"); }
@@ -195,7 +195,9 @@ function audit(): Scan {
       add(finding.kind, finding.severity, finding.label, finding.detail, finding.el, r.left, r.top);
     }
   }
-  return { issues, width, height, checked, visualChecked, deep: false, time: new Date().toLocaleTimeString() };
+  const canvas = document.querySelector<HTMLCanvasElement>("canvas[data-render-resolution]");
+  const render = canvas ? `3D render ${canvas.width}×${canvas.height} · ${canvas.dataset.renderDpr}× · ${canvas.dataset.renderResolution}${canvas.dataset.renderPotato === "1" ? " · Potato" : ""}` : null;
+  return { issues, width, height, checked, visualChecked, deep: false, time: new Date().toLocaleTimeString(), render };
 }
 
 export function UiDoctor() {
@@ -282,6 +284,7 @@ export function UiDoctor() {
   const report = scan ? [`UI Doctor · ${scan.width}×${scan.height} · DPR ${devicePixelRatio || 1} · ${scan.time}`,
     `${scan.checked} visible controls · ${scan.visualChecked} visual targets checked · ${scan.issues.length} findings${scan.deep ? " · deep observation" : ""}`,
     `FPS ${perf.fps} · worst frame (last second) ${perf.worst}ms · frames over 100ms ${perf.janks}`,
+    ...(scan.render ? [scan.render] : []),
     "Non-destructive checks: touch/layout, chest alignment and hinge, Spider roar facing, rendering and (in deep scan) animation/visual swaps. Actions and subjective artwork are not tested; scrolling can be intentional.",
     ...scan.issues.map(i => `[${i.severity.toUpperCase()}] ${i.kind} ${i.label}: ${i.detail}`),
     ...(history.length ? ["Visual history (while Doctor was enabled):", ...history.map(e => `${e.time}: ${e.message}`)] : [])].join("\n") : "";
@@ -319,6 +322,7 @@ export function UiDoctor() {
         {!scan ? <p>{enhanced ? "Scan touch, layout, chest facing, connections and rendering. Deep scan also watches for artwork swaps and stalled animations. It never presses controls or judges art quality." : "Scan for blocked or small touch targets, overflow and scrollable areas. The scan never presses game controls and cannot verify button actions."} Drag the badge to move it.</p> : <>
           <div className="ui-doctor__summary"><strong>{scan.issues.length} findings</strong><span>{high} high · {scan.issues.length - high} warnings · {scrollAreas} scroll</span></div>
           <p>{scan.checked} controls{enhanced ? ` · ${scan.visualChecked} visual targets` : ""} checked at {scan.width}×{scan.height} · {scan.time}{scan.deep ? " · deep observation" : ""}. Scroll areas may be intentional. Rescan after changing screens.</p>
+          {scan.render && <p>{scan.render}</p>}
           {scan.issues.length === 0 ? <p>No issues found in the visible area.</p> : <ol className="ui-doctor__list">{scan.issues.map(i => <li key={i.id}><button onClick={() => locate(i)}><span data-severity={i.severity} data-kind={i.kind}>{i.id} · {i.kind}</span><strong>{i.label}</strong><small>{i.detail}</small></button></li>)}</ol>}
           {enhanced && <details className="ui-doctor__history"><summary>Visual history · {history.length} events</summary><p>Records brief chest renderer swaps while the Doctor is enabled, even before a scan.</p>{history.length > 0 && <><ol>{history.map((event, i) => <li key={i}><small>{event.time} · {event.message}</small></li>)}</ol><button onClick={() => { clearVisualHistory(); setHistory([]); }}>CLEAR HISTORY</button></>}</details>}
           <details><summary>Full report</summary><pre>{report}</pre></details>

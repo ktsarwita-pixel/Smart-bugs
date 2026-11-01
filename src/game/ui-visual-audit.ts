@@ -200,6 +200,18 @@ export function auditVisuals(scope: ParentNode): VisualAudit {
       }
     } catch { /* Missing or stale diagnostic data is not a clipping finding. */ }
   }
+  for (const canvas of scope.querySelectorAll<HTMLCanvasElement>("canvas[data-render-resolution]")) {
+    if (!visible(canvas)) continue;
+    checked++;
+    const ratio = Number(canvas.dataset.renderDpr);
+    if (!Number.isFinite(ratio) || ratio <= 0 || canvas.width < 1 || canvas.height < 1) {
+      add("RENDER", "high", "3D resolution unavailable", "The WebGL drawing buffer or its resolution is missing.", canvas);
+    } else if (Math.abs(canvas.width - canvas.clientWidth * ratio) > 3 || Math.abs(canvas.height - canvas.clientHeight * ratio) > 3) {
+      add("RENDER", "warning", "3D resolution mismatch", `The ${canvas.width}×${canvas.height} drawing buffer does not match its displayed size and ${ratio}× render scale.`, canvas);
+    }
+    const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
+    if (!gl || gl.isContextLost()) add("RENDER", "high", "3D board unavailable", "The scene's WebGL context was lost or is unavailable.", canvas);
+  }
   for (const canvas of scope.querySelectorAll<HTMLCanvasElement>("canvas[data-chest-facing-error]")) {
     if (!visible(canvas)) continue;
     checked++;
@@ -207,8 +219,10 @@ export function auditVisuals(scope: ParentNode): VisualAudit {
     const gap = Number(canvas.dataset.chestHingeGap);
     if (!Number.isFinite(yaw) || Math.abs(yaw) > 2) add("VISUAL", "warning", "Board chest not facing the player", `3D model is ${Number.isFinite(yaw) ? Math.abs(yaw).toFixed(1) : "unknown"}° away from the camera.`, canvas);
     if (!Number.isFinite(gap) || gap > .002) add("VISUAL", "high", "Board chest hinge disconnected", `The lid pivot and body back differ by ${Number.isFinite(gap) ? gap.toFixed(3) : "an unknown distance"} world units.`, canvas);
-    const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
-    if (!gl || gl.isContextLost()) add("RENDER", "high", "3D board unavailable", "The board's WebGL context was lost or is unavailable.", canvas);
+    if (!canvas.hasAttribute("data-render-resolution")) {
+      const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
+      if (!gl || gl.isContextLost()) add("RENDER", "high", "3D board unavailable", "The board's WebGL context was lost or is unavailable.", canvas);
+    }
   }
   for (const img of scope.querySelectorAll<HTMLImageElement>("img[src]")) {
     if (!visible(img)) continue;

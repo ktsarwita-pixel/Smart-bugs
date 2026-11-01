@@ -61,13 +61,19 @@ try {
     assert.ok(await page.locator('.result-next').isVisible());
     assert.equal(await page.locator('.result-details').getAttribute('open'),null);
     if (round===1) {
+      await page.waitForTimeout(400); // let the result card's entrance transform settle
       await page.evaluate(() => window.dispatchEvent(new CustomEvent('sb-doctor',{detail:true})));
       await page.getByRole('button',{name:'Open UI Doctor'}).tap();
       await page.getByRole('button',{name:'SCAN SCREEN'}).tap();
       const report=await page.locator('.ui-doctor__body').innerText();
       assert.doesNotMatch(report,/SCROLL[^\n]*result-body/,'doctor should not find result-body scrolling');
-      assert.match(report,/1 visual targets/,'doctor checks the actual result chest');
+      assert.ok(Number(report.match(/(\d+) visual targets/)?.[1])>=1,'doctor checks visual targets on the result');
+      assert.equal(await page.locator('.result-card .treasure-chest-3d').count(),1,'the actual result chest is present for the scan');
       assert.doesNotMatch(report,/Chest not facing|Chest lid disconnected|Old chest artwork|Chest depth flattened|Chest is clipped/,'healthy result has no chest visual faults');
+      await page.locator('.result-card .treasure-chest-3d__world').evaluate(el=>{el.style.transform='rotateX(-24deg) rotateY(35deg)';});
+      await page.getByRole('button',{name:'SCAN SCREEN'}).tap();
+      assert.match(await page.locator('.ui-doctor__body').innerText(),/Chest not facing the player/,'Doctor inspects the real result chest, not only icons');
+      await page.locator('.result-card .treasure-chest-3d__world').evaluate(el=>{el.style.transform='';});
       await page.getByRole('button',{name:'DEEP SCAN'}).tap();
       await page.getByText('WATCHING…').waitFor({state:'hidden',timeout:12000});
       assert.doesNotMatch(await page.locator('.ui-doctor__body').innerText(),/Chest opening is stalled|Chest artwork changed during scan|Open chest lid is still closed/,'healthy opening passes the deeper observation');
@@ -120,7 +126,11 @@ try {
       if(round===4) assert.match(await page.locator('.treasure-result').innerText(),/\+25G/);
       assert.equal(await page.locator('.result-health__change').getAttribute('data-loss'),'0');
     } else assert.equal(await page.locator('.treasure-result').count(),0);
-    await page.locator('.result-next').tap();
+    if (round===2) {
+      await page.locator('.result-next').focus();
+      await page.keyboard.press('n');
+      await page.locator('.result-card').waitFor({state:'hidden'});
+    } else await page.locator('.result-next').tap();
     if(round===1) {
       const queue=page.locator('.treasure-queue');
       assert.match(await queue.innerText(),/· 2/);
@@ -140,6 +150,8 @@ try {
   await page.setViewportSize({width:280,height:653});
   const claimBox = await page.locator('.treasure-queue button').boundingBox();
   assert.ok(claimBox.x >= 0 && claimBox.x + claimBox.width <= 280 && claimBox.height >= 40, 'claim control must fit small phones');
+  const gearBox = await page.getByRole('button',{name:'SETTINGS',exact:true}).boundingBox();
+  assert.ok(gearBox.width>=40 && gearBox.height>=40 && gearBox.x+gearBox.width<=claimBox.x+1, 'prep settings must not cover treasure claims');
   await page.setViewportSize({width:384,height:725});
   await page.getByRole('button',{name:'Open admin panel'}).first().tap();
   const advanced = page.getByRole('button',{name:'▸ ADVANCED — TYPE COMMANDS'});
@@ -152,6 +164,17 @@ try {
   await page.getByRole('button',{name:'RUN',exact:true}).tap();
   await page.getByRole('button',{name:'Close admin panel'}).tap();
   assert.equal(await page.locator('.bench-slot[title*="tap to deploy"]').count(),6);
+  await page.setViewportSize({width:280,height:653});
+  const heading = await page.locator('.bench-section .section-heading').evaluate(el=>{
+    const boxes=[...el.querySelectorAll('button')].map(button=>{const r=button.getBoundingClientRect();return {label:button.getAttribute('aria-label')||button.textContent,left:r.left,right:r.right,top:r.top,bottom:r.bottom};});
+    return {boxes,width:document.documentElement.scrollWidth};
+  });
+  assert.ok(heading.width<=280 && heading.boxes.every(b=>b.left>=0&&b.right<=280),`full-bench controls fit at 280px: ${JSON.stringify(heading)}`);
+  for(let i=0;i<heading.boxes.length;i++) for(const b of heading.boxes.slice(i+1)) {
+    const a=heading.boxes[i];
+    assert.ok(!(a.left<b.right-1&&a.right>b.left+1&&a.top<b.bottom-1&&a.bottom>b.top+1),`full-bench controls must not overlap: ${JSON.stringify(heading)}`);
+  }
+  await page.setViewportSize({width:384,height:725});
   await page.locator('.treasure-queue button').tap();
   assert.match(await page.locator('.treasure-queue').innerText(),/· 2/, 'full bench must retain rewards');
   if (await page.getByRole('button',{name:'Deselect'}).count()) await page.getByRole('button',{name:'Deselect'}).tap();

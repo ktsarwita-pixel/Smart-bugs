@@ -29,6 +29,7 @@ const VERSIONS: VersionEntry[] = [
       "The Spider's roar cue and label are smaller and simpler, with a faint ring that leaves the battlefield visible; the label moves clear of the Spider's health bar.",
       "Colony health and the round map now have dedicated space, including long periods and landscape layouts. UI Doctor checks the HUD for overlapping or clipped elements.",
       "Edge containment pass: consistent phone gutters and border-box sizing keep in-game frames inside the display; UI Doctor now audits panel overflow and off-screen borders, not only controls.",
+      "Choose Auto, Low, Medium or High 3D resolution in Settings. Auto adapts on the battlefield; smoother rendering reduces high-refresh and GPU work without changing game rules. UI Doctor reports the active render size.",
     ],
   },
   {

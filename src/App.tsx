@@ -1168,6 +1168,10 @@ export default function App() {
   useEffect(() => {
     if (phase !== "prep" && phase !== "battle" && phase !== "result") return;
     const onKey = (e: KeyboardEvent) => {
+      // A settings/guide/admin sheet owns its keyboard interaction. In
+      // particular Enter or Space on a resolution radio must never engage a
+      // battle or change speed behind the modal.
+      if (settingsOpen || guideOpen || patchOpen || adminOpen) return;
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -1195,7 +1199,7 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, gold, shop, units, level, boardUnits.length, benchUnits.length, shopLocked, cmd, round, foeIdx]);
+  }, [phase, gold, shop, units, level, boardUnits.length, benchUnits.length, shopLocked, cmd, round, foeIdx, settingsOpen, guideOpen, patchOpen, adminOpen]);
   const canDeployMore = useMemo(() => {
     if (!sel) return boardUnits.length < level;
     if (sel.zone === "board") return true;
@@ -1240,13 +1244,14 @@ export default function App() {
   useEffect(() => {
     if (phase !== "title") return;
     const onKey = (e: KeyboardEvent) => {
+      if (settingsOpen || guideOpen || patchOpen || adminOpen) return;
       if (e.key === "ArrowLeft") stepFocus(-1);
       else if (e.key === "ArrowRight") stepFocus(1);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, focusId]);
+  }, [phase, focusId, settingsOpen, guideOpen, patchOpen, adminOpen]);
 
   /* ════════════════════════════════════════════════════════════
      SCREEN 1 — MAIN MENU (Interactive 3D Specimen Cabinet)
@@ -2430,9 +2435,13 @@ export default function App() {
               {/* Bench Row (6 Slots) */}
               <div className="bench-section px-2 pt-1.5 pb-1.5 sm:px-3">
                 <div className="section-heading mb-1 flex items-center justify-between">
-                  <span className="label text-[7.5px] text-[#9C8F7E]">
-                    {t("BENCH")} ({benchUnits.length}/{BENCH_SIZE})
-                  </span>
+                  <div className="bench-heading-title">
+                    <span className="label text-[7.5px] text-[#9C8F7E]">
+                      {t("BENCH")} ({benchUnits.length}/{BENCH_SIZE})
+                    </span>
+                    {advancedGame && <button type="button" className="bench-settings" aria-label={t("SETTINGS")} title={t("SETTINGS")}
+                      onClick={() => setSettingsOpen(true)}><IconSettings size={15} /></button>}
+                  </div>
                   <div className="bench-heading-actions">
               {advancedGame && boardUnits.length === 0 && benchUnits.length === 0 && pendingRewards.length === 0 && (
                 <span className="bench-empty-hint label" title={t("RECRUIT SPECIMENS FROM PIPKIN SUPPLY BELOW")}>{t("RECRUIT FROM SUPPLY ↓")}</span>

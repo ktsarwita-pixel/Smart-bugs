@@ -20,7 +20,8 @@ try {
   assert.match(text,/CURRENT/); assert.match(text,/650 damage/); assert.match(text,/opposing side/); assert.match(text,/reward chest/); assert.match(text,/UI Doctor/);
   assert.match(text,/whole interface has a fresh field-lab look/); assert.match(text,/zoom the battlefield drawer in or out/); assert.match(text,/Colony health and the round map now have dedicated space/);
   assert.match(text,/main menu feels softer and more natural/); assert.match(text,/roar cue and label are smaller/);
-  assert.equal(await entry.locator('li').count(),11,'merged entry retains the gameplay and UI changes');
+  assert.match(text,/Auto, Low, Medium or High 3D resolution/); assert.match(text,/UI Doctor reports the active render size/);
+  assert.equal(await entry.locator('li').count(),12,'merged entry retains the gameplay and UI changes');
   for (const width of [280,320,390]) {
     await page.setViewportSize({width,height:653});
     const layout=await version.evaluate(el=>{
@@ -40,6 +41,7 @@ try {
   assert.match(await merged.innerText(),/Menu utama terasa lebih lembut dan alami/,'compact menu update is translated');
   assert.match(await merged.innerText(),/label raungan Laba-laba kini lebih kecil/,'smaller roar cue is translated');
   assert.match(await merged.innerText(),/memperbesar atau memperkecil laci pertempuran/,'drawer zoom note is translated');
+  assert.match(await merged.innerText(),/Pilih resolusi 3D Otomatis, Rendah, Sedang, atau Tinggi/,'resolution note is translated');
   assert.deepEqual(errors,[]);
   console.log('PASS single v0.62 patch notes, retained changes, translations and narrow layouts');
 } finally {await browser.close();}

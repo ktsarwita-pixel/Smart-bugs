@@ -24,6 +24,8 @@ const VERSIONS: VersionEntry[] = [
       "The VS chest and round reward chest face you with richer details, a connected hinge and a smoother opening. Reduced motion is respected.",
       "The round map uses detailed monochrome chest and centered stag pixel art, joined by a clearer timeline.",
       "UI Doctor checks Spider facing and rotation during Battle Roar alongside chest alignment and rendering, with brief visual problems saved in history.",
+      "The whole interface has a fresh field-lab look: a clearer main menu, commander cards, battle deck, shop, bench and round results across phones, tablets and desktop.",
+      "Colony health and the round map now have dedicated space, including long periods and landscape layouts. UI Doctor checks the HUD for overlapping or clipped elements.",
       "Edge containment pass: consistent phone gutters and border-box sizing keep in-game frames inside the display; UI Doctor now audits panel overflow and off-screen borders, not only controls.",
     ],
   },

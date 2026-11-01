@@ -46,7 +46,7 @@ try {
   assert.match(await track.getAttribute('aria-label'), /PERIOD 1.*ROUND 1\/4/);
   assert.deepEqual(await track.locator('svg').evaluateAll(svgs=>svgs.map(svg=>svg.dataset.sprite)), ['chest','stag','stag','chest']);
   assert.deepEqual(await track.locator('.round-track__cell').evaluateAll(cells=>cells.map(cell=>cell.dataset.state)), ['current','future','future','future']);
-  for (const width of [280,320,384,768]) {
+  for (const width of [280,320,384,480,768,1024,1280]) {
     await page.setViewportSize({width,height:725});
     for (const count of [6,7]) {
       const measurements = await track.evaluate((track,count)=>{
@@ -61,11 +61,11 @@ try {
           return {dx:Math.abs(c.left+c.width/2-s.left-s.width/2),dy:Math.abs(c.top+c.height/2-s.top-s.height/2),ix:ink.x+ink.width/2,iy:ink.y+ink.height/2,vx:v.width/2,vy:v.height/2,size:s.width};
         });
         const rect = el => {const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}};
-        const bounds=rect(track),parent=rect(track.parentElement),resources=rect(deck.querySelector('.deck-resources')),help=rect(deck.querySelector('.help-btn'));
+        const bounds=rect(track),parent=rect(track.parentElement),health=rect(deck.querySelector('.deck-health')),resources=rect(deck.querySelector('.deck-resources')),help=rect(deck.querySelector('.help-btn'));
         const last=cells.at(-1).getBoundingClientRect().right;
         cells.slice(originals.length).forEach(c=>c.remove()); track.dataset.roundCount=oldCount;
         if (oldLong === undefined) delete deck.dataset.longPeriod; else deck.dataset.longPeriod=oldLong;
-        return {a,bounds,parent,last,resources,help};
+        return {a,bounds,parent,last,health,resources,help};
       },count);
       const intersects = (a,b) => a.left < b.right-0.1 && a.right > b.left+0.1 && a.top < b.bottom-0.1 && a.bottom > b.top+0.1;
       for (const m of measurements.a) {
@@ -75,6 +75,7 @@ try {
       }
       assert.ok(measurements.bounds.left>=0&&measurements.bounds.right<=width&&measurements.last<=measurements.bounds.right,`${width}px/${count}: track clips viewport`);
       assert.ok(measurements.bounds.left>=measurements.parent.left-1&&measurements.bounds.right<=measurements.parent.right+1,`${width}px/${count}: track crosses its deck cluster`);
+      assert.ok(!intersects(measurements.bounds,measurements.health),`${width}px/${count}: round map covers colony health`);
       assert.ok(!intersects(measurements.bounds,measurements.resources),`${width}px/${count}: track covers resources`);
       assert.ok(!intersects(measurements.bounds,measurements.help),`${width}px/${count}: track covers help`);
     }
@@ -84,5 +85,5 @@ try {
   await page.getByRole('button',{name:'BEGIN ROUND 1'}).first().tap();
   assert.equal(await page.locator('.round-track--advanced, [data-sprite="chest"], [data-sprite="stag"]').count(),0,'plain URL must not use test-build sprites');
   assert.deepEqual(errors,[]);
-  console.log('PASS shaded chest/stag pixel art, opt-in routing, accessible states and 6–7-cell layouts at 280–768px');
+  console.log('PASS shaded chest/stag pixel art, opt-in routing, accessible states and 6–7-cell layouts and health separation at 280–1280px');
 } finally {await browser.close();}

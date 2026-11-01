@@ -2338,3 +2338,229 @@ html, body, #root { max-width: 100%; overflow-x: clip; }
 }
 /* The anchored badge replaces the small floating ROAR text in this build. */
 .ov-pop--roar { visibility:hidden; }
+
+/* v0.62 advanced field-lab refresh. Scoped to the opt-in game so the public
+   v0.61 layout stays untouched. The cabinet palette remains the visual anchor. */
+.advanced-ui {
+  --ui-brass: #e8b765;
+  --ui-leaf: #72e5b7;
+  --ui-edge: #67523d;
+  --ui-surface: #1b1711;
+  --ui-ink: #f5e9d1;
+}
+.advanced-ui.cabinet-bg {
+  background-image:
+    radial-gradient(70% 50% at 82% 0%, rgba(55, 127, 91, .14), transparent 72%),
+    radial-gradient(65% 55% at 4% 4%, rgba(229, 161, 71, .13), transparent 70%),
+    linear-gradient(155deg, #1b1711, #0b0b08 70%);
+}
+.advanced-ui .title-header, .advanced-ui .commander-header {
+  gap: 8px; border-color: #514535; padding-bottom: 12px;
+}
+.advanced-ui .title-brand > div:first-child {
+  width: 42px; height: 42px; border-color: #87663a;
+  background: linear-gradient(145deg, #35291b, #15120d);
+  box-shadow: inset 0 0 0 2px #0e0b08;
+}
+.advanced-ui .title-brand .label { color: #e8b765; letter-spacing: .12em; }
+.advanced-ui .title-brand .latin { color: #c9bea7; }
+.advanced-ui .title-header > button, .advanced-ui .commander-header > button {
+  border-color: #67513a; background: #201b15; color: #e6d9c0;
+  box-shadow: inset 0 1px rgba(255, 230, 173, .07);
+}
+.advanced-ui .advanced-banner {
+  border-color: #438d6d; background: linear-gradient(90deg, #12392a, #14231b);
+  box-shadow: inset 3px 0 #72e5b7; color: #a6f2cd; letter-spacing: .1em;
+}
+.advanced-ui .title-layout { gap: clamp(24px, 4vw, 50px); }
+.advanced-ui .hero-copy {
+  width: 100%; min-width: 0; padding: clamp(16px, 2.5vw, 28px);
+  border: 1px solid #574b37; border-left: 3px solid #d59b45;
+  background: linear-gradient(140deg, rgba(61, 53, 36, .62), rgba(23, 23, 16, .83));
+  box-shadow: inset 0 1px rgba(255, 226, 171, .08), 0 12px 30px #0005;
+}
+.advanced-ui .hero-copy h1 { margin-top: 4px; line-height: 1.12; text-shadow: 3px 4px #080b07; }
+.advanced-ui .hero-copy h1 span:last-child { color: #78e8bb; }
+.advanced-ui .hero-copy > p { color: #dfd2bb; line-height: 1.4; }
+.advanced-ui .hero-copy > div:not(.hero-actions) > span.label.border {
+  border-color: #6c5840; background: #211d15; color: #ded0b7; letter-spacing: .08em;
+}
+.advanced-ui .hero-actions {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  width: 100%; gap: 8px; padding-bottom: 0;
+}
+.advanced-ui .hero-actions > button {
+  min-width: 0; min-height: 46px; padding: 10px 8px; line-height: 1.4;
+  border-color: #735d42; background: #1b1812; box-shadow: 0 3px #0b0906;
+}
+.advanced-ui .hero-actions > button:first-child {
+  grid-column: 1 / -1; min-height: 54px; color: #061a11;
+  border-color: #8bf1c5; background: linear-gradient(180deg, #7ae6b6, #3fb985);
+  box-shadow: 0 4px #165638, 0 8px 24px #26775355;
+}
+.advanced-ui .hero-actions > button:last-child { color: #8bf1c5; }
+.advanced-ui .specimen-cabinet {
+  border-color: #786043; background: #12130e;
+  box-shadow: inset 0 0 0 2px #221b13, 0 16px 36px #0009;
+}
+.advanced-ui .showcase-selector { border-color: #66523a; background: #161911; }
+.advanced-ui .showcase-selector button { min-height: 52px; }
+.advanced-ui .showcase-selector button:has(.spec-icon--sel) {
+  background: #263426; border-top-color: #9deabf;
+}
+.advanced-ui .title-layout .paper-card {
+  background-color: #f1e4c9; border-color: #856e4e;
+}
+.advanced-ui .commander-cards { gap: 14px; }
+.advanced-ui .commander-card { border-color: #796446; box-shadow: 0 5px 0 #090806; }
+.advanced-ui .commander-card[aria-pressed="true"] {
+  border-color: #ffe1a0; outline: 2px solid #e7ae4a; outline-offset: 1px;
+}
+.advanced-ui .rival-grid > div { border-color: #51432f; background: #171b13; }
+.advanced-ui .screen > div, .advanced-ui .edge-modal-backdrop > div {
+  border-color: #7b6243; box-shadow: 0 18px 48px #000b;
+}
+
+/* The health value and round map are independent, intrinsic-size grid items.
+   The deck responds to its *own* width (including split-screen landscape),
+   rather than assuming the viewport is as wide as the game board. */
+.advanced-ui .deck { container: command-deck / inline-size; background: linear-gradient(180deg, #28251a, #15160f); border-color: #60503a; }
+.advanced-ui .deck-row {
+  display: grid; grid-template-columns: max-content minmax(110px, 1fr) max-content 44px;
+  align-items: center; gap: 8px; padding: 9px 10px;
+}
+.advanced-ui .deck-row .deck-vitals,
+.advanced-ui .deck-row[data-long-period="1"] .deck-vitals {
+  display: grid; grid-template-columns: max-content max-content; align-items: center;
+  grid-column: 1; grid-row: 1; gap: 8px; min-width: max-content; padding: 0;
+}
+.advanced-ui .deck-health {
+  flex: none; min-width: max-content; min-height: 42px; gap: 5px; padding: 6px 8px;
+  border: 1px solid #396c50; background: linear-gradient(180deg, #1b3829, #12271c);
+  box-shadow: inset 0 1px #6f9b6b44; white-space: nowrap;
+}
+.advanced-ui .deck-health[data-critical="1"] { border-color: #b76145; background: linear-gradient(180deg, #49251a, #291710); }
+.advanced-ui .deck-health .deck-num { font-size: 12px; line-height: 1; }
+.advanced-ui .deck-health .deck-cap { font-size: 7px; color: #c4d1b6; }
+.advanced-ui .round-track--compact {
+  display: flex; flex-direction: column; align-items: center; flex: none; width: max-content;
+  min-width: max-content; max-width: none; min-height: 42px; padding: 4px 5px; gap: 3px;
+  border: 1px solid #71634d; background: linear-gradient(180deg, #28251d, #12130e);
+  box-shadow: inset 0 1px #c6a36b22;
+}
+.advanced-ui .round-track__caption {
+  display: block; color: #e4c993; font: 700 7px/1.15 var(--font-mono);
+  letter-spacing: .04em; white-space: nowrap;
+}
+.advanced-ui .round-track--compact .round-track__cell[data-state="current"] {
+  border-color: #ffe1a0; box-shadow: inset 0 0 0 1px #17130d, 0 0 0 1px #c89850;
+}
+.advanced-ui .deck-row .vs-plaque,
+.advanced-ui .deck-row[data-long-period="1"] .vs-plaque {
+  grid-column: 2; grid-row: 1; min-width: 0; min-height: 44px; width: 100%;
+  border-color: #80603a; background: linear-gradient(135deg, #372719, #17150e 65%);
+}
+.advanced-ui .deck-row .deck-resources,
+.advanced-ui .deck-row[data-long-period="1"] .deck-resources {
+  grid-column: 3; grid-row: 1; min-width: max-content; padding: 4px 8px; gap: 9px;
+  border: 1px solid #5f5037; background: #1d1b13; white-space: nowrap;
+}
+.advanced-ui .deck-resources .deck-stat { flex: none; white-space: nowrap; }
+.advanced-ui .deck-row .help-btn { grid-column: 4; grid-row: 1; width: 44px; height: 44px; margin: 0; border-color: #67523a; background: #201d15; }
+.advanced-ui .deck-ladder { padding: 2px 10px 8px; }
+.advanced-ui .ladder-cell { border-color: #55493a; background: #181a13; }
+.advanced-ui .ladder-cell[data-you="1"] { border-color: #69d7a5; background: #1b3326; }
+.advanced-ui .ladder-cell[data-foe="1"] { border-color: #e87a54; background: #342017; }
+.advanced-ui .ladder-hp { font-variant-numeric: tabular-nums; }
+.advanced-ui .battle-stage { background: #0b100b; border-top: 1px solid #4f4532; }
+.advanced-ui .stage-hint { border-color: #6b593d; background: #121a11eF; color: #f3e6cb; }
+.advanced-ui .game-dock { border-color: #60503a; background: #1b1a13; }
+.advanced-ui .prep-dock, .advanced-ui .combat-dock { background: linear-gradient(180deg, #24251a, #151710); }
+.advanced-ui .bench-section, .advanced-ui .shop-section { border-color: #4f4936; }
+.advanced-ui .section-heading > .label, .advanced-ui .shop-heading > div:first-child > .label { color: #eedec1; }
+.advanced-ui .bench-slot { border-color: #5d513c; background: #151810; box-shadow: inset 0 1px #c0ad8120; }
+.advanced-ui .shop-grid > button { border-color: #64533a; background: linear-gradient(180deg, #2a2b1e, #15170f); }
+.advanced-ui .shop-grid > button:disabled { opacity: .5; }
+.advanced-ui .shop-toggle { border-color: #64533a; background: #201f16; color: #dfcfb1; }
+.advanced-ui .action-bar { border-color: #514934; background: #171b12; }
+.advanced-ui .action-bar > button:not(:last-child) { border-color: #79603f; background: #262319; }
+.advanced-ui .action-bar > button:last-child, .advanced-ui .result-next {
+  border-color: #8bf1c5; background: linear-gradient(180deg, #78e3b3, #42b984); color: #081c12;
+  box-shadow: 0 4px #165638;
+}
+.advanced-ui .result-card { border-color: #4d3a25; background-color: #f3e6cb; box-shadow: 0 14px 0 #0008, 0 22px 40px #0009; }
+.advanced-ui .result-health { border-color: #9b9273; background: #e0ead5; }
+.advanced-ui .result-health__track { border-color: #608671; }
+.advanced-ui .result-details { border-top: 1px solid #a99475; }
+.advanced-ui .result-next { margin-top: 10px; }
+
+@container command-deck (max-width: 800px) {
+  .advanced-ui .deck-row {
+    grid-template-columns: minmax(0, 1fr) auto 44px; gap: 6px; padding: 7px 8px;
+  }
+  .advanced-ui .deck-row .deck-vitals,
+  .advanced-ui .deck-row[data-long-period="1"] .deck-vitals { grid-column: 1 / 3; grid-row: 1; }
+  .advanced-ui .deck-row .help-btn { grid-column: 3; grid-row: 1; }
+  .advanced-ui .deck-row .vs-plaque,
+  .advanced-ui .deck-row[data-long-period="1"] .vs-plaque { grid-column: 1; grid-row: 2; min-height: 44px; }
+  .advanced-ui .deck-row .deck-resources,
+  .advanced-ui .deck-row[data-long-period="1"] .deck-resources {
+    grid-column: 2 / 4; grid-row: 2; justify-content: flex-end; min-height: 44px; gap: 7px;
+  }
+  .advanced-ui .deck-health .deck-cap, .advanced-ui .deck-resources .deck-cap { display: none; }
+  .advanced-ui .deck-health { min-height: 42px; padding: 5px 6px; }
+  .advanced-ui .deck-resources { padding-inline: 6px; }
+}
+@container command-deck (max-width: 275px) {
+  .advanced-ui .deck-row .deck-vitals,
+  .advanced-ui .deck-row[data-long-period="1"] .deck-vitals { grid-template-columns: max-content; gap: 5px; }
+  .advanced-ui .deck-health { width: max-content; }
+}
+@media (max-width: 600px) {
+  .advanced-ui .title-header { gap: 6px; }
+  .advanced-ui .title-brand { padding-bottom: 2px; }
+  .advanced-ui .title-header > button { min-height: 42px; }
+  .advanced-ui .hero-copy { padding: 16px; }
+}
+@media (max-width: 380px) {
+  .advanced-ui .hero-actions { grid-template-columns: 1fr; }
+  .advanced-ui .hero-actions > button:first-child { grid-column: auto; }
+  .advanced-ui .deck-resources .deck-stat { gap: 3px; }
+  .advanced-ui .round-track__caption { font-size: 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .advanced-ui .title-layout button, .advanced-ui .commander-layout button { transition: none; }
+}
+
+/* Keep all five shop choices in view in the narrow desktop/landscape dock. */
+.advanced-ui .shop-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; overflow: visible; }
+.advanced-ui .shop-grid > button { padding-inline: 3px; }
+.advanced-ui .shop-card-name { gap: 2px; }
+.advanced-ui .shop-card-name .label { font-size: 7px; letter-spacing: 0; }
+@media (max-width: 380px) {
+  .advanced-ui .shop-grid { gap: 4px; }
+  .advanced-ui .shop-card-name .rank-badge { display: none; }
+  .advanced-ui .shop-card-name .label { font-size: 6px; }
+}
+
+/* On phones the scout panel replaces the ladder in the same reserved grid
+   area instead of sitting on top of its buttons. No board reflow is needed. */
+@media (max-width: 719.98px) {
+  .advanced-ui .deck { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .advanced-ui .deck-row { grid-column: 1; grid-row: 1; }
+  .advanced-ui .deck-ladder { grid-column: 1; grid-row: 2; }
+  .advanced-ui .deck[data-scouting="1"] .deck-ladder { visibility: hidden; }
+  .advanced-ui .scout-panel {
+    grid-column: 1; grid-row: 2; position: absolute; inset: 0;
+    margin: 0 8px 6px; max-height: none; overflow-y: auto;
+  }
+}
+/* Keep the commander confirmation in normal flow: it cannot obscure a card. */
+.advanced-ui .commander-confirm {
+  position: static; inset: auto; z-index: auto; margin-top: 18px;
+  border: 1px solid #60503a; background: #1c2118; padding: 8px;
+}
+.advanced-ui .commander-layout { padding-bottom: 24px; }
+@media (max-width: 719.98px) {
+  .advanced-ui .scout-panel { animation: none; opacity: 1; transform: none; }
+}

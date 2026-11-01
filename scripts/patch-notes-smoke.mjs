@@ -18,7 +18,8 @@ try {
   const entry=version.locator('..').locator('..');
   const text=await entry.innerText();
   assert.match(text,/CURRENT/); assert.match(text,/650 damage/); assert.match(text,/opposing side/); assert.match(text,/reward chest/); assert.match(text,/UI Doctor/);
-  assert.equal(await entry.locator('li').count(),7,'merged entry retains both sets of changes');
+  assert.match(text,/whole interface has a fresh field-lab look/); assert.match(text,/Colony health and the round map now have dedicated space/);
+  assert.equal(await entry.locator('li').count(),9,'merged entry retains the gameplay and UI changes');
   for (const width of [280,320,390]) {
     await page.setViewportSize({width,height:653});
     const layout=await version.evaluate(el=>{

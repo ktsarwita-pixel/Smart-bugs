@@ -44,6 +44,32 @@ export function auditVisuals(scope: ParentNode): VisualAudit {
   const findings: VisualFinding[] = [];
   let checked = 0;
   const add = (kind: VisualKind, severity: VisualFinding["severity"], label: string, detail: string, el: HTMLElement) => findings.push({ kind, severity, label, detail, el });
+  // Vital labels are not buttons, so tap-target audits alone cannot detect
+  // the round timeline covering health (or another piece of the HUD).
+  for (const row of scope.querySelectorAll<HTMLElement>(".advanced-ui .deck-row")) {
+    if (!visible(row)) continue;
+    const parts: Array<readonly [string, HTMLElement | null]> = [
+      ["Colony health", row.querySelector<HTMLElement>(".deck-health")],
+      ["Round map", row.querySelector<HTMLElement>(".round-track--compact")],
+      ["Matchup", row.querySelector<HTMLElement>(".vs-plaque")],
+      ["Resources", row.querySelector<HTMLElement>(".deck-resources")],
+      ["Field guide", row.querySelector<HTMLElement>(".help-btn")],
+    ];
+    const present = parts.filter((part): part is readonly [string, HTMLElement] => !!part[1] && visible(part[1]));
+    checked += present.length;
+    for (let i = 0; i < present.length; i++) {
+      const [name, el] = present[i], a = el.getBoundingClientRect(), boundary = row.getBoundingClientRect();
+      if (a.left < boundary.left - 1 || a.right > boundary.right + 1 || a.top < boundary.top - 1 || a.bottom > boundary.bottom + 1) {
+        add("VISUAL", "high", "HUD element outside its deck", `${name} extends beyond the command deck and may be clipped.`, el);
+      }
+      for (const [otherName, other] of present.slice(i + 1)) {
+        const b = other.getBoundingClientRect();
+        if (a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1) {
+          add("VISUAL", "high", "HUD elements overlap", `${name} overlaps ${otherName}; one may cover the other.`, el);
+        }
+      }
+    }
+  }
   for (const chest of scope.querySelectorAll<HTMLElement>(".treasure-chest-3d")) {
     if (!visible(chest)) continue;
     checked++;

@@ -36,6 +36,20 @@ try {
   assert.doesNotMatch(report, /AUTO-DEPLOY/);
   assert.doesNotMatch(report, /Inspect bench units/);
   assert.doesNotMatch(report, /bench-inspect/);
+  assert.doesNotMatch(report, /HUD elements overlap|HUD element outside its deck/);
+  // Deliberately move the decorative (non-interactive) round map over health.
+  // A button-only audit would miss precisely the reported failure.
+  await page.evaluate(() => {
+    const health = document.querySelector('.deck-health').getBoundingClientRect();
+    const track = document.querySelector('.round-track--compact');
+    const r = track.getBoundingClientRect();
+    track.style.transform = `translateX(${health.left - r.left}px)`;
+  });
+  await page.getByRole('button', { name: 'SCAN SCREEN' }).tap();
+  const overlapped = await page.locator('.ui-doctor__body').innerText();
+  assert.match(overlapped, /HUD elements overlap/);
+  assert.match(overlapped, /Colony health overlaps Round map/);
+  await page.evaluate(() => { document.querySelector('.round-track--compact').style.transform = ''; });
   console.log('PASS reported 384×725 layout and ladder interactions');
   console.log('Remaining scan findings:\n' + report);
   assert.deepEqual(errors, []);

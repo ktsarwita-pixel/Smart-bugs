@@ -253,6 +253,7 @@ function RoundTrack({ period, round, length, label, advanced, compact = false }:
   period: number; round: number; length: number; label: string; advanced: boolean; compact?: boolean;
 }) {
   return <div className={`round-track ${compact ? "round-track--compact" : ""} ${advanced ? "round-track--advanced" : ""}`} role="img" aria-label={label} data-round-count={length}>
+    {advanced && compact && <span className="round-track__caption" aria-hidden="true">{label}</span>}
     <div className="round-track__cells" aria-hidden="true">
       {Array.from({ length }, (_, i) => {
         const special = period === 1 && (i === 0 || i === 3);
@@ -1249,7 +1250,7 @@ export default function App() {
      ════════════════════════════════════════════════════════════ */
   if (phase === "title") {
     return (
-      <div className="cabinet-bg safe-t relative min-h-[100dvh] w-full overflow-x-hidden text-[#EDE2CB]">
+      <div className={`${advancedGame ? "advanced-ui " : ""}cabinet-bg safe-t relative min-h-[100dvh] w-full overflow-x-hidden text-[#EDE2CB]`}>
         <Ambience />
         <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[1080px] flex-col justify-between px-3.5 py-3 sm:px-6 sm:py-5">
           {/* Top Cabinet Bar */}
@@ -1265,6 +1266,7 @@ export default function App() {
             </div>
             <button
               onClick={() => setGuideOpen(true)}
+              aria-label={t("FIELD GUIDE")}
               className="lift flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 border border-[#4A3828] bg-[#18120E] px-3 py-1.5 label text-[8.5px] text-[#EDE2CB] hover:border-[#F0A93B]"
             >
               <IconHelp size={13} className="text-[#F0A93B]" /> <span className="hidden min-[420px]:inline">{t("FIELD GUIDE")}</span>
@@ -1282,7 +1284,7 @@ export default function App() {
           </header>
 
           {new URLSearchParams(window.location.search).has("advenced") && (
-            <div role="status" className="mt-3 border border-[#2a6e52] bg-[#0E241A] px-3 py-2 label text-[8px] leading-relaxed text-[#75e8ba]">
+            <div role="status" className="advanced-banner mt-3 border border-[#2a6e52] bg-[#0E241A] px-3 py-2 label text-[8px] leading-relaxed text-[#75e8ba]">
               {t("ADVANCED TEST BUILD — updates in testing")}
             </div>
           )}
@@ -1291,7 +1293,7 @@ export default function App() {
           <main className="title-layout my-auto grid grid-cols-1 items-center gap-4 py-3 lg:grid-cols-[1.02fr_1.15fr] lg:gap-8 lg:py-6">
             {/* Right on Desktop / Below the fold on Mobile (title+CTA first) */}
             <div className="order-2 lg:order-2">
-              <div className="relative border-2 border-[#3B322A] bg-[#120D09] shadow-[0_12px_36px_rgba(0,0,0,.75)]">
+              <div className="specimen-cabinet relative border-2 border-[#3B322A] bg-[#120D09] shadow-[0_12px_36px_rgba(0,0,0,.75)]">
                 {/* Brass corner rivets */}
                 <span className="pointer-events-none absolute left-1.5 top-1.5 z-20 h-1.5 w-1.5 bg-[#F0A93B]" />
                 <span className="pointer-events-none absolute right-1.5 top-1.5 z-20 h-1.5 w-1.5 bg-[#F0A93B]" />
@@ -1399,7 +1401,7 @@ export default function App() {
             </div>
 
             {/* Left on Desktop / Top on Mobile: Title & Primary Actions */}
-            <div className="order-1 flex flex-col items-start lg:order-1">
+            <div className="hero-copy order-1 flex flex-col items-start lg:order-1">
               <div className="mb-2.5 flex items-center gap-2">
                 <span className="h-[3px] w-10 bg-[#E0522F]" />
                 <span className="label text-[8.5px] text-[#56DCA8]">{t("3D TACTICAL SPECIMEN BATTLER")}</span>
@@ -1432,7 +1434,7 @@ export default function App() {
               </div>
 
               {/* Primary CTA Row */}
-              <div className="safe-b mt-5 flex w-full flex-col gap-2.5 sm:flex-row sm:w-auto">
+              <div className="hero-actions safe-b mt-5 flex w-full flex-col gap-2.5 sm:flex-row sm:w-auto">
                 <button
                   onClick={() => setPhase("cmd")}
                   className="btn-sheen lift flex items-center justify-center gap-3 border-2 border-[#56DCA8] bg-gradient-to-b from-[#2a9c74] to-[#1F7A5A] px-7 py-3.5 font-pixel text-[12px] text-[#04130d] shadow-[0_5px_0_#0D3B2A,0_10px_30px_-10px_rgba(86,220,168,.6)]"
@@ -1478,7 +1480,7 @@ export default function App() {
      ════════════════════════════════════════════════════════════ */
   if (phase === "cmd") {
     return (
-      <div className="cabinet-bg safe-t safe-b relative min-h-[100dvh] w-full overflow-x-hidden">
+      <div className={`${advancedGame ? "advanced-ui " : ""}cabinet-bg safe-t safe-b relative min-h-[100dvh] w-full overflow-x-hidden`}>
         <Ambience />
         <div className="commander-layout relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[780px] flex-col justify-between px-4 py-4 pb-28 sm:px-6 sm:py-7 md:pb-7">
           <div>
@@ -1516,14 +1518,15 @@ export default function App() {
               {GAME_INFO.colonies} {t("colonies enter. One survives. Your general grants a unique passive for the entire match.")}
             </p>
 
-            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="commander-cards mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
               {COMMANDERS.map((c) => {
                 const on = pick === c.id;
                 return (
                   <button
                     key={c.id}
                     onClick={() => setPick(c.id)}
-                    className={`paper-card lift relative flex flex-col justify-between border-2 p-4 text-left ${
+                    aria-pressed={on}
+                    className={`commander-card paper-card lift relative flex flex-col justify-between border-2 p-4 text-left ${
                       on ? "border-[#F0A93B]" : "border-[#3B322A] opacity-85 hover:opacity-100"
                     }`}
                     style={{
@@ -1582,10 +1585,9 @@ export default function App() {
             </div>
           </div>
 
-          {/* Mobile: the CTA pins above the safe area — below the fold it read
-              as a dead button (and hid behind the scroll content). Desktop
-              keeps it in flow at the end of the column. */}
-          <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-[#3B322A] bg-[#16110D]/95 px-4 pb-[max(0.8rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-sm md:hidden">
+          {/* The advanced layout keeps the mobile confirmation in flow, so it
+              never sits over a commander card. Desktop uses the button below. */}
+          <div className="commander-confirm fixed inset-x-0 bottom-0 z-30 border-t-2 border-[#3B322A] bg-[#16110D]/95 px-4 pb-[max(0.8rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-sm md:hidden">
             <button
               onClick={() => {
                 setCmd(pick);
@@ -1625,7 +1627,7 @@ export default function App() {
 
   if (phase === "spectate") {
     return (
-      <div className="cabinet-bg safe-t safe-b relative min-h-[100dvh] w-full overflow-x-hidden">
+      <div className={`${advancedGame ? "advanced-ui " : ""}cabinet-bg safe-t safe-b relative min-h-[100dvh] w-full overflow-x-hidden`}>
         <Ambience />
         <main className="screen relative z-10 mx-auto flex min-h-[100dvh] max-w-[560px] flex-col justify-center px-4 py-6">
           <div className="label text-[9px] text-[#F0A93B]">{tf("Your place is locked: #{place}", { place: playerColony.place ?? "—" })}</div>
@@ -1681,7 +1683,7 @@ export default function App() {
     const place = playerColony.place ?? table.findIndex((t) => t.you) + 1;
 
     return (
-      <div className="cabinet-bg safe-t safe-b relative min-h-[100dvh] w-full overflow-x-hidden">
+      <div className={`${advancedGame ? "advanced-ui " : ""}cabinet-bg safe-t safe-b relative min-h-[100dvh] w-full overflow-x-hidden`}>
         <Ambience />
         <div className="screen relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[540px] flex-col justify-center px-4 py-8">
           <div className="border-2 border-[#4A3828] bg-[#16110D] p-5 shadow-[0_14px_40px_rgba(0,0,0,.85)]">
@@ -1783,7 +1785,7 @@ export default function App() {
   const focusedColony = ladderRows.find((row) => row.key === ladderFocus);
 
   return (
-    <div className="battle-shell cabinet-bg safe-t w-full">
+    <div className={`${advancedGame ? "advanced-ui " : ""}battle-shell cabinet-bg safe-t w-full`}>
       <div className="game-grid mx-auto max-w-[1160px]">
         {/* ── LEFT / TOP STAGE: Header + Standings + 3D Drawer ── */}
         <div className="battle-main flex min-h-0 flex-1 flex-col lg:border lg:border-[#3B322A] lg:bg-[#130E0A]">
@@ -1792,10 +1794,10 @@ export default function App() {
               of boxed chips, and a one-line colony ladder rail. On phones the
               whole deck is ~70px — every pixel the old wrapped chip grid
               wasted now goes to the 3D stage. */}
-          <div className="deck shrink-0">
+          <div className="deck shrink-0" data-scouting={scouting && !inCombat ? "1" : undefined}>
             <div className="deck-row" data-ui-boundary data-long-period={advancedGame && period.length >= 6 ? "1" : undefined}>
-              <div className="deck-cluster">
-                <div className="deck-stat" title={t("Your colony HP — reach zero and you're out")}>
+              <div className="deck-cluster deck-vitals">
+                <div className="deck-stat deck-health" data-critical={hp <= 30 ? "1" : "0"} title={t("Your colony HP — reach zero and you're out")}>
                   <IconHeart size={14} />
                   <span className="deck-num colony-health" style={{ color: hp > 30 ? "#56DCA8" : "#F05A36" }}>{hp}<small>/{STARTING_COLONY_HP}</small></span>
                   <span className="deck-cap">{t("Colony HP")}</span>
@@ -2154,7 +2156,7 @@ export default function App() {
 
           {inCombat && battleSnap ? (
             /* ── BATTLE TELEMETRY DOCK ────────────────────────── */
-            <div className="dock-in flex flex-1 flex-col justify-between p-2.5 sm:p-3">
+            <div className="combat-dock dock-in flex flex-1 flex-col justify-between p-2.5 sm:p-3">
               <div>
                 <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                   <span className="label text-[8px] text-[#56DCA8]">{t("COMBAT TELEMETRY")}</span>
@@ -2550,7 +2552,7 @@ export default function App() {
                             </span>
 
                             <SpecimenIcon id={id} size={44} badge="none" />
-                            <span className="mt-0.5 flex w-full min-w-0 items-center justify-center gap-1">
+                            <span className="shop-card-name mt-0.5 flex w-full min-w-0 items-center justify-center gap-1">
                               <RankBadge id={id} size={12} />
                               <span className="label truncate text-[7px] text-[#EDE2CB]">{BUGS[id].short}</span>
                             </span>

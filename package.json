@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:mobile": "node scripts/mobile-ui-smoke.mjs",
-    "test:doctor": "node scripts/ui-doctor-smoke.mjs && node scripts/ui-doctor-visual-smoke.mjs && node scripts/ui-doctor-settings-smoke.mjs",
+    "test:doctor": "node scripts/ui-doctor-smoke.mjs && node scripts/ui-doctor-visual-smoke.mjs && node scripts/ui-doctor-settings-smoke.mjs && node scripts/ui-doctor-i18n-smoke.mjs",
     "test:background": "node scripts/background-smoke.mjs",
     "test:round-icons": "node scripts/round-icon-smoke.mjs",
     "test:roar": "node scripts/spider-roar-smoke.mjs",
@@ -23,7 +23,8 @@
     "test:resolution": "node scripts/resolution-perf-smoke.mjs",
     "test:damage": "node scripts/damage-shower-smoke.mjs && node scripts/damage-shower-dom.mjs",
     "test:notes": "node scripts/patch-notes-i18n-smoke.mjs",
-    "test:fuzz": "node scripts/battle-fuzz.mjs"
+    "test:fuzz": "node scripts/battle-fuzz.mjs",
+    "test:ladder": "node scripts/ladder-fit-smoke.mjs"
   },
   "dependencies": {
     "clsx": "2.1.1",

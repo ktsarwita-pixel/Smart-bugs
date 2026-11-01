@@ -2191,10 +2191,22 @@ button:not(:disabled).pressable:active,
 .ladder-heading .label { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ladder-hp { white-space: nowrap; font-size: 10px; line-height: 1.2; }
 .ladder-button .bar-shell { height: 5px; margin-top: 4px; }
-.ladder-detail { display: flex; align-items: center; gap: 8px; margin-top: 5px; padding: 5px 8px; border: 1px solid #5a4732; background: #120d09; color: #e7d8bf; font-size: 10px; }
-.ladder-detail strong { color: #f0a93b; }
-.ladder-detail span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.ladder-detail button { display: grid; place-items: center; width: 32px; height: 32px; flex: none; color: #e7d8bf; }
+/* Tapping a colony swaps the rail for its detail panel, not for a differently
+   sized box: the rail keeps owning the geometry (it stays laid out underneath)
+   and the panel is pinned to that exact rectangle — same width, same height,
+   same edges, inside the deck border at every viewport. */
+.ladder-rail { position: relative; }
+.ladder-detail {
+  position: absolute; inset: 0; z-index: 20;
+  box-sizing: border-box; margin: 0; padding: 0 2px 0 8px;
+  display: flex; align-items: center; gap: 6px;
+  border: 1px solid #6b543a; background: #120d09; color: #e7d8bf;
+  font-size: 10px; line-height: 1.2; overflow: hidden;
+  box-shadow: inset 0 0 0 1px #0006;
+}
+.ladder-detail strong { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f0a93b; font-size: 10px; }
+.ladder-detail span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ladder-detail button { display: grid; place-items: center; flex: 0 0 40px; width: 40px; align-self: stretch; min-height: 0; margin: 0; color: #e7d8bf; }
 @media (max-width: 900px) {
   .ladder-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .ladder-button { min-height: 38px; }
@@ -2243,7 +2255,6 @@ html[data-motion="reduced"] .result-health__track > span { transition: none; }
 /* Keep controls steady as labels and contextual panels change. */
 .shop-heading .shop-lock { box-sizing: border-box; width: 80px; min-width: 80px; max-width: 80px; flex: 0 0 80px; }
 .deck-ladder { position: relative; }
-.ladder-detail { position: absolute; z-index: 20; left: 8px; right: 8px; bottom: 5px; margin: 0; box-shadow: 0 5px 16px #000b; }
 @media (max-width: 719.98px) {
   .shop-heading > div:last-child > .shop-lock { width: 66px; min-width: 66px; max-width: 66px; flex: 0 0 66px; }
   .deck { position: relative; }
@@ -2295,9 +2306,6 @@ html[data-motion="reduced"] .result-health__track > span { transition: none; }
   .ladder-button { min-height: 40px; }
   .shop-heading > div:last-child > button:last-child { width: 40px; min-width: 40px; height: 40px; }
 }
-.ladder-strip--detail { visibility: hidden; }
-.ladder-detail { min-height: 48px; }
-.ladder-detail button { width: 40px; height: 40px; }
 @media (max-width: 1023.98px) {
   .battle-stage .selected-actions {
     position: absolute; z-index: 25; top: 4px; left: 4px; right: 4px;
@@ -2313,8 +2321,6 @@ html[data-motion="reduced"] .result-health__track > span { transition: none; }
 @media (max-width: 480px) {
   .battle-stage .selected-actions > div:nth-child(2) > div:nth-child(3) { display: none; }
 }
-
-.ladder-detail { top: 18px; bottom: 5px; }
 @media (max-width: 719.98px) { .bench-section .section-heading button { min-height: 40px; } }
 
 /* Background palette only: dark controls retain contrast in both modes. */

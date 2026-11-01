@@ -60,7 +60,16 @@ plain, JSON-safe data that survives the 4 Hz HUD snapshot.
 npm run test:damage   # engine ledger + bilingual panel rendering (no browser needed)
 npm run test:notes    # every patch note renders in Indonesian (no browser needed)
 npm run test:fuzz     # 400 random battles: the ledger must match the HP they removed
+npm run test:ladder   # colony detail panel must take the ladder rail's exact box
+npm run test:doctor   # UI Doctor chrome + findings render in the selected language
 ```
+
+The UI Doctor speaks the interface language: its panel chrome, status messages, every
+finding label and every finding sentence go through the same translator as the rest of
+the game (`npm run test:doctor` fails if any English line would leak in Bahasa
+Indonesia). Tapping a colony in the ladder reuses the rail's own box — same width, same
+height, same edges — instead of a separately sized overlay that could cross the deck
+border.
 
 ## 📦 Import formats in this package (flexible)
 

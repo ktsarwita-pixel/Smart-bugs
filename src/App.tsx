@@ -1947,54 +1947,60 @@ export default function App() {
                 <span className="label text-[6px] text-[#8C7E6E]">{t("Colony ladder")}</span>
                 <span className="label text-[6px] text-[#8C7E6E]">{t("1 survivor wins")}</span>
               </div>
-              <div className={`ladder-strip ${focusedColony ? "ladder-strip--detail" : ""}`} role="list" aria-label={t("Colony ladder")}>
-                {ladderRows.map((s, i) => (
-                  <div
-                    key={s.key}
-                    role="listitem"
-                    className="ladder-cell"
-                    data-you={s.you ? 1 : 0}
-                    data-foe={s.isFoe && s.alive ? 1 : 0}
-                    data-alive={s.alive ? 1 : 0}
-                    title={s.alive ? tf("{name}: {hp} HP", { name: t(s.name), hp: s.hp }) : tf("{name}: eliminated, place #{n}", { name: t(s.name), n: s.place ?? "—" })}
-                  >
-                    <button type="button" className="ladder-button" aria-expanded={ladderFocus === s.key}
-                      aria-label={s.alive ? tf("{name}: {hp} HP", { name: t(s.name), hp: s.hp }) : tf("{name}: eliminated, place #{n}", { name: t(s.name), n: s.place ?? "—" })}
-                      onClick={() => setLadderFocus((current) => current === s.key ? null : s.key)}>
-                    <div className="ladder-heading">
-                      <span className="ladder-rank">{i + 1}</span>
-                      {s.isFoe && s.alive && (
-                        <span className="clash-seal grid h-[11px] w-[11px] shrink-0 place-items-center rounded-full" aria-hidden="true">
-                          <IconClash size={8} className="text-[#FFE2D6]" />
+              {/* The rail is the tape measure for the detail panel: it stays in
+                  the flow (it owns the box) and the panel is pinned to it, so a
+                  tap can never resize the ladder or spill past the deck. */}
+              <div className="ladder-rail">
+                <div className="ladder-strip" role="list" aria-label={t("Colony ladder")}>
+                  {ladderRows.map((s, i) => (
+                    <div
+                      key={s.key}
+                      role="listitem"
+                      className="ladder-cell"
+                      data-you={s.you ? 1 : 0}
+                      data-foe={s.isFoe && s.alive ? 1 : 0}
+                      data-alive={s.alive ? 1 : 0}
+                      title={s.alive ? tf("{name}: {hp} HP", { name: t(s.name), hp: s.hp }) : tf("{name}: eliminated, place #{n}", { name: t(s.name), n: s.place ?? "—" })}
+                    >
+                      <button type="button" className="ladder-button" aria-expanded={ladderFocus === s.key}
+                        tabIndex={focusedColony ? -1 : undefined}
+                        aria-label={s.alive ? tf("{name}: {hp} HP", { name: t(s.name), hp: s.hp }) : tf("{name}: eliminated, place #{n}", { name: t(s.name), n: s.place ?? "—" })}
+                        onClick={() => setLadderFocus((current) => current === s.key ? null : s.key)}>
+                      <div className="ladder-heading">
+                        <span className="ladder-rank">{i + 1}</span>
+                        {s.isFoe && s.alive && (
+                          <span className="clash-seal grid h-[11px] w-[11px] shrink-0 place-items-center rounded-full" aria-hidden="true">
+                            <IconClash size={8} className="text-[#FFE2D6]" />
+                          </span>
+                        )}
+                        <span className="label min-w-0 flex-1 truncate text-[6.5px]" style={{ color: s.you ? "#F0A93B" : "#EDE2CB" }}>{t(s.name)}</span>
+                        <span
+                          className="ladder-hp font-mono text-[8.5px] font-bold tabular-nums"
+                          style={{ color: s.alive ? (s.you ? "#56DCA8" : "#EDE2CB") : "#6B5F52" }}
+                        >
+                          {s.alive ? s.hp : `#${s.place}`}
                         </span>
-                      )}
-                      <span className="label min-w-0 flex-1 truncate text-[6.5px]" style={{ color: s.you ? "#F0A93B" : "#EDE2CB" }}>{t(s.name)}</span>
-                      <span
-                        className="ladder-hp font-mono text-[8.5px] font-bold tabular-nums"
-                        style={{ color: s.alive ? (s.you ? "#56DCA8" : "#EDE2CB") : "#6B5F52" }}
-                      >
-                        {s.alive ? s.hp : `#${s.place}`}
-                      </span>
+                      </div>
+                      <div className="bar-shell mt-0.5 h-[3px]">
+                        <i
+                          style={{
+                            width: `${Math.max(0, Math.min(100, s.hp / STARTING_COLONY_HP * 100))}%`,
+                            background: s.you ? "#56DCA8" : s.isFoe ? "#F05A36" : "#7B6E5F",
+                          }}
+                        />
+                      </div>
+                      </button>
                     </div>
-                    <div className="bar-shell mt-0.5 h-[3px]">
-                      <i
-                        style={{
-                          width: `${Math.max(0, Math.min(100, s.hp / STARTING_COLONY_HP * 100))}%`,
-                          background: s.you ? "#56DCA8" : s.isFoe ? "#F05A36" : "#7B6E5F",
-                        }}
-                      />
-                    </div>
-                    </button>
-                  </div>
-                ))}
-              </div>
-              {focusedColony && (
-                <div className="ladder-detail" role="status">
-                  <strong>{t(focusedColony.name)}</strong>
-                  <span>{focusedColony.alive ? tf("{hp} HP", { hp: focusedColony.hp }) : tf("Eliminated · place #{n}", { n: focusedColony.place ?? "—" })}</span>
-                  <button type="button" onClick={() => setLadderFocus(null)} aria-label={t("CLOSE")}><IconClose size={11} /></button>
+                  ))}
                 </div>
-              )}
+                {focusedColony && (
+                  <div className="ladder-detail" role="status">
+                    <strong>{t(focusedColony.name)}</strong>
+                    <span>{focusedColony.alive ? tf("{hp} HP", { hp: focusedColony.hp }) : tf("Eliminated · place #{n}", { n: focusedColony.place ?? "—" })}</span>
+                    <button type="button" onClick={() => setLadderFocus(null)} aria-label={t("CLOSE")}><IconClose size={11} /></button>
+                  </div>
+                )}
+              </div>
               {elsewhere.length > 0 && (
                 <div className="ladder-elsewhere mt-0.5 flex items-center gap-x-2 overflow-hidden whitespace-nowrap">
                   <span className="label shrink-0 text-[5.5px] text-[#6E6252]">{t("ELSEWHERE THIS ROUND")}</span>

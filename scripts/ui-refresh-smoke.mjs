@@ -39,6 +39,7 @@ const checkDeck = async (width, height, count) => {
     const data = {
       parts, deck: rect(row), caption: rect(track.querySelector('.round-track__caption')),
       healthText: rect(row.querySelector('.colony-health')), shop: [...grid.children].map(rect), shopGrid: rect(grid),
+      shopArt: [...grid.querySelectorAll('.spec-icon__plate')].map(plate => ({plate: rect(plate), art: rect(plate.querySelector('svg'))})),
       viewportWidth: document.documentElement.scrollWidth,
       iconWidths: [...cells.children].map(cell => cell.querySelector('svg').getBoundingClientRect().width),
     };
@@ -64,6 +65,10 @@ const checkDeck = async (width, height, count) => {
   assert.ok(result.iconWidths.every(size => size >= 14), `${width}/${count}: round artwork too small`);
   assert.equal(result.shop.length, 5);
   assert.ok(result.shop.every(card => inside(card, result.shopGrid)), `${width}/${count}: shop card clipped`);
+  for (const {plate, art} of result.shopArt) {
+    assert.ok(inside(art, plate), `${width}/${count}: shop art clipped by its plate: ${JSON.stringify({plate,art})}`);
+    assert.ok(Math.abs(art.left + art.right - plate.left - plate.right) <= 2 && Math.abs(art.top + art.bottom - plate.top - plate.bottom) <= 2, `${width}/${count}: shop art off-center`);
+  }
   for (let i = 1; i < result.shop.length; i++) assert.ok(!overlaps(result.shop[i - 1], result.shop[i]), `${width}/${count}: shop cards overlap`);
   assert.ok(result.viewportWidth <= width, `${width}/${count}: horizontal page overflow`);
 };
@@ -103,6 +108,11 @@ const checkCommander = async (width, height, expectedPerk) => {
     const description = current.querySelector('p');
     return {
       cards: [...document.querySelectorAll('.commander-card')].map(rect),
+      portraits: [...document.querySelectorAll('.commander-card')].map(card => {
+        const plate=card.querySelector('.spec-icon__plate'), svg=plate.querySelector('svg');
+        const painted=svg.getBBox();
+        return {card:rect(card), seal:rect(card.querySelector('.spec-icon')), plate:rect(plate), art:rect(svg), painted:{width:painted.width,height:painted.height}};
+      }),
       header: [...document.querySelectorAll('.commander-header > button')].map(rect),
       current: shown(current) ? rect(current) : null,
       summary: rect(document.querySelector('.rival-preview summary')), confirm: rect(confirm),
@@ -114,6 +124,13 @@ const checkCommander = async (width, height, expectedPerk) => {
   assert.ok(layout.height <= height + 1, `${width}x${height}: compact selection unexpectedly needs scrolling: ${JSON.stringify(layout)}`);
   assert.ok(layout.confirm.bottom <= height, `${width}x${height}: start button below viewport`);
   assert.ok(layout.cards.every(c => c.left >= 0 && c.right <= width && c.width >= 44 && c.height >= 44), `${width}: commander portraits must fit and be tappable`);
+  for (const {card,seal,plate,art,painted} of layout.portraits) {
+    const centerDiff = (a,b) => [Math.abs(a.left+a.right-b.left-b.right), Math.abs(a.top+a.bottom-b.top-b.bottom)];
+    assert.ok(centerDiff(art,plate).every(delta => delta <= 2), `${width}x${height}: actual commander SVG is off-center: ${JSON.stringify({card,seal,plate,art})}`);
+    assert.ok(art.left >= plate.left-1 && art.right <= plate.right+1 && art.top >= plate.top-1 && art.bottom <= plate.bottom+1, `${width}x${height}: commander artwork clipped by plate`);
+    assert.ok(painted.width > 0 && painted.height > 0, 'commander portrait must contain actual painted artwork');
+    if (width < 768 || (width < 1024 && height <= 540)) assert.ok(Math.abs(seal.left+seal.right-card.left-card.right) <= 2, `${width}: compact seal is not centered in its card`);
+  }
   assert.ok(layout.header.every(c => c.width >= 40 && c.height >= 40), `${width}: utility controls must remain tappable`);
   const areas = [...layout.cards, layout.summary, layout.confirm, ...(layout.current ? [layout.current] : [])];
   for (let i = 0; i < areas.length; i++) for (const other of areas.slice(i + 1)) {
@@ -143,7 +160,7 @@ try {
   await page.getByRole('button', { name: 'PLAY MATCH' }).tap();
   const commanders = page.locator('.commander-card');
   assert.equal(await commanders.count(), 3);
-  const commanderSizes = [[280,653],[320,568],[360,740],[390,844],[480,320],[568,320],[640,360],[812,375],[768,1024],[1280,800]];
+  const commanderSizes = [[280,653],[320,568],[360,740],[384,725],[390,844],[480,320],[568,320],[640,360],[812,375],[768,1024],[1280,800]];
   const perks = ['Brood Hymn', 'Night Signal', 'Dig Hole'];
   for (const [width, height] of commanderSizes) {
     await page.setViewportSize({ width, height });
@@ -180,6 +197,12 @@ try {
   }
 
   await page.setViewportSize({ width: 390, height: 844 });
+  // A resize can return before media-query and WebGL layout have settled,
+  // especially after the desktop cases on a loaded runner.
+  await page.waitForFunction(() => {
+    const r=document.querySelector('.battle-stage')?.getBoundingClientRect();
+    return innerWidth===390 && r && r.width>=370 && r.width<=390 && r.height>=180;
+  }, null, {timeout:10000,polling:100});
   const vs = page.locator('button.vs-plaque');
   const boardBeforeScout = await page.locator('.battle-stage').boundingBox();
   await vs.tap(); assert.equal(await vs.getAttribute('aria-pressed'), 'true');
@@ -229,14 +252,27 @@ try {
   await page.reload();
   await page.getByRole('button', { name: 'MAINKAN' }).tap();
   const indonesianPerks = ['Himne Keturunan', 'Sinyal Malam', 'Gali Lubang'];
-  for (const [width, height] of [[280,653],[320,568],[390,844],[480,320],[568,320],[812,375]]) {
+  for (const [width, height] of [[280,653],[320,568],[384,725],[390,844],[480,320],[568,320],[812,375]]) {
     await page.setViewportSize({ width, height });
     for (let i = 0; i < 3; i++) {
       await page.locator('.commander-card').nth(i).tap();
       await checkCommander(width, height, indonesianPerks[i]);
     }
   }
+  await page.setViewportSize({ width: 384, height: 725 });
   await page.getByRole('button', { name: 'MULAI RONDE 1' }).first().tap();
+  const localizedFit = async state => {
+    const m=await page.evaluate(()=>{
+      const rect=el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height}};
+      return {scroll:document.documentElement.scrollHeight,stage:rect(document.querySelector('.battle-stage')),dock:rect(document.querySelector('.game-dock')),actions:[...document.querySelectorAll('.action-bar button')].map(rect)};
+    });
+    assert.ok(m.scroll<=725 && m.stage.height>=180 && m.stage.bottom<=m.dock.top+1 && m.actions.every(a=>a.top>=0&&a.bottom<=725), `Indonesian ${state} must fit without overlapping: ${JSON.stringify(m)}`);
+  };
+  await localizedFit('empty');
+  await page.locator('.shop-grid button:not([disabled])').first().tap();
+  await localizedFit('selected');
+  await page.locator('.selected-actions > div:last-child > button').first().tap();
+  await localizedFit('deployed');
   for (const [width, height] of [[280,653],[320,568],[390,844],[812,375],[1280,800]]) await checkDeck(width, height, 7);
   assert.match(await page.locator('.round-track__caption').innerText(), /PERIODE 1 · RONDE 1\/4/);
 

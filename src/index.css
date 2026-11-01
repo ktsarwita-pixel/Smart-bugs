@@ -84,6 +84,16 @@
     inset 0 -2px 4px rgba(0, 0, 0, 0.85),
     inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
 }
+/* Portrait sizes can be reduced by the responsive layout after React has
+   supplied an intrinsic SVG size. Size the art from the actual seal instead,
+   including its 2px padding, so it remains centered and never overflows. */
+.advanced-ui .spec-icon__plate > svg {
+  display: block;
+  width: calc(76% + 3.04px);
+  height: calc(76% + 3.04px);
+  max-width: 100%;
+  max-height: 100%;
+}
 .spec-icon__sheen {
   position: absolute;
   top: -30%;
@@ -1885,6 +1895,16 @@ button:not(:disabled).pressable:active,
   .battle-stage { flex: 1 0 auto; }
 }
 
+/* On portrait phones, share the available height with the board rather than
+   adding its preferred height on top of the dock. Keep the full dock and a
+   usable 180px board as minimums: genuinely short screens still scroll. */
+@media (max-width: 719.98px) and (min-height: 541px) {
+  .advanced-ui .game-grid { height: 100dvh; min-height: 100dvh; }
+  .advanced-ui .battle-main { flex: 1 1 0; min-height: min-content; }
+  .advanced-ui .battle-stage { height: auto; flex: 1 1 0; min-height: 180px; }
+  .advanced-ui .game-dock { flex: 0 0 auto; }
+}
+
 /* Standings: never compress eight health numbers into phone-width columns. */
 .ladder-strip { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; overflow: visible; }
 .ladder-cell { min-width: 0; padding: 0; overflow: hidden; }
@@ -2049,6 +2069,7 @@ html[data-background="light"] .shop-heading .shop-toggle[aria-pressed="true"] { 
    Its controls never overlap bench slots or change the board's dimensions. */
 .bench-section .section-heading { min-height: 40px; flex-wrap: nowrap; }
 .bench-heading-actions { display: flex; align-items: center; justify-content: flex-end; min-width: 0; gap: 4px; }
+.bench-empty-hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #b8ae91; font-size: 7px; }
 .bench-inspect-mode { flex: none; min-width: 40px; min-height: 40px; padding: 0 5px; border: 1px solid #5b4b36; background: #17110c; color: #dcc9a7; font-size: 7px; }
 .bench-inspect-mode[aria-pressed="true"] { border-color: #f0a93b; background: #33271b; color: #ffdc8b; }
 @media (max-width: 380px) { .bench-heading-actions button { font-size: 6px; letter-spacing: .04em; } }
@@ -2301,41 +2322,30 @@ html, body, #root { max-width: 100%; overflow-x: clip; }
   .round-track--advanced[data-round-count="7"] .round-track__icon { width:14px; height:14px; }
 }
 
-/* A screen-space, unit-anchored pressure cue complements the physical 3D
-   rings. Everything is driven by the battle clock; there are no independent
-   CSS loops to get out of step at 2×/3× speed. */
+/* One faint, clock-driven ring and a compact legible label mark the roar
+   without covering the Spider or the surrounding battlefield. */
 .roar-cue {
   --roar-line: #ff9f46;
   --roar-hot: #ffecb7;
   position:absolute; left:0; top:0;
-  width:clamp(60px, 18vw, 92px); aspect-ratio:1;
+  width:clamp(44px, 14vw, 72px); aspect-ratio:1;
   pointer-events:none; will-change:transform;
 }
 .roar-cue[hidden] { display:none; }
 .roar-cue[data-roar-side="foe"] { --roar-line:#ff655a; --roar-hot:#ffd1bd; }
-.roar-cue__halo {
-  position:absolute; inset:18%; border-radius:50%;
-  background:radial-gradient(circle, transparent 20%, rgba(255,103,44,.12) 52%, transparent 72%);
-}
-.roar-cue__wave, .roar-cue__rays { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
-.roar-cue__wave { transform-origin:50% 50%; will-change:transform,opacity; }
-.roar-cue__wave-shadow { fill:none; stroke:#401411; stroke-width:6; stroke-linejoin:round; }
-.roar-cue__wave-line { fill:none; stroke:var(--roar-line); stroke-width:2.6; stroke-linejoin:round; }
-.roar-cue__rays { fill:none; stroke:var(--roar-hot); stroke-width:2.2; stroke-linecap:square; stroke-linejoin:miter; filter:drop-shadow(1px 1px 0 #5a170e); }
+.roar-cue__wave { position:absolute; inset:0; width:100%; height:100%; overflow:visible; transform-origin:50% 50%; will-change:transform,opacity; }
+.roar-cue__wave-line { fill:none; stroke:var(--roar-line); stroke-width:2.2; }
 .roar-cue__badge {
   position:absolute; left:50%; top:calc(18% - 18px + var(--roar-label-lift, 0px)); transform:translate(calc(-50% + var(--roar-label-shift, 0px)),-100%);
   min-width:40px; padding:3px 4px 2px; border:1px solid var(--roar-line);
-  background:#40150f; color:var(--roar-hot); text-align:center; white-space:nowrap;
-  box-shadow:0 1px 0 #1c0907, 0 0 7px rgba(255,93,42,.32);
+  background:rgba(55,20,15,.78); color:var(--roar-hot); text-align:center; white-space:nowrap;
+  box-shadow:0 1px 0 #1c0907;
   font:700 8px/1 var(--font-mono, monospace); letter-spacing:.08em; text-shadow:1px 1px #1b0805;
 }
 .roar-cue__badge i { display:block; height:2px; margin-top:2px; background:#250b08; overflow:hidden; }
 .roar-cue__badge b { display:block; width:100%; height:100%; background:var(--roar-hot); transform-origin:left; }
-.roar-cue[data-roar-cue="impact"] .roar-cue__badge { background:#7a2618; color:#fff6d8; border-color:#ffe0a0; }
+.roar-cue[data-roar-cue="impact"] .roar-cue__badge { background:rgba(112,37,24,.84); color:#fff6d8; border-color:#ffe0a0; }
 .roar-cue[data-roar-cue="impact"] .roar-cue__badge i { display:none; }
-.roar-cue[data-roar-cue="impact"] .roar-cue__halo {
-  background:radial-gradient(circle, rgba(255,213,132,.26), rgba(255,102,40,.2) 42%, transparent 72%);
-}
 /* The anchored badge replaces the small floating ROAR text in this build. */
 .ov-pop--roar { visibility:hidden; }
 

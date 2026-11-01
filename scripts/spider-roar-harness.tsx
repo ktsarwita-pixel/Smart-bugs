@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { Scene3D } from "../src/components/Scene3D";
 import { UiDoctor } from "../src/components/UiDoctor";
 import { createBattle, stepBattle, type BattleState, type PrepUnit } from "../src/game/engine";
+import { type CmdId } from "../src/game/data";
 import { SettingsProvider } from "../src/i18n";
 import "../src/index.css";
 
@@ -12,6 +13,8 @@ const params = new URLSearchParams(location.search);
 // Match the shortest real landscape battle stage from the first render.
 if (params.has("short")) document.getElementById("root")!.style.height = "180px";
 const edge = params.has("edge");
+const commander = (value: string | null): CmdId => value === "lampyris" || value === "worm" ? value : "matriarch";
+const cmdA = commander(params.get("cmdA")), cmdB = commander(params.get("cmdB"));
 const prep = [unit(1, "spider", 3, edge ? 0 : 4), unit(2, "stag", 3, 1)];
 const foes = [unit(3, "spider", 3, edge ? 6 : 4), unit(4, "stag", 3, 1)];
 const battle = createBattle(prep, foes, "matriarch", "matriarch");
@@ -31,6 +34,6 @@ Object.assign(window, {
 function Fixture() {
   const [mode, setMode] = useState<"prep" | "battle">(params.has("prep") ? "prep" : "battle");
   Object.assign((window as unknown as { roarHarness: object }).roarHarness, { start: () => setMode("battle") });
-  return <><Scene3D mode={mode} prep={prep} battle={battle} battleRef={battleRef} advancedEffects={!params.has("legacy")} className="h-full w-full" />{params.has("doctor") && <UiDoctor />}</>;
+  return <><Scene3D mode={mode} prep={prep} battle={battle} battleRef={battleRef} cmdA={cmdA} cmdB={cmdB} advancedEffects={!params.has("legacy")} className="h-full w-full" />{params.has("doctor") && <UiDoctor />}</>;
 }
 createRoot(document.getElementById("root")!).render(<SettingsProvider><Fixture /></SettingsProvider>);

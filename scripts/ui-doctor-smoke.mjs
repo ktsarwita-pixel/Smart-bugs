@@ -18,6 +18,7 @@ try {
       <div data-ui-boundary aria-label="Overflow panel fixture" style="position:fixed;z-index:200;top:380px;left:8px;width:60px;height:40px;overflow:hidden"><div style="width:150px;height:30px">Long content</div></div>
       <div aria-label="Offscreen border fixture" style="position:fixed;z-index:200;top:430px;left:-2px;width:70px;height:36px;border:3px solid red">Border</div>
       <button style="position:fixed;z-index:200;top:480px;left:-65px;width:80px;height:48px">Edge fixture</button>
+      <button id="doc-partial" style="position:fixed;z-index:200;top:calc(100vh - 12px);left:120px;width:48px;height:48px">Partly below fixture</button>
       <button id="doc-below" style="position:absolute;top:1400px;left:10px;width:48px;height:48px">Below fixture</button>`;
     fixture.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {window.__doctorClicks=(window.__doctorClicks||0)+1;}));
     document.body.append(fixture);
@@ -30,6 +31,7 @@ try {
   assert.match(await list.innerText(), /INTERACTION[\s\S]*No pointer fixture/);
   assert.match(await list.innerText(), /SCROLL[\s\S]*Scrollable fixture[\s\S]*horizontal 100px[\s\S]*vertical 115px/);
   assert.match(await list.innerText(), /Page requires vertical scrolling/);
+  assert.match(await list.innerText(), /[1-9]\d* enabled controls fully below and [1-9]\d* partly below the viewport/, 'report partly clipped controls as well as wholly below ones');
   assert.match(await list.innerText(), /CLIPPED[\s\S]*Clipped fixture/);
   assert.match(await list.innerText(), /OVERFLOW[\s\S]*Overflow panel fixture/);
   assert.match(await list.innerText(), /BORDER[\s\S]*Offscreen border fixture/);

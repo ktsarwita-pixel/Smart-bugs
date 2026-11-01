@@ -2096,7 +2096,7 @@ export default function App() {
             )}
 
             {/* Subtle Onboarding Prompt when Drawer is Empty */}
-            {phase === "prep" && boardUnits.length === 0 && !sel && (
+            {!advancedGame && phase === "prep" && boardUnits.length === 0 && !sel && (
               <div className="stage-hint pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 border border-[#3B322A] bg-[#120D09]/92 px-2.5 py-1 label text-[7.5px] text-[#EDE2CB]">
                 {(cmd ?? "matriarch") === "worm"
                   ? t("THE WORM DIGS A HOLE BENEATH THE STRONGEST FOE — STEPPING IN STUNS & EXPOSES")
@@ -2419,6 +2419,9 @@ export default function App() {
                     {t("BENCH")} ({benchUnits.length}/{BENCH_SIZE})
                   </span>
                   <div className="bench-heading-actions">
+              {advancedGame && boardUnits.length === 0 && benchUnits.length === 0 && pendingRewards.length === 0 && (
+                <span className="bench-empty-hint label" title={t("RECRUIT SPECIMENS FROM PIPKIN SUPPLY BELOW")}>{t("RECRUIT FROM SUPPLY ↓")}</span>
+              )}
               {pendingRewards.length > 0 && <div className="treasure-queue" role="region" aria-label={t("Treasure rewards")}>
                 <button type="button" onClick={() => {
                   const id = pendingRewards[0];

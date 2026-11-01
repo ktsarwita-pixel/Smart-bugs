@@ -16,7 +16,8 @@
     "test:patch-notes": "node scripts/patch-notes-smoke.mjs",
     "test:treasure-art": "node scripts/treasure-art-smoke.mjs",
     "test:chest": "node scripts/chest-mesh-smoke.mjs && node scripts/chest-model-smoke.mjs && node scripts/chest-3d-visual-smoke.mjs",
-    "test:ui-refresh": "node scripts/ui-refresh-smoke.mjs"
+    "test:ui-refresh": "node scripts/ui-refresh-smoke.mjs",
+    "test:commander-framing": "node scripts/commander-framing-smoke.mjs"
   },
   "dependencies": {
     "clsx": "2.1.1",

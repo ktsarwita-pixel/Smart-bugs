@@ -70,6 +70,20 @@ export function auditVisuals(scope: ParentNode): VisualAudit {
       }
     }
   }
+  // A responsive seal can be centered while its intrinsically sized SVG is
+  // offset and clipped inside the plate. Measure the actual artwork box too.
+  for (const icon of scope.querySelectorAll<SVGSVGElement>(".advanced-ui .spec-icon__plate > svg")) {
+    const plate = icon.parentElement;
+    if (!plate || !visible(icon) || !visible(plate)) continue;
+    checked++;
+    const a = icon.getBoundingClientRect(), b = plate.getBoundingClientRect();
+    const dx = Math.abs((a.left + a.right - b.left - b.right) / 2);
+    const dy = Math.abs((a.top + a.bottom - b.top - b.bottom) / 2);
+    const outside = a.left < b.left - 1 || a.right > b.right + 1 || a.top < b.top - 1 || a.bottom > b.bottom + 1;
+    if (dx > 1 || dy > 1 || outside) {
+      add("VISUAL", "warning", "Specimen portrait misaligned", `The artwork is ${dx.toFixed(1)}px horizontally and ${dy.toFixed(1)}px vertically off-center${outside ? " and extends beyond its plate" : ""}.`, plate);
+    }
+  }
   for (const chest of scope.querySelectorAll<HTMLElement>(".treasure-chest-3d")) {
     if (!visible(chest)) continue;
     checked++;
@@ -168,6 +182,20 @@ export function auditVisuals(scope: ParentNode): VisualAudit {
         add("VISUAL", "warning", "Spider roar label clipped", "The Battle Roar label extends beyond the battlefield's visible edge.", badge);
       }
     }
+  }
+  for (const canvas of scope.querySelectorAll<HTMLCanvasElement>("canvas[data-commander-bounds]")) {
+    if (!visible(canvas)) continue;
+    try {
+      const bounds: Record<string, unknown> = JSON.parse(canvas.dataset.commanderBounds || "{}");
+      for (const [side, value] of Object.entries(bounds)) {
+        if (!Array.isArray(value) || value.length !== 4 || value.some(v => typeof v !== "number" || !Number.isFinite(v))) continue;
+        checked++;
+        const [left, top, right, bottom] = value as number[];
+        if (left < -.01 || top < -.01 || right > 1.01 || bottom > 1.01) {
+          add("VISUAL", "warning", "Commander model clipped", `The ${side} commander's projected 3D artwork extends beyond the battlefield edge.`, canvas);
+        }
+      }
+    } catch { /* Missing or stale diagnostic data is not a clipping finding. */ }
   }
   for (const canvas of scope.querySelectorAll<HTMLCanvasElement>("canvas[data-chest-facing-error]")) {
     if (!visible(canvas)) continue;

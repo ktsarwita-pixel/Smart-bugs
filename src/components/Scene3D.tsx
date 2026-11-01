@@ -235,7 +235,10 @@ export function Scene3D({
     scene.fog = new THREE.FogExp2(0x0b0806, showcase ? 0.032 : 0.022);
     const camera = new THREE.PerspectiveCamera(showcase ? 34 : 35, 1, 0.1, 80);
 
-    const target = new THREE.Vector3(showcase ? 0 : 3.5, showcase ? 0.24 : 0.08, showcase ? 0.15 : 3.05);
+    // The advanced board includes commander plinths beyond both short ends.
+    // Aim slightly toward the near plinth so the player's totem is not cut
+    // off at the bottom of a compact stage.
+    const target = new THREE.Vector3(showcase ? 0 : 3.5, showcase ? 0.24 : 0.08, showcase ? 0.15 : advancedEffects ? 3.5 : 3.05);
 
     let W = hostEl.clientWidth || 360;
     let H = hostEl.clientHeight || 320;
@@ -2015,7 +2018,7 @@ export function Scene3D({
 
     /* ── Camera Framing ── */
     const fitW = showcase ? 4.8 : 7.85;
-    const fitH = showcase ? 2.55 : 7.35;
+    const fitH = showcase ? 2.55 : advancedEffects ? 8.5 : 7.35;
     const elev = showcase ? 0.36 : 0.84;
     let camDist = 11;
     // Fit distance for the current viewport. Entering a battle swaps the dock
@@ -2069,6 +2072,9 @@ export function Scene3D({
     ro.observe(hostEl);
 
     /* ── Commander Totems ── */
+    const totemAuditBox = new THREE.Box3();
+    const totemAuditPoint = new THREE.Vector3();
+    let totemAuditClock = 0;
     // Per-commander pedestal tune: the holder baseline (y=0.44) was set for
     // the tall insect commanders; the worm grub is half their height AND its
     // sculpt rests ~0.056 above its own origin, so on the shared holder its
@@ -2123,8 +2129,8 @@ export function Scene3D({
     }[] = [];
     const sharedRingGeo = track(new THREE.RingGeometry(0.2, 0.3, 22));
 
-    // Broad, pooled ground-pressure fronts for the opt-in roar. Unlike the
-    // small generic hit ring, these travel visibly across the battle board.
+    // Subtle pooled ground-pressure fronts for the opt-in roar. They mark
+    // the cast and impact without washing out the surrounding battle board.
     const roarWaveGeo = track(new THREE.RingGeometry(0.92, 1, 32));
     roarWaveGeo.rotateX(-Math.PI / 2);
     const roarWaves = Array.from({ length: advancedEffects ? (isCompact ? 6 : 10) : 0 }, () => {
@@ -2147,7 +2153,7 @@ export function Scene3D({
       wave.mat.color.setHex(side === "ally" ? 0xffa64f : 0xff5554);
       wave.max = impact ? 0.9 : 0.7;
       wave.life = wave.max;
-      wave.radius = impact ? 3.25 : 2.1;
+      wave.radius = impact ? 2.0 : 1.25;
       wave.mesh.visible = true;
     }
     function updateRoarWaves(dt: number) {
@@ -2157,7 +2163,7 @@ export function Scene3D({
         const remaining = wave.life / wave.max;
         const progress = 1 - remaining;
         wave.mesh.scale.setScalar(0.42 + (1 - (1 - progress) ** 2) * wave.radius);
-        wave.mat.opacity = remaining * 0.55;
+        wave.mat.opacity = remaining * 0.3;
         if (wave.life === 0) wave.mesh.visible = false;
       }
     }
@@ -2398,17 +2404,10 @@ export function Scene3D({
       root.dataset.roarUnit = String(uid);
       root.dataset.roarSide = side;
       root.setAttribute("aria-hidden", "true");
-      // Pixel-stepped pressure fronts stay legible against the dark model and
-      // the green/brown board. The centre is transparent, so the rig remains
-      // visible. This one element follows the actual projected unit.
-      const outline = 'M35 5H65V9H78V15H85V22H91V35H95V65H91V78H85V85H78V91H65V95H35V91H22V85H15V78H9V65H5V35H9V22H15V15H22V9H35Z';
+      // A single translucent ring and compact timing label follow the
+      // projected unit, keeping the rig and surrounding tiles visible.
       root.innerHTML = `
-        <div class="roar-cue__halo"></div>
-        <svg class="roar-cue__wave" viewBox="0 0 100 100" aria-hidden="true"><path class="roar-cue__wave-shadow" d="${outline}"/><path class="roar-cue__wave-line" d="${outline}"/></svg>
-        <svg class="roar-cue__wave" viewBox="0 0 100 100" aria-hidden="true"><path class="roar-cue__wave-shadow" d="${outline}"/><path class="roar-cue__wave-line" d="${outline}"/></svg>
-        <svg class="roar-cue__rays" viewBox="0 0 100 100" aria-hidden="true">
-          <path d="M11 29 3 23 8 34 1 36M89 29 97 23 92 34 99 36M14 70 5 75 13 75 10 84M86 70 95 75 87 75 90 84"/>
-        </svg>
+        <svg class="roar-cue__wave" viewBox="0 0 100 100" aria-hidden="true"><circle class="roar-cue__wave-line" cx="50" cy="50" r="36"/></svg>
         <div class="roar-cue__badge"><span></span><i><b></b></i></div>`;
       ovEl.prepend(root);
       return {
@@ -2884,8 +2883,8 @@ export function Scene3D({
       u.prevCast = cast;
 
       // The engine owns cast timing and interruption. In the test build the
-      // stronger cue follows this exact unit, with a held pose and two visual
-      // pressure fronts; it never starts or applies damage on its own.
+      // subtle cue follows this exact unit; it never starts or applies damage
+      // on its own.
       const quietRoar = document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches;
       if (roarProgress !== undefined) {
         u.el.dataset.roaring = "true";
@@ -2906,10 +2905,8 @@ export function Scene3D({
           const roarWord = ovWord("ROAR!");
           if (cue.badge.textContent !== roarWord) cue.badge.textContent = roarWord;
           cue.meter.style.transform = `scaleX(${quietRoar ? 0.5 : roarProgress})`;
-          cue.waves.forEach((wave, index) => {
-            const sample = quietRoar
-              ? { scale: index === 0 ? 0.8 : 1.05, opacity: 0.7 }
-              : sampleRoarWave(roarProgress, index);
+          cue.waves.forEach(wave => {
+            const sample = quietRoar ? { scale: 0.8, opacity: 0.3 } : sampleRoarWave(roarProgress);
             wave.style.transform = `scale(${sample.scale.toFixed(3)})`;
             wave.style.opacity = sample.opacity.toFixed(3);
           });
@@ -2931,9 +2928,9 @@ export function Scene3D({
               roarImpactRendered = true;
               if (!quietRoar) {
                 spawnRoarWave(rx, ry, side, true);
-                spawnFlash(rx, 0.42, ry, side === "ally" ? 0xffb85b : 0xff6555, 3.0);
-                spawnBurst(rx, 0.38, ry, 0xffd58a, isCompact ? 10 : 16, 2.4);
-                impactShake = Math.max(impactShake, 0.4);
+                spawnFlash(rx, 0.42, ry, side === "ally" ? 0xffb85b : 0xff6555, 1.8);
+                spawnBurst(rx, 0.38, ry, 0xffd58a, isCompact ? 6 : 10, 1.8);
+                impactShake = Math.max(impactShake, 0.2);
               }
             } else {
               spawnRing(rx, ry, side === "ally" ? 0xffb35c : 0xff604f);
@@ -2957,10 +2954,10 @@ export function Scene3D({
         const impactWord = ovWord("IMPACT!");
         if (cue.badge.textContent !== impactWord) cue.badge.textContent = impactWord;
         const impactProgress = 1 - u.roarImpactLife / 0.62;
-        cue.waves.forEach((wave, index) => {
-          const scale = quietRoar ? (index === 0 ? 0.9 : 1.12) : 0.8 + impactProgress * 0.5 + index * 0.18;
+        cue.waves.forEach(wave => {
+          const scale = quietRoar ? 0.9 : 0.8 + impactProgress * 0.2;
           wave.style.transform = `scale(${scale.toFixed(3)})`;
-          wave.style.opacity = quietRoar ? "0.7" : String(Math.max(0, 0.9 * (1 - impactProgress)));
+          wave.style.opacity = quietRoar ? "0.3" : String(Math.max(0, 0.5 * (1 - impactProgress)));
         });
         u.roarImpactLife = Math.max(0, u.roarImpactLife - dt);
         if (u.roarImpactLife === 0) cue.root.hidden = true;
@@ -3579,6 +3576,31 @@ export function Scene3D({
         totemState.foeHolder.position.y = 0.44 + totemState.foeLift + Math.sin(t * 2.1 + 1.5) * 0.014;
         totemState.foeHolder.rotation.y = Math.PI - 0.08 + Math.sin(t * 0.7 + 1.5) * 0.05;
         if (totemState.foeRing) totemState.foeRing.opacity = 0.4 + Math.sin(t * 2.4 + 1.5) * 0.18;
+      }
+
+      // Doctor samples projected, animated geometry only while enabled, not
+      // on every frame. Normalized bounds let it spot real 3D clipping even
+      // though the commander has no DOM element to measure.
+      if (advancedEffects && (totemAuditClock -= dt) <= 0) {
+        totemAuditClock = 0.5;
+        if (document.querySelector("[data-ui-doctor]")) {
+          camera.updateMatrixWorld();
+          const bounds: Record<string, number[]> = {};
+          for (const [side, holder] of [["ally", totemState.allyHolder], ["foe", totemState.foeHolder]] as const) {
+            if (!holder || !holder.visible || !holder.children.length) continue;
+            holder.updateWorldMatrix(true, true);
+            totemAuditBox.setFromObject(holder);
+            if (totemAuditBox.isEmpty()) continue;
+            let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+            for (const x of [totemAuditBox.min.x, totemAuditBox.max.x]) for (const y of [totemAuditBox.min.y, totemAuditBox.max.y]) for (const z of [totemAuditBox.min.z, totemAuditBox.max.z]) {
+              totemAuditPoint.set(x, y, z).project(camera);
+              const px = (totemAuditPoint.x + 1) / 2, py = (1 - totemAuditPoint.y) / 2;
+              left = Math.min(left, px); right = Math.max(right, px); top = Math.min(top, py); bottom = Math.max(bottom, py);
+            }
+            bounds[side] = [left, top, right, bottom].map(value => Number(value.toFixed(4)));
+          }
+          renderer.domElement.dataset.commanderBounds = JSON.stringify(bounds);
+        } else delete renderer.domElement.dataset.commanderBounds;
       }
 
       if (tilesMesh && tileRimsMesh) {

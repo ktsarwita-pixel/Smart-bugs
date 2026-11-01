@@ -20,6 +20,13 @@ try {
     assert.equal(await cue(3).getAttribute('data-roar-side'),'foe');
     assert.notEqual(await cue(1).evaluate(el=>getComputedStyle(el).getPropertyValue('--roar-line')),await cue(3).evaluate(el=>getComputedStyle(el).getPropertyValue('--roar-line')));
     assert.equal(await cue(1).getAttribute('aria-hidden'),'true');
+    for (const uid of [1,3]) {
+      assert.equal(await cue(uid).locator('.roar-cue__wave circle').count(),1,'one simple ring per Spider');
+      assert.equal(await cue(uid).locator('.roar-cue__wave').count(),1);
+      assert.equal(await cue(uid).locator('.roar-cue__rays, .roar-cue__halo').count(),0,'no busy rays or halo');
+      const opacity=Number(await cue(uid).locator('.roar-cue__wave').evaluate(el=>getComputedStyle(el).opacity));
+      assert.ok(opacity>=0&&opacity<=.52,`pressure ring should be translucent: ${opacity}`);
+    }
     const separates = (a,b) => a.right<=b.left+1 || a.left>=b.right-1 || a.bottom<=b.top+1 || a.top>=b.bottom-1;
     for (const uid of [1,3]) {
       const {width,badge,bars}=await cue(uid).evaluate((el,uid)=>({
@@ -27,7 +34,7 @@ try {
         badge:el.querySelector('.roar-cue__badge').getBoundingClientRect().toJSON(),
         bars:document.querySelector(`.ov-unit[data-unit-id="${uid}"] .ov-bars`).getBoundingClientRect().toJSON(),
       }),uid);
-      assert.ok(width<=70,`roar cue should leave the battlefield visible on this phone: ${width}px`);
+      assert.ok(width<=54,`roar cue should leave the battlefield visible on this phone: ${width}px`);
       assert.ok(separates(badge,bars),`roar label must not cover its health bar: ${JSON.stringify({badge,bars})}`);
     }
     // A vulnerable label grows the tag upward during a cast. The roar label

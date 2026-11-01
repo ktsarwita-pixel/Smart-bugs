@@ -23,9 +23,9 @@ export function sampleSpiderRoar(progress: number) {
   };
 }
 
-export function sampleRoarWave(progress: number, index: number) {
-  // Two staggered, outward-moving pressure fronts; driven by battle time so
-  // changing the battle speed or pausing the simulation never desynchronises.
-  const cycle = ((clamp01(progress) * 2.4 + index * 0.5) % 1 + 1) % 1;
-  return { scale: 0.54 + cycle * 0.72, opacity: 0.85 * (1 - cycle) };
+export function sampleRoarWave(progress: number) {
+  // A single faint pressure ring, driven by battle time so changing speed or
+  // pausing the simulation never desynchronises it from the cast.
+  const cycle = (clamp01(progress) * 2.4) % 1;
+  return { scale: 0.62 + cycle * 0.38, opacity: 0.52 * (1 - cycle) };
 }

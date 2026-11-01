@@ -41,11 +41,14 @@ function audit(): Scan {
   const root = document.scrollingElement as HTMLElement | null;
   const docHeight = Math.max(root?.scrollHeight || 0, document.body?.scrollHeight || 0);
   if (!activeModal && docHeight > height + 2) {
-    const below = activeElements.filter(el => {
+    const outside = activeElements.reduce((counts, el) => {
       const style = getComputedStyle(el), r = el.getBoundingClientRect();
-      return style.display !== "none" && style.visibility === "visible" && r.width >= 2 && r.height >= 2 && r.top >= height;
-    }).length;
-    add("SCROLL", "warning", "Page requires vertical scrolling", `${Math.round(docHeight - height)}px scroll range; ${below} enabled controls below the viewport. Scrolling may be intentional.`, root);
+      if (style.display === "none" || style.visibility !== "visible" || Number(style.opacity) === 0 || r.width < 2 || r.height < 2) return counts;
+      if (r.top >= height) counts.below++;
+      else if (r.top < height && r.bottom > height + 1) counts.partial++;
+      return counts;
+    }, { below: 0, partial: 0 });
+    add("SCROLL", "warning", "Page requires vertical scrolling", `${Math.round(docHeight - height)}px scroll range; ${outside.below} enabled controls fully below and ${outside.partial} partly below the viewport. Scrolling may be intentional.`, root);
   }
   const scope = activeModal ?? document.body;
   const scrollables = [scope, ...Array.from(scope.querySelectorAll<HTMLElement>("*"))];

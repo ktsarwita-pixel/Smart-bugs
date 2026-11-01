@@ -19,7 +19,7 @@ try {
     chest.querySelector('.treasure-chest-3d__lid-ridge-side--right').style.transform='rotateY(90deg) translateZ(28px)';
     window.removedEmblem=chest.querySelector('[data-chest-emblem]'); window.removedEmblem.remove();
     const old=document.createElement('div');old.className='pixel-treasure';old.id='old-chest-fixture';chest.appendChild(old);
-    const canvas=document.createElement('canvas');canvas.id='bad-board';canvas.width=70;canvas.height=50;canvas.style.cssText='position:fixed;left:5px;top:100px;width:70px;height:50px';canvas.dataset.chestFacingError='0.7';canvas.dataset.chestHingeGap='0.05';document.body.append(canvas);
+    const canvas=document.createElement('canvas');canvas.id='bad-board';canvas.width=70;canvas.height=50;canvas.style.cssText='position:fixed;left:5px;top:100px;width:70px;height:50px';canvas.dataset.chestFacingError='0.7';canvas.dataset.chestHingeGap='0.05';canvas.dataset.commanderBounds=JSON.stringify({ally:[.4,.8,.6,1.12]});document.body.append(canvas);
     const img=document.createElement('img');img.src='/missing-doctor-image.png';img.alt='Broken visual fixture';img.style.cssText='position:fixed;left:5px;top:165px;width:30px;height:30px';document.body.append(img);
     const spider=document.createElement('div');spider.className='ov-unit';spider.id='bad-spider';spider.textContent='Spider';spider.style.cssText='position:fixed;left:5px;top:205px;width:55px;height:25px';
     spider.dataset.unitId='999';spider.dataset.side='ally';spider.dataset.roaring='true';spider.dataset.roarAim='1';spider.dataset.roarFacing='1';spider.dataset.roarHeadYaw='0';spider.dataset.roarBody='0,0,0,0,0,0,0,0,0';document.body.append(spider);
@@ -28,7 +28,7 @@ try {
   await page.waitForFunction(()=>document.querySelector('img[alt="Broken visual fixture"]').complete);
   await page.getByRole('button',{name:'SCAN SCREEN'}).tap();
   text=await page.locator('.ui-doctor__body').innerText();
-  for(const phrase of ['Chest not facing the player','Chest lid disconnected','Chest 3D face missing','Chest lid side misaligned','Chest pixel detailing missing','Old chest artwork visible','Board chest not facing the player','Board chest hinge disconnected','Image failed to load','Spider not facing the enemy side','Spider roar pose unavailable']) assert.ok(text.includes(phrase),`missing Doctor finding: ${phrase}\n${text}`);
+  for(const phrase of ['Chest not facing the player','Chest lid disconnected','Chest 3D face missing','Chest lid side misaligned','Chest pixel detailing missing','Old chest artwork visible','Board chest not facing the player','Board chest hinge disconnected','Commander model clipped','Image failed to load','Spider not facing the enemy side','Spider roar pose unavailable']) assert.ok(text.includes(phrase),`missing Doctor finding: ${phrase}\n${text}`);
   assert.equal((text.match(/Spider not facing the enemy side/g)||[]).length,2,'Doctor catches both a wrong recorded aim and a missing facing');
   await page.locator('.ui-doctor__history summary').tap();
   assert.match(await page.locator('.ui-doctor__history').innerText(), /Old pixel chest appeared/, 'passive history should catch the flash before a deep scan');

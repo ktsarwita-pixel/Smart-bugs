@@ -46,10 +46,10 @@ assert.deepEqual(simultaneous.units.map(u=>u.hp),[4350,4350],'opposing roars mus
 assert.equal(sampleSpiderRoar(0).rear,0);
 assert.ok(sampleSpiderRoar(.5).rear>.9);
 assert.ok(sampleSpiderRoar(.9).rear>.7,'the enhanced pose must stay raised until impact');
-assert.notDeepEqual(sampleRoarWave(0,0),sampleRoarWave(.25,0));
-for(let i=0;i<=100;i++) for(let wave=0;wave<2;wave++) {
-  const sample=sampleRoarWave(i/100,wave);
-  assert.ok(sample.scale>=.54&&sample.scale<=1.26&&sample.opacity>=0&&sample.opacity<=.85);
+assert.notDeepEqual(sampleRoarWave(0),sampleRoarWave(.25));
+for(let i=0;i<=100;i++) {
+  const sample=sampleRoarWave(i/100);
+  assert.ok(sample.scale>=.62&&sample.scale<=1&&sample.opacity>=0&&sample.opacity<=.52);
 }
 const model=()=>{
   const rig={};

@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-# Publish the current branch as BOTH builds:
-#   /            the original server — now the same v0.7 release
-#   /preview/    the opt-in test build (adds the ADVANCED TEST BUILD banner)
-#
-# Both are the exact same bundle; the URL only decides whether the test banner
-# and test-only visuals switch on (`isAdvancedGameLocation`), so the original
-# server can never drift behind the test one again.
+# POLICY: every update published to the advanced/test server is published to
+# the original server in the SAME build. There is exactly one `npm run build`
+# below; its output is copied to `/`, `/preview/`, `/advanced` and `/advenced`.
+# The URL only decides whether the ADVANCED TEST BUILD banner and the test-only
+# visuals switch on (`isAdvancedGameLocation`) — never which release you get.
+# `npm run test:publish` fails if those files ever stop being one bundle.
 #
 # This recipe works in both deployment shapes:
 #   - full source uploaded            -> builds the uploaded checkout in place
@@ -46,3 +45,11 @@ JSROUTE
 cp "$WORK/game.html" "$ROOT/dist/preview/index.html"
 cp "$WORK/game.html" "$ROOT/dist/advanced/index.html"
 cp "$WORK/game.html" "$ROOT/dist/advenced/index.html"
+
+# One fingerprint for the whole publish: if these ever differ, the original
+# server has drifted from the test server and the release must not be promoted.
+FINGERPRINT="$(sha256sum "$WORK/game.html" | cut -c1-16)"
+echo "bundle $FINGERPRINT (one build, every path)"
+echo "  /            original server - v$(sed -n 's/.*version: "\([^"]*\)".*/\1/p' "$PREVIEW_SRC/src/game/data.ts" | head -1) + query router"
+echo "  /preview/    test server     - same bundle, ADVANCED banner on"
+echo "  /advanced, /advenced         - same bundle"

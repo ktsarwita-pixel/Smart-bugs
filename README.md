@@ -61,6 +61,7 @@ npm run test:damage   # engine ledger + bilingual panel rendering (no browser ne
 npm run test:notes    # every patch note renders in Indonesian (no browser needed)
 npm run test:fuzz     # 400 random battles: the ledger must match the HP they removed
 npm run test:ladder   # colony detail panel must take the ladder rail's exact box
+npm run test:publish  # every advanced-server update also ships to the original server
 npm run test:doctor   # UI Doctor chrome + findings render in the selected language
 ```
 
@@ -164,16 +165,25 @@ The game is a single static HTML file, so any static host works:
 
 For development you can also just run `npm run dev` / `npm run build` as above.
 
-### Public game vs. opt-in test build
+### Publishing: one build, every door
 
-`smart-bugs.vercel.app` and `smart-bugs.vercel.app/?advenced` now serve the
-**same v0.7 bundle**; the `?advenced` spelling (intentional) just hands off to
+**Policy: every update published to the advanced/test server is published to the
+original server in the same build.** No release ever lands on only one of them.
+
+`smart-bugs.vercel.app` and `smart-bugs.vercel.app/?advenced` serve the **same
+v0.7 bundle**; the `?advenced` spelling (intentional) only hands off to
 `/preview/`, where the ADVANCED TEST BUILD banner and test-only visuals switch
 on. For a production deployment, run `bash smartbugs-build.sh`: it builds the
-current checkout once and packages that bundle at `/`, `/preview/`,
-`/advanced` and `/advenced`, keeping the existing query router. The normal
+current checkout **once**, prints the bundle fingerprint plus the version, and
+packages that identical bundle at `/`, `/preview/`, `/advanced` and `/advenced`
+(the last three are byte-identical to `/` minus its query router). The normal
 `npm run build` alone is a single development bundle without that routing.
 Locally, `/?advenced` enables the test-only visuals and `/` keeps them off.
+
+`npm run test:publish` enforces the policy: it rebuilds if needed and fails
+unless `/` is exactly the test bundle plus the router, `/preview/`, `/advanced`
+and `/advenced` are byte-identical, and `smartbugs-build.sh` still builds and
+installs exactly once.
 
 Pushing to GitHub does **not** deploy here — Vercel's GitHub app is not
 connected to this project, so branch builds stop with `git_info_fail`. The

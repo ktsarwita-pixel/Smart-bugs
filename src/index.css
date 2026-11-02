@@ -728,7 +728,7 @@ button:not(:disabled):active {
   }
 }
 
-/* ── Cabinet ambience: lamp haze + drifting motes ─────────── */
+/* ── Cabinet ambience: lamp haze + vignette (no decorative particles) ── */
 @keyframes lampk {
   0%,
   100% {
@@ -747,31 +747,6 @@ button:not(:disabled):active {
 .lampflicker {
   animation: lampk 7.5s ease-in-out infinite;
 }
-@keyframes motek {
-  0% {
-    transform: translate3d(0, 0, 0);
-    opacity: 0;
-  }
-  14% {
-    opacity: 0.75;
-  }
-  86% {
-    opacity: 0.45;
-  }
-  100% {
-    transform: translate3d(16px, -140px, 0);
-    opacity: 0;
-  }
-}
-.mote {
-  position: absolute;
-  width: 2px;
-  height: 2px;
-  background: #f0a93b;
-  box-shadow: 0 0 6px rgba(240, 169, 59, 0.9);
-  animation: motek linear infinite;
-  pointer-events: none;
-}
 .ambient-layer {
   position: absolute;
   inset: 0;
@@ -784,7 +759,6 @@ button:not(:disabled):active {
   .blink,
   .rise,
   .moult-glow,
-  .mote,
   .lampflicker,
   .spec-icon__sheen {
     animation: none !important;
@@ -798,7 +772,6 @@ button:not(:disabled):active {
 html[data-motion="reduced"] .blink,
 html[data-motion="reduced"] .rise,
 html[data-motion="reduced"] .screen,
-html[data-motion="reduced"] .mote,
 html[data-motion="reduced"] .lampflicker,
 html[data-motion="reduced"] .ready-pulse,
 html[data-motion="reduced"] .clash-seal,

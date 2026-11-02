@@ -24,8 +24,9 @@ try {
   assert.match(text,/Fixed close-zoom framing in fullscreen/); assert.match(text,/Sideways mode puts the drawer beside/);
   assert.match(text,/cropped battlefield/); assert.match(text,/FIT button/); assert.match(text,/swipeable colony ladder/); assert.match(text,/scrollable bench\/supply dock/); assert.match(text,/clipped drawer frame/);
   assert.match(text,/straight push-in/); assert.match(text,/no longer tilts the battlefield/); assert.match(text,/keeps its label inside its border/);
+  assert.match(text,/drifting yellow dust dots/);
   assert.match(text,/DAMAGE SHOWER chart/); assert.match(text,/credited to the bug that caused it/); assert.match(text,/SHOW ENEMY DAMAGE/); assert.match(text,/320px screens/);
-  assert.equal(await entry.locator('li').count(),27,'the single v0.7 entry keeps every note and carries the new fixes and the DAMAGE SHOWER notes');
+  assert.equal(await entry.locator('li').count(),28,'the single v0.7 entry keeps every note and carries the new fixes and the DAMAGE SHOWER notes');
   for (const width of [280,320,390]) {
     await page.setViewportSize({width,height:653});
     const layout=await version.evaluate(el=>{
@@ -41,6 +42,7 @@ try {
   const indonesian=page.getByRole('dialog',{name:'CATATAN PEMBARUAN'});
   const merged=indonesian.locator('.relative.mb-3').getByText('v0.7',{exact:true}).locator('..').locator('..');
   const translated=await merged.innerText();
+  assert.match(translated,/butiran debu kuning yang melayang/,'the removed menu dots are translated');
   assert.match(translated,/Laba-laba menghadap lurus ke sisi lawan/,'gameplay correction is translated');
   assert.match(translated,/Peti VS/,'chest update remains translated');
   assert.match(translated,/Menu utama terasa lebih lembut dan alami/,'compact menu update is translated');
@@ -61,5 +63,5 @@ try {
   assert.match(translated,/Serangga yang gugur tetap menyimpan angkanya/,'damage attribution note is translated');
   assert.doesNotMatch(translated,/DAMAGE SHOWER chart in the battle telemetry dock/,'no English note leaks into the Indonesian card');
   assert.deepEqual(errors,[]);
-  console.log('PASS single v0.7 patch notes: 27 notes including the DAMAGE SHOWER set, all translated, narrow layouts intact');
+  console.log('PASS single v0.7 patch notes: 28 notes including the DAMAGE SHOWER set, all translated, narrow layouts intact');
 } finally {await browser.close();}

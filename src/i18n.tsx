@@ -506,6 +506,7 @@ const ID: Record<string, string> = {
   "Spider faces straight toward the opposing side with its body locked throughout Battle Roar; it turns freely afterward.": "Laba-laba menghadap lurus ke sisi lawan dengan badan terkunci selama Raungan Pertempuran; setelah itu ia bebas berputar kembali.",
   "The round map uses detailed monochrome chest and centered stag pixel art, joined by a clearer timeline.": "Peta ronde memakai seni piksel peti monokrom yang lebih rinci dan rusa yang terpusat, dengan garis waktu yang lebih jelas.",
   "THE BATTLE ROAR": "RAUNGAN PERTEMPURAN",
+  "The main menu is calmer: the drifting yellow dust dots that floated over its background are gone, while the lamp glow and vignette stay.": "Menu utama kini lebih tenang: butiran debu kuning yang melayang di latar belakangnya sudah dihapus, sementara cahaya lampu dan bayangan tepi tetap ada.",
   "UI Doctor now speaks your language: the panel header, buttons, FPS readout, status messages, the copied report and every finding label and sentence are translated into Bahasa Indonesia instead of printing English — DEEP SCAN included.":
     "Dokter UI kini berbicara dalam bahasamu: judul panel, tombol, pembacaan FPS, pesan status, laporan yang disalin, serta setiap label dan kalimat temuan sudah diterjemahkan ke Bahasa Indonesia, bukan lagi bahasa Inggris — termasuk PINDAI DALAM.",
   "Tapping a colony in the ladder now opens a health panel that fits the rail exactly: same width, same height, same edges, inside the deck border on phones and desktop, with no size jump.":

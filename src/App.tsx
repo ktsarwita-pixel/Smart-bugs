@@ -95,16 +95,9 @@ type Phase = "title" | "cmd" | "prep" | "battle" | "result" | "spectate" | "fina
 const SHOWCASE_IDS = SPECIMEN_IDS;
 const DRAWER_ZOOM_LEVELS = [0.74, 0.86, 1, 1.15, 1.32] as const;
 
-const MOTES = Array.from({ length: 16 }, (_, i) => ({
-  i,
-  x: ((i * 41) % 94) + 3,
-  b: (i * 29) % 74,
-  d: 12 + ((i * 7) % 9),
-  delay: -(i * 1.9),
-  o: 0.3 + ((i * 13) % 5) / 10,
-}));
-
-/** Lamp haze + drifting dust motes — keeps the still screens breathing.
+/** Lamp haze + vignette only. The drifting yellow dust dots that used to float
+ *  over the main menu were removed on request — no decorative particles sit in
+ *  the menu background any more.
  *  Memoised: it is 100% static, so battle-HUD ticks skip this subtree. */
 const Ambience = memo(function Ambience() {
   return (
@@ -116,19 +109,6 @@ const Ambience = memo(function Ambience() {
             "radial-gradient(74% 100% at 50% 0%, rgba(255,214,150,.13), transparent 72%)",
         }}
       />
-      {MOTES.map((m) => (
-        <span
-          key={m.i}
-          className="mote"
-          style={{
-            left: `${m.x}%`,
-            bottom: `${m.b}%`,
-            animationDuration: `${m.d}s`,
-            animationDelay: `${m.delay}s`,
-            opacity: m.o,
-          }}
-        />
-      ))}
       <div
         className="absolute inset-0"
         style={{

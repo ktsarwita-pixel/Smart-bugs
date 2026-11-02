@@ -18,6 +18,7 @@ export const VERSIONS: VersionEntry[] = [
     v: "0.7",
     title: "THE BATTLE ROAR",
     items: [
+      "The main menu is calmer: the drifting yellow dust dots that floated over its background are gone, while the lamp glow and vignette stay.",
       "UI Doctor now speaks your language: the panel header, buttons, FPS readout, status messages, the copied report and every finding label and sentence are translated into Bahasa Indonesia instead of printing English — DEEP SCAN included.",
       "Tapping a colony in the ladder now opens a health panel that fits the rail exactly: same width, same height, same edges, inside the deck border on phones and desktop, with no size jump.",
       "New DAMAGE SHOWER chart in the battle telemetry dock: every bug on your line is listed with the damage it actually dealt this fight, sorted from the heaviest hitter down, with a bar showing its share of your line's output.",

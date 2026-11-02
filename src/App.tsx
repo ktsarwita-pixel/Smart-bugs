@@ -1,5 +1,5 @@
 import { ADVANCED_CHEST_PATHS, ADVANCED_STAG_PATHS, CHEST_PATH, CHEST_VIEWBOX, STAG_PATH, STAG_VIEWBOX } from "./game/round-icons";
-import { isAdvancedGameLocation } from "./game/build-mode";
+import { isAdvancedGameLocation, isTestBuildLocation } from "./game/build-mode";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Scene3D } from "./components/Scene3D";
 import { TreasureChest3D } from "./components/TreasureChest3D";
@@ -1273,7 +1273,7 @@ export default function App() {
             {adminButton()}
           </header>
 
-          {new URLSearchParams(window.location.search).has("advenced") && (
+          {isTestBuildLocation(window.location) && (
             <div role="status" className="advanced-banner mt-3 border border-[#2a6e52] bg-[#0E241A] px-3 py-2 label text-[8px] leading-relaxed text-[#75e8ba]">
               {t("ADVANCED TEST BUILD — updates in testing")}
             </div>

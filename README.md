@@ -180,6 +180,12 @@ packages that identical bundle at `/`, `/preview/`, `/advanced` and `/advenced`
 `npm run build` alone is a single development bundle without that routing.
 Locally, `/?advenced` enables the test-only visuals and `/` keeps them off.
 
+The **interface is not URL-dependent** either: since v0.7 `/` and `/preview/`
+render the same updated screens (`isAdvancedGameLocation` is true everywhere).
+Only the ADVANCED TEST BUILD banner is gated, by `isTestBuildLocation`, so the
+original server never shows test chrome. `npm run test:ui-default` fails if a
+screen ever starts sniffing `?advenced` to pick its layout again.
+
 `npm run test:publish` enforces the policy: it rebuilds if needed and fails
 unless `/` is exactly the test bundle plus the router, `/preview/`, `/advanced`
 and `/advenced` are byte-identical, and `smartbugs-build.sh` still builds and

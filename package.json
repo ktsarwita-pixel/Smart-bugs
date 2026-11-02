@@ -25,7 +25,8 @@
     "test:notes": "node scripts/patch-notes-i18n-smoke.mjs",
     "test:fuzz": "node scripts/battle-fuzz.mjs",
     "test:ladder": "node scripts/ladder-fit-smoke.mjs",
-    "test:publish": "node scripts/publish-parity-smoke.mjs"
+    "test:publish": "node scripts/publish-parity-smoke.mjs",
+    "test:ui-default": "node scripts/ui-default-smoke.mjs"
   },
   "dependencies": {
     "clsx": "2.1.1",

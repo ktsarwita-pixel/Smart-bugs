@@ -3,8 +3,9 @@
 # the original server in the SAME build. There is exactly one `npm run build`
 # below; its output is copied to `/`, `/preview/`, `/advanced` and `/advenced`.
 # The URL only decides whether the ADVANCED TEST BUILD banner and the test-only
-# visuals switch on (`isAdvancedGameLocation`) — never which release you get.
-# `npm run test:publish` fails if those files ever stop being one bundle.
+# visuals switch on (`isAdvancedGameLocation`), so let `isTestBuildLocation`
+# own the banner and keep the screens identical everywhere.
+# `npm run test:publish` and `npm run test:ui-default` fail if that drifts.
 #
 # This recipe works in both deployment shapes:
 #   - full source uploaded            -> builds the uploaded checkout in place

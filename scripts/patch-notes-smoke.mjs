@@ -6,19 +6,21 @@ const errors=[];page.on('pageerror',e=>errors.push(e.message));
 const base=process.env.BASE_URL||'http://127.0.0.1:5173';
 try {
   await page.goto(base+'/?advenced');
-  assert.match(await page.locator('body').innerText(),/v0\.8/i,'advanced home shows v0.8');
+  assert.match(await page.locator('body').innerText(),/v0\.9/i,'advanced home shows v0.9');
   assert.doesNotMatch(await page.locator('body').innerText(),/v0\.62/i);
   await page.getByRole('button',{name:'PATCH NOTES'}).tap();
   const dialog=page.getByRole('dialog',{name:'PATCH NOTES'});
-  const current=dialog.locator('.relative.mb-3').getByText('v0.8',{exact:true});
-  assert.equal(await current.count(),1,'v0.8 appears in a single current entry');
+  const current=dialog.locator('.relative.mb-3').getByText('v0.9',{exact:true});
+  assert.equal(await current.count(),1,'v0.9 appears in a single current entry');
+  assert.match(await current.locator('..').locator('..').innerText(),/Commander Skills|COMMANDER SKILLS/);
+  assert.match(await dialog.innerText(),/Colony Bonds have been removed/);
   const currentText=await current.locator('..').locator('..').innerText();
   assert.match(currentText,/CURRENT/);
-  assert.match(currentText,/brass-and-jade artwork/);
+  assert.match(await dialog.innerText(),/brass-and-jade artwork/);
   const version=dialog.locator('.relative.mb-3').getByText('v0.7',{exact:true});
   assert.equal(await version.count(),1,'the v0.7 history stays in one entry');
   assert.doesNotMatch(await dialog.innerText(),/0\.62/,'the old version number is gone');
-  assert.match(await dialog.locator('h3').innerText(),/v0\.8/,'current heading uses the same version');
+  assert.match(await dialog.locator('h3').innerText(),/v0\.9/,'current heading uses the same version');
   assert.equal(await dialog.getByText('v0.61',{exact:true}).count(),1,'previous version follows naturally');
   const entry=version.locator('..').locator('..');
   const text=await entry.innerText();
@@ -69,5 +71,5 @@ try {
   assert.match(translated,/Serangga yang gugur tetap menyimpan angkanya/,'damage attribution note is translated');
   assert.doesNotMatch(translated,/DAMAGE SHOWER chart in the battle telemetry dock/,'no English note leaks into the Indonesian card');
   assert.deepEqual(errors,[]);
-  console.log('PASS v0.8 headline and chest note, translated v0.7 history, and narrow patch-notes layouts');
+  console.log('PASS v0.9 headline and chest note, translated v0.7 history, and narrow patch-notes layouts');
 } finally {await browser.close();}

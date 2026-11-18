@@ -168,7 +168,7 @@ try {
   const commanders = page.locator('.commander-card');
   assert.equal(await commanders.count(), 3);
   const commanderSizes = [[280,653],[320,568],[360,740],[384,725],[390,844],[480,320],[568,320],[640,360],[812,375],[768,1024],[1280,800]];
-  const perks = ['Brood Hymn', 'Night Signal', 'Dig Hole'];
+  const perks = ['Pressure present', 'Last spark', 'Trap holes'];
   for (const [width, height] of commanderSizes) {
     await page.setViewportSize({ width, height });
     for (let i = 0; i < 3; i++) {
@@ -212,6 +212,10 @@ try {
     return innerWidth===390 && r && dock && r.width>=370 && r.width<=390 && r.height>=180 &&
       Math.abs(r.bottom-dock.top)<=1 && Math.abs(dock.bottom-innerHeight)<=2;
   }, null, {timeout:15000,polling:100});
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  });
   const vs = page.locator('button.vs-plaque');
   const boardBeforeScout = await page.locator('.battle-stage').boundingBox();
   await vs.tap(); assert.equal(await vs.getAttribute('aria-pressed'), 'true');
@@ -266,7 +270,7 @@ try {
   await page.evaluate(() => localStorage.setItem('smartbugs.settings', JSON.stringify({ rev: 2, lang: 'id', motion: 'reduced', potato: false, background: 'dark' })));
   await page.reload();
   await page.getByRole('button', { name: 'MAINKAN' }).tap();
-  const indonesianPerks = ['Himne Keturunan', 'Sinyal Malam', 'Gali Lubang'];
+  const indonesianPerks = ['Hadiah Saat Terdesak', 'Percikan Terakhir', 'Lubang Jebakan'];
   for (const [width, height] of [[280,653],[320,568],[384,725],[390,844],[480,320],[568,320],[812,375]]) {
     await page.setViewportSize({ width, height });
     for (let i = 0; i < 3; i++) {

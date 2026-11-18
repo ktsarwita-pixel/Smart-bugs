@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { createChestGeometry } from "../game/treasure-voxel";
+import { createCommanderEffects } from "../game/commander-effects";
 import { createDetailedChest } from "../game/chest-model";
 import { BUGS, COMMANDERS, SPECIMEN_IDS, type BugId, type CmdId } from "../game/data";
-import { COLS, ROWS, SPIDER_ROAR_SECONDS, boardXY, type BattleState, type BUnit, type Zone, type PrepUnit } from "../game/engine";
+import { COLS, ROWS, SPIDER_ROAR_SECONDS, boardXY, type BattleSide, type BattleState, type BUnit, type Zone, type PrepUnit } from "../game/engine";
 import { GRAND_WEB_GROW_SECONDS, grandWebGrowth, visualGrandImpactReady, setGrandWebScale } from "../game/web-growth";
 import { buildVoxelModel, dotTexture, warmVoxelCache, V, type VoxModel } from "../game/voxel";
 import { animateInsectRig } from "../game/animate";
@@ -31,6 +32,8 @@ interface Props {
   advancedEffects?: boolean;
   treasure?: boolean;
   selectedUid?: number | null;
+  targetableUids?: ReadonlySet<number>;
+  markedUid?: number;
   canDeployMore?: boolean;
   interactive?: boolean;
   cmdA?: CmdId;
@@ -117,7 +120,8 @@ const SHOWCASE_ORDER = SPECIMEN_IDS;
 const OV_ID: Record<string, string> = {
   CLIMB: "NAIK", "LOCK ON": "MENGUNCI", DIVE: "MENUKIK", LANDED: "Mendarat",
   AIRSTRIKE: "SERBUAN UDARA", PINCER: "CAPITAN", RAKE: "TEBASAN", BURST: "LEDAKAN",
-  GLOW: "CAHAYA", HOLE: "LUBANG", "TRAP!": "Jebakan!", TOUCHDOWN: "Mendarat", "ROAR!": "RAUNGAN!", "IMPACT!": "HANTAM!",
+  "LAST SPARK": "PERCIKAN TERAKHIR", "HEALING WAVES": "GELOMBANG PULIH", "WAVE IMPACT": "HANTAMAN GELOMBANG",
+  VULNERABLE: "RENTAN", "TRAP!": "JEBAKAN!", TOUCHDOWN: "Mendarat", "ROAR!": "RAUNGAN!", "IMPACT!": "HANTAM!",
 };
 const ovWord = (w: string): string =>
   typeof document !== "undefined" && document.documentElement.lang === "id" ? OV_ID[w] ?? w : w;
@@ -132,6 +136,8 @@ export function Scene3D({
   advancedEffects = false,
   treasure = false,
   selectedUid = null,
+  targetableUids,
+  markedUid,
   canDeployMore = true,
   interactive = false,
   cmdA = "matriarch",
@@ -159,6 +165,8 @@ export function Scene3D({
     drawerZoom,
     treasure,
     selectedUid,
+    targetableUids,
+    markedUid,
     canDeployMore,
     interactive,
     cmdA,
@@ -177,6 +185,8 @@ export function Scene3D({
     drawerZoom,
     treasure,
     selectedUid,
+    targetableUids,
+    markedUid,
     canDeployMore,
     interactive,
     cmdA,
@@ -749,6 +759,9 @@ export function Scene3D({
         holder.add(model.group);
 
         holder.position.set(Math.sin(baseAngle) * radius, 0.023, Math.cos(baseAngle) * radius);
+        // Face the commander sculpts outward so the rim of the turntable
+        // shows the diadem, opal visor, and the Worm's recessed maw.
+        if (COMMANDERS.some(c => c.id === id)) holder.rotation.y = baseAngle + Math.PI;
         holder.matrixAutoUpdate = false; // local pose is final; parent rotates
         holder.updateMatrix();
         turntable!.add(holder);
@@ -775,6 +788,21 @@ export function Scene3D({
 
     /* ── Fireflies ── */
     const dot = dotTexture();
+    const commanderFx = showcase ? null : createCommanderEffects(scene, dot);
+    const targetingRings = showcase ? null : track(new THREE.InstancedMesh(
+      track(new THREE.RingGeometry(0.34, 0.45, 32).rotateX(-Math.PI / 2)),
+      track(new THREE.MeshBasicMaterial({ color: 0xa5edff, toneMapped: false, transparent: true, opacity: 0.87, depthWrite: false })),
+      COLS * ROWS,
+    ));
+    if (targetingRings) {
+      targetingRings.frustumCulled = false;
+      targetingRings.count = 0;
+      targetingRings.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      scene.add(targetingRings);
+    }
+    const ringMatrix = new THREE.Matrix4();
+    const inspectCommanderFx = new URLSearchParams(window.location.search).get("doctor") === "1";
+    let commanderAfterTime = 0;
     const FN = isCompact ? 22 : 34;
     const fpos = new Float32Array(FN * 3);
     const fbase: [number, number, number][] = [];
@@ -887,73 +915,6 @@ export function Scene3D({
       }
       vScale.set(1, 1, 1);
       if (anyAlive) sparks.instanceMatrix.needsUpdate = true;
-    }
-
-    /* ── Dig Hole burrows: a scooped pit + an arming ring ── */
-    const holePool: {
-      root: THREE.Group;
-      ring: THREE.Mesh;
-      ringMat: THREE.MeshBasicMaterial;
-      pitMat: THREE.MeshStandardMaterial;
-    }[] = [];
-    if (!showcase) {
-      // A disc sitting just above the soil reads as a pit from this camera
-      // angle; a real cylinder would be buried inside the tile mesh.
-      const pitGeo = track(new THREE.CircleGeometry(0.36, 20));
-      pitGeo.rotateX(-Math.PI / 2);
-      const innerGeo = track(new THREE.CircleGeometry(0.22, 16));
-      innerGeo.rotateX(-Math.PI / 2);
-      const lipGeo = track(new THREE.RingGeometry(0.33, 0.44, 18));
-      lipGeo.rotateX(-Math.PI / 2);
-      const rimGeo2 = track(new THREE.TorusGeometry(0.38, 0.035, 5, 20));
-      rimGeo2.rotateX(Math.PI / 2);
-      for (let i = 0; i < 6; i++) {
-        const root = new THREE.Group();
-        const pitMat = new THREE.MeshStandardMaterial({
-          color: 0x140d0a,
-          roughness: 1,
-          metalness: 0,
-          side: THREE.FrontSide,
-        });
-        const pit = new THREE.Mesh(pitGeo, pitMat);
-        pit.position.y = UNIT_GROUND + 0.002;
-        root.add(pit);
-
-        const inner = new THREE.Mesh(
-          innerGeo,
-          new THREE.MeshBasicMaterial({ color: 0x050303, depthWrite: false })
-        );
-        inner.position.y = UNIT_GROUND + 0.007;
-        root.add(inner);
-
-        const lipMat = new THREE.MeshBasicMaterial({
-          color: 0x3a241c,
-          transparent: true,
-          opacity: 0.9,
-          depthWrite: false,
-        });
-        const lip = new THREE.Mesh(lipGeo, lipMat);
-        lip.position.y = UNIT_GROUND + 0.012;
-        lip.renderOrder = 2;
-        root.add(lip);
-
-        const ringMat = new THREE.MeshBasicMaterial({
-          color: 0xe8a0a8,
-          transparent: true,
-          opacity: 0.7,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-          toneMapped: false,
-        });
-        const ring = new THREE.Mesh(rimGeo2, ringMat);
-        ring.position.y = UNIT_GROUND + 0.018;
-        ring.renderOrder = 3;
-        root.add(ring);
-
-        root.visible = false;
-        scene.add(root);
-        holePool.push({ root, ring, ringMat, pitMat });
-      }
     }
 
     /* ── Projectiles: layered shells with stretched trails, halos, impacts ── */
@@ -2023,45 +1984,6 @@ export function Scene3D({
       }
     }
 
-    const seenHoles = new Set<number>();
-    function updateHoles(b: BattleState | null) {
-      if (showcase) return;
-      const holes = b?.holes ?? [];
-      if (!b) {
-        // battle over — hole ids restart at 1 next battle, so forget them
-        if (seenHoles.size) seenHoles.clear();
-      } else {
-        for (const id of Array.from(seenHoles)) {
-          if (!holes.some((h) => h.id === id)) seenHoles.delete(id);
-        }
-      }
-      for (let i = 0; i < holePool.length; i++) {
-        const hp = holePool[i];
-        const h = holes[i];
-        if (!h) {
-          if (hp.root.visible) hp.root.visible = false;
-          continue;
-        }
-        if (!seenHoles.has(h.id)) {
-          seenHoles.add(h.id);
-          // the soil erupts as the worm breaks through
-          spawnBurst(h.x, 0.1, h.y, 0x4a3324, 10, 1.8);
-          spawnBurst(h.x, 0.16, h.y, 0x8a6a4a, 6, 1.2);
-          spawnRing(h.x, h.y, 0xe8a0a8);
-        }
-        hp.root.visible = true;
-        hp.root.position.set(h.x, 0, h.y);
-        const charge = h.armed ? 1 : Math.max(0, Math.min(1, 1 - h.arm / 0.9));
-        hp.root.rotation.y += 0.012;
-        hp.root.scale.setScalar(0.55 + charge * 0.45);
-        hp.ringMat.opacity = h.armed
-          ? 0.55 + Math.sin(t * 5.5) * 0.3
-          : 0.2 + charge * 0.45;
-        hp.ringMat.color.setHex(h.armed ? 0xe8a0a8 : 0x8a5560);
-        hp.pitMat.color.setHex(h.armed ? 0x0d0908 : 0x1a100c);
-      }
-    }
-
     /* ── Camera Framing ──────────────────────────────────────────────
        The old fit used a flat width/height heuristic. Perspective makes the
        near edge of a 3D drawer larger than the far edge, so that heuristic
@@ -2717,6 +2639,30 @@ export function Scene3D({
       return found;
     }
 
+    function projectSkillPoint(u: UnitObj) {
+      const { x, y, z } = u.holder.position;
+      return proj.set(x, y + u.inner.position.y + u.model.height * u.scale * 0.56, z).project(camera);
+    }
+
+    function pickBattleTarget(eligible: ReadonlySet<number>, direct: number | null): number | null {
+      if (direct !== null && eligible.has(direct) && !units.get(direct)?.prevDead) return direct;
+      // Thin or moving voxel models can have gaps at their projected center.
+      // Give the lit target a screen-space touch area, including its health bar.
+      let closest: number | null = null;
+      let minScore = Infinity;
+      for (const uid of eligible) {
+        const u = units.get(uid);
+        if (!u || u.prevDead) continue;
+        projectSkillPoint(u);
+        if (proj.z >= 1) continue;
+        const dx = (proj.x - ndc.x) * W / 2;
+        const dy = (proj.y - ndc.y) * H / 2;
+        const score = (dx / 20) ** 2 + ((dy + 4) / 29) ** 2;
+        if (score < 1 && score < minScore) { minScore = score; closest = uid; }
+      }
+      return closest;
+    }
+
     function cellFromRay(): { col: number; row: number } | null {
       if (!ray.ray.intersectPlane(groundPlane, hitPoint)) return null;
       const col = Math.floor(hitPoint.x);
@@ -2771,7 +2717,10 @@ export function Scene3D({
         }
         hoverSlot = -1;
         if (hoverMeshRef.mesh) hoverMeshRef.mesh.visible = false;
-        renderer.domElement.style.cursor = pickUnit() != null ? "pointer" : "default";
+        const hit = p.interactive ? pickUnit() : null;
+        const candidate = p.interactive && p.mode === "battle" && p.targetableUids
+          ? pickBattleTarget(p.targetableUids, hit) : hit;
+        renderer.domElement.style.cursor = candidate !== null && (!p.targetableUids || p.targetableUids.has(candidate)) ? "pointer" : "default";
       }
     };
 
@@ -2780,13 +2729,18 @@ export function Scene3D({
         const bounds = renderer.domElement.getBoundingClientRect();
         if (e.clientX >= bounds.left && e.clientX <= bounds.right && e.clientY >= bounds.top && e.clientY <= bounds.bottom) {
           const p = P.current;
-          if (p.mode === "prep" && p.interactive) {
+          if (p.interactive) {
             setNdc(e.clientX, e.clientY);
             const uid = pickUnit();
-            if (uid != null) p.onUnit?.(uid);
-            else {
-              const c = cellFromRay();
-              if (c && c.row >= ALLY_ROW_MIN) p.onCell?.(c.row * COLS + c.col - ALLY_ROW_MIN * COLS);
+            if (p.mode === "battle" && p.targetableUids) {
+              const target = pickBattleTarget(p.targetableUids, uid);
+              if (target !== null) p.onUnit?.(target);
+            } else if (p.mode === "prep") {
+              if (uid != null) p.onUnit?.(uid);
+              else {
+                const c = cellFromRay();
+                if (c && c.row >= ALLY_ROW_MIN) p.onCell?.(c.row * COLS + c.col - ALLY_ROW_MIN * COLS);
+              }
             }
           }
         }
@@ -3452,6 +3406,24 @@ export function Scene3D({
     const chestForward = new THREE.Vector3();
     let chestOpen = 0;
 
+    function skillAnchor(uid: number, into: THREE.Vector3): boolean {
+      const u = units.get(uid);
+      if (!u || u.prevDead) return false;
+      into.copy(u.holder.position);
+      into.y += u.inner.position.y + u.model.height * u.scale * 0.6;
+      return true;
+    }
+
+    function oracleRayOrigin(side: BattleSide, into: THREE.Vector3) {
+      const holder = side === "ally" ? totemState.allyHolder : totemState.foeHolder;
+      if (holder) {
+        into.copy(holder.position);
+        into.y += 0.51;
+      } else {
+        into.set(COLS / 2, 1, side === "ally" ? ROWS : 0);
+      }
+    }
+
     function tick(now: number) {
       if (paused) return;
       raf = requestAnimationFrame(tick);
@@ -3596,6 +3568,7 @@ export function Scene3D({
       updateChest(chestOpen, t, reduceChestMotion, potatoOn);
       if (activeBattle !== clockBattle) {
         clockBattle = activeBattle;
+        commanderAfterTime = 0;
         visualBattleTime = activeBattle?.t ?? 0;
       } else if (activeBattle) {
         // Interpolate behind the fixed 100ms sim ticks. Never show touchdown
@@ -3607,7 +3580,6 @@ export function Scene3D({
       }
       updateProjectiles(activeBattle, t, dt);
       updateWebs(activeBattle, t, dt);
-      updateHoles(activeBattle);
       updateZones(activeBattle, t, visualBattleTime);
 
       // the frontline conduit carries a slow travelling pulse; sconces breathe
@@ -3848,10 +3820,10 @@ export function Scene3D({
             r.dive,
             visualBattleTime,
             !!r.treasureGuard,
-            r.roarEnd !== undefined && !r.dead
+            r.roarEnd !== undefined && !r.dead && r.trapExposeAt === undefined
               ? (document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches
                   ? 0.5
-                  : Math.max(0, Math.min(1, (advancedEffects ? visualBattleTime : liveBattle.t) / SPIDER_ROAR_SECONDS)))
+                  : Math.max(0, Math.min(1, ((advancedEffects ? visualBattleTime : liveBattle.t) - r.roarEnd + SPIDER_ROAR_SECONDS) / SPIDER_ROAR_SECONDS)))
               : undefined,
             r.bugId === "spider" && r.star >= 3 && r.roarEnd === undefined && liveBattle.t + 1e-9 >= SPIDER_ROAR_SECONDS,
           );
@@ -3870,6 +3842,35 @@ export function Scene3D({
       });
       if (p.selectedUid == null || !units.has(p.selectedUid)) selRing.visible = false;
 
+      if (targetingRings) {
+        let count = 0;
+        if (p.targetableUids || p.markedUid !== undefined || inspectCommanderFx) for (const [uid, u] of units) {
+          if (u.prevDead || (uid !== p.markedUid && !p.targetableUids?.has(uid))) {
+            if (inspectCommanderFx) delete u.el.dataset.skillPoint;
+            continue;
+          }
+          const s = u.scale * (uid === p.markedUid ? 1.13 : 1);
+          ringMatrix.makeScale(s, 1, s).setPosition(u.holder.position.x, 0.032, u.holder.position.z);
+          targetingRings.setMatrixAt(count++, ringMatrix);
+          if (inspectCommanderFx && p.mode === "battle" && p.targetableUids?.has(uid)) {
+            projectSkillPoint(u);
+            u.el.dataset.skillPoint = JSON.stringify([(proj.x * 0.5 + 0.5) * W, (0.5 - proj.y * 0.5) * H]);
+          } else if (inspectCommanderFx) {
+            delete u.el.dataset.skillPoint;
+          }
+        }
+        targetingRings.count = count;
+        if (count) targetingRings.instanceMatrix.needsUpdate = true;
+      }
+      if (commanderFx) {
+        if (activeBattle?.over) commanderAfterTime += dt;
+        commanderFx.update(activeBattle, visualBattleTime + commanderAfterTime, reduceChestMotion, potatoOn, skillAnchor, oracleRayOrigin);
+        if (inspectCommanderFx) {
+          const info = JSON.stringify(commanderFx.inspect());
+          if (renderer.domElement.dataset.commanderFx !== info) renderer.domElement.dataset.commanderFx = info;
+        }
+      }
+
       /* ── Floating Combat Popups ── */
       if (battleOn && liveBattle) {
         alivePops.clear();
@@ -3887,13 +3888,14 @@ export function Scene3D({
             if (pop.kind === "skill") {
               // Airstrike's effect comes from the Dragonfly touching down,
               // not an extra explosion travelling alongside the specimen.
-              if (pop.text !== "AIRSTRIKE" && pop.text !== "TOUCHDOWN" && !(advancedEffects && pop.text === "ROAR!")) {
-                spawnRing(pop.x, pop.y + 0.25, pop.text === "GLOW" ? 0x56dca8 : 0xf0a93b);
+              if (pop.text !== "AIRSTRIKE" && pop.text !== "TOUCHDOWN" && pop.text !== "HEALING WAVES"
+                && pop.text !== "WAVE IMPACT" && pop.text !== "LAST SPARK" && !(advancedEffects && pop.text === "ROAR!")) {
+                spawnRing(pop.x, pop.y + 0.25, pop.text === "TRAP!" ? 0xe8a0a8 : 0xf0a93b);
                 spawnBurst(
                   pop.x,
                   0.34,
                   pop.y + 0.25,
-                  pop.text === "GLOW" ? 0x56dca8 : 0xffc252,
+                  pop.text === "TRAP!" ? 0x9d755c : 0xffc252,
                   9,
                   1.5
                 );
@@ -4004,7 +4006,7 @@ export function Scene3D({
       webGeo.dispose(); webMat.dispose();
       eggGeo.dispose(); eggMat.dispose();
       glintGeo.dispose(); glintMat.dispose(); glintTex.dispose();
-      holePool.forEach((hp) => scene.remove(hp.root));
+      commanderFx?.dispose();
       zonePool.forEach((zp) => scene.remove(zp.root));
       totemState.allyModel?.dispose();
       totemState.foeModel?.dispose();

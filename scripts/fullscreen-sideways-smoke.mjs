@@ -74,7 +74,7 @@ try {
   await page.getByRole('button',{name:'SCAN SCREEN'}).tap();
   const smallReport=await page.locator('.ui-doctor__body').innerText();
   assert.match(smallReport,/Colony ladder scroll area/,'narrow sideways standings can be swiped');
-  // Check the scrolling standings, not unrelated warnings about bond chips.
+  // Check touch targets in the scrolling standings.
   const ladderFindings=smallReport.split(/\n(?=\d+ · )/).filter(entry=>entry.includes('button.ladder-button'));
   assert.ok(ladderFindings.every(entry=>!/ · (BORDER|TAP|COVERED)\b/.test(entry)),`scrolling standings must not create false defects: ${smallReport}`);
   assert.doesNotMatch(smallReport,/HUD elements overlap|Commander model clipped|Drawer frame clipped/,`narrow sideways framing: ${smallReport}`);

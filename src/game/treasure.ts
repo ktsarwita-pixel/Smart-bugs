@@ -1,6 +1,5 @@
-import { createBattle, nextUid, statsFor, type BattleState, type PrepUnit } from './engine';
-import { BUGS, type CmdId } from './data';
-import { NO_BONDS } from './bonds';
+import { createBattle, nextUid, type BattleState, type PrepUnit } from './engine';
+import { type CmdId } from './data';
 
 /** Only the first and fourth global rounds are treasure encounters. */
 export function treasureRound(round: number): 1 | 4 | null {
@@ -12,21 +11,9 @@ export function treasureGuardTeam(round: number): PrepUnit[] {
     : [['bomb', 1, 8], ['dragonfly', 2, 10], ['bomb', 1, 12]] as const;
   return specs.map(([bugId, star, slot]) => ({ uid: nextUid(), bugId, star, slot, zone: 'board' }));
 }
-export function createTreasureBattle(allies: PrepUnit[], cmd: CmdId, round: number): BattleState {
-  // Matriarch has no periodic ability; replace its stat bonuses with the
-  // specified neutral-guard multiplier, so these are not commander buffs.
-  const b = createBattle(allies, treasureGuardTeam(round), cmd, 'matriarch');
-  const multiplier = treasureRound(round) === 1 ? 1.15 : 1.10;
-  for (const u of b.units) if (u.side === 'foe') {
-    const base = statsFor(u.bugId, u.star);
-    u.maxHp = u.hp = Math.round(base.hp * multiplier);
-    u.atk = Math.round(base.atk * multiplier);
-    u.def = Math.round(base.def * multiplier);
-    // Guards are neutral: their stats are the specified values above, so
-    // they carry no Colony Bond either — not in numbers, not on the HUD.
-    u.atkCd = BUGS[u.bugId].atkCd;
-    u.treasureGuard = true;
-  }
-  b.bondsB = { ...NO_BONDS };
-  return b;
+export function createTreasureBattle(allies: PrepUnit[], cmd: CmdId, round: number, autoOracle = false): BattleState {
+  return createBattle(allies, treasureGuardTeam(round), cmd, null, {
+    guardMultiplier: treasureRound(round) === 1 ? 1.15 : 1.10,
+    autoOracle: autoOracle ? ['ally'] : [],
+  });
 }

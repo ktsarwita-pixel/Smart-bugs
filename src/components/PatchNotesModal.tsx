@@ -15,15 +15,22 @@ interface VersionEntry {
 
 export const VERSIONS: VersionEntry[] = [
   {
-    v: "0.8",
-    title: "COLONY BONDS",
+    v: "0.9",
+    title: "COMMANDER SKILLS",
     items: [
-      "New COLONY BONDS: every bug's role now matters. Field 2 bugs of one role to activate its bond and 4 for the stronger tier. Bonds count each fielded bug, so two Stag Beetles are two Frontline bugs.",
-      "Shield Wall (Frontline): +12% / +25% max HP. Battery (Artillery): +15% / +30% ATK. Ambush (Assassin): 10% / 20% shorter attack delay. A bond only strengthens bugs of its own role.",
-      "A new bonds strip under the command deck shows your three bonds with progress pips and the live bonus, plus the active bonds of the rival line you are about to face. Tap a chip to open the Field Guide.",
-      "Bonds change the same numbers the stat sheet shows, so the inspector still displays exactly what a fielded bug brings to the fight. Rival colonies earn bonds from their own line-ups by the same rule.",
+      "Colony Bonds have been removed from battles and the Field Guide. Roles remain for World Worm's recruit skill.",
+      "Ancient Scavanger earns Incomes from pairs of wins. Pressure present pays out after the round following three consecutive losses.",
+      "Hyber Lantern sends white souls from fallen allies. Mark one ally for four healing pulses at 50 HP or less; the last pulse sends green dust across a 3×3 area.",
+      "World Worm opens two toothed traps each battle. Use Eat and spit on a bench bug to recruit two more.",
+      "All three commanders have new animated voxel models and updated portraits.",
+    ],
+  },
+  {
+    v: "0.8",
+    title: "FAIR INITIATIVE & CAREER",
+    items: [
       "Fair initiative: bugs used to act in a fixed order, so your line always moved and struck first inside each moment of a fight. With identical line-ups on both sides, that side won up to 81% of battles. Initiative is now a coin flip each moment and identical line-ups win 50%. Close fights are a little harder than before, and duels between rival colonies no longer favour one of them.",
-      "Sound: the game now has synthesized effects for recruiting, moulting, deploying, bonds, hits, skills, knock-outs and round results. Nothing is downloaded. Settings has an on/off switch and a volume slider.",
+      "Sound: the game now has synthesized effects for recruiting, moulting, deploying, hits, skills, knock-outs and round results. Nothing is downloaded. Settings has an on/off switch and a volume slider.",
       "Career record: finished matches are kept on this device — matches, titles, podiums, best finish, longest win streak and round win rate. It appears on the main menu and the final standings, and can be erased in Settings.",
       "Treasure chests have new brass-and-jade artwork. On a win the clasp glints, the lid opens, and gold and gems rise from the chest. Reduced motion shows the open chest without the burst.",
       "New shortcut: press E to sell the selected bug.",
@@ -37,7 +44,7 @@ export const VERSIONS: VersionEntry[] = [
       "UI Doctor now speaks your language: the panel header, buttons, FPS readout, status messages, the copied report and every finding label and sentence are translated into Bahasa Indonesia instead of printing English — DEEP SCAN included.",
       "Tapping a colony in the ladder now opens a health panel that fits the rail exactly: same width, same height, same edges, inside the deck border on phones and desktop, with no size jump.",
       "New DAMAGE SHOWER chart in the battle telemetry dock: every bug on your line is listed with the damage it actually dealt this fight, sorted from the heaviest hitter down, with a bar showing its share of your line's output.",
-      "Damage is credited to the bug that caused it, not the bug that touched it — Battle Roar, Enraged poison, After Web snares, Dig Hole vuln hits and the Dragonfly's airstrike ticks all land on their real owner's row. Defeated bugs keep their numbers so the chart still tells the whole story.",
+      "Damage is credited to the bug that caused it, not the bug that touched it — Battle Roar, Enraged poison, After Web snares, trap-enhanced hits and the Dragonfly's airstrike ticks all land on their real owner's row. Defeated bugs keep their numbers so the chart still tells the whole story.",
       "Tap the chart header to fold it away, and the SHOW ENEMY DAMAGE button underneath to reveal the enemy line's damage totals in the same layout. Both toggles remember their state while you battle.",
       "The chart is built for phones, including Indonesian copy: long labels truncate instead of pushing numbers out of their frame, rows scroll inside the dock instead of crushing the battlefield, and KO/kill badges drop out on 320px screens.",
       "Rows carry the damage each bug took as well as dealt — visible on tablets and desktop, kept in the row tooltip everywhere.",

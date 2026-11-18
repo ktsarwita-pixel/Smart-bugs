@@ -899,267 +899,142 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     crownPivot = [0, 8, -3];
     maxY = 8;
   } else if (id === "matriarch") {
-    legsAS.singleLeg(-3, 2, -3, -6, 4, -4, -7, -5, "#6E4B2E", "#3D2817");
-    legsAS.singleLeg(4, 2, 0, 7, 4, 0, 8, 1, "#6E4B2E", "#3D2817");
-    legsAS.singleLeg(-4, 2, 4, -7, 4, 5, -8, 6, "#6E4B2E", "#3D2817");
-
-    legsBS.singleLeg(3, 2, -3, 6, 4, -4, 7, -5, "#6E4B2E", "#3D2817");
-    legsBS.singleLeg(-4, 2, 0, -7, 4, 0, -8, 1, "#6E4B2E", "#3D2817");
-    legsBS.singleLeg(4, 2, 4, 7, 4, 5, 8, 6, "#6E4B2E", "#3D2817");
-
-    torsoS.ellipsoid(0, 4.4, -2.6, 4.2, 2.6, 2.0, (_x, y) => {
-      if (y <= 1) return null;
-      return { hex: y >= 6 ? "#F0A93B" : "#755334" };
+    // Ancient Scavanger: hammered brass, jade relics, and a stepped diadem.
+    const bronze = "#B47738", gold = "#F9C16C", umber = "#52332A";
+    const sienna = "#884A31", jade = "#245C51", gem = "#A8FFD6", ivory = "#EAD1A0";
+    for (const side of [-1, 1]) {
+      const a = side === -1 ? legsAS : legsBS, b = side === -1 ? legsBS : legsAS;
+      a.singleLeg(side * 2, 3, -2, side * 5, 4, -4, side * 7, -5, bronze, umber);
+      b.singleLeg(side * 3, 3, 1, side * 7, 4, 1, side * 8, 2, sienna, umber);
+      a.singleLeg(side * 4, 3, 5, side * 7, 4, 6, side * 8, 7, bronze, umber);
+    }
+    torsoS.ellipsoid(0, 4.2, 3.8, 5.4, 3.5, 5.3, (x, y, z) => {
+      if (y < 2) return null;
+      if (y === 2) return { hex: umber };
+      if (z === 1 || z === 5 || z === 8) return { hex: y >= 4 ? bronze : sienna };
+      if (y >= 6 && Math.abs(x) <= 2) return { hex: (z % 2 || x === 0) ? jade : gem, glow: z % 2 === 0 && x !== 0 };
+      if (Math.abs(x) >= 3 && y === 5) return { hex: ivory };
+      return { hex: y >= 5 ? gold : sienna };
     });
-    torsoS.ellipsoid(0, 4.5, 3.4, 5.0, 3.5, 5.2, (x, y, z) => {
-      if (y <= 1) return null;
-      if (y === 2) return { hex: "#382617" };
-      const band = Math.abs(z) % 2 === 0;
-      if (y >= 7 && x === 0) return { hex: "#F0A93B" };
-      if (y === 3 && Math.abs(x) <= 2 && z >= 2 && z <= 5) return { hex: "#FFF4CC", glow: true }; // brood glow
-      if (band && y >= 4 && y <= 6) return { hex: Math.abs(x) >= 3 ? "#F0A93B" : "#EAD7B8" };
-      return { hex: y >= 5 ? "#7E5B3B" : "#543C25" };
-    });
-
-    headPivot = [0, 4.0, -4.5];
-    torsoPivot = [0, 4.0, 0.0];
-    headS.ellipsoid(0, 4.0, -5.2, 3.0, 2.3, 2.0, (_x, y) => ({
-      hex: y >= 5 ? "#8C6642" : "#543C25",
+    torsoS.ellipsoid(0, 4.8, -1.8, 4.1, 3.2, 2.8, (x, y, z) => ({
+      hex: y >= 6 ? (Math.abs(x) >= 2 || z === -3 ? gold : jade) : y >= 4 ? bronze : umber,
     }));
-    headS.sym(3, 4, -6, "#FF4D2D", true);
-    headS.sym(2, 3, -7, "#543C25"); // jaw nubs
-    headS.box(-2, 6, -6, 2, 7, -5, "#F0A93B");
-    headS.set(0, 8, -6, "#FFF4CC", true);
-    headS.sym(2, 8, -6, "#F0A93B");
-    torsoS.sym(4, 6, -2, "#F0A93B"); // royal shoulder pads
+    torsoS.sym(4, 5, -2, jade);
+    torsoS.sym(4, 6, -2, gem, true);
+    torsoPivot = [0, 4.5, -2];
 
-    crownPivot = [0, 9, -2];
-    maxY = 9;
+    headPivot = [0, 5, -4];
+    headS.ellipsoid(0, 5.1, -5.7, 3.5, 2.7, 2.6, (x, y, z) => {
+      if (z >= -3) return null;
+      const eye = z <= -7 && Math.abs(x) === 2 && y === 5;
+      return { hex: eye ? "#FF9D47" : y >= 6 ? bronze : z <= -7 ? sienna : umber, glow: eye };
+    });
+    headS.symLine(2, 4, -6, 2, 3, -8, bronze);
+    headS.symLine(2, 3, -8, 1, 4, -9, ivory);
+    headS.box(-3, 7, -7, 3, 7, -5, bronze);
+    headS.box(-3, 8, -6, 3, 8, -5, gold);
+    headS.box(-1, 9, -6, 1, 10, -5, gold);
+    headS.set(0, 10, -7, gem, true);
+    headS.set(0, 11, -6, ivory);
+    headS.sym(3, 9, -6, gold);
+    headS.sym(3, 10, -6, bronze);
+    headS.sym(4, 10, -6, jade);
+    headS.sym(4, 11, -6, gold);
+    crownPivot = [0, 11, -5];
+    maxY = 12;
   } else if (id === "worm") {
-    // REWORK v6 — "Earth Colossus". Roster-scale and densely detailed, with
-    // ZERO free-standing decoration: the v5 dark soil skirt face-welded to
-    // the flanks still READ as floating debris against the dark pod, and
-    // v5 shrank the body too far. Every cell now belongs to the body, the
-    // head dome, or the jaw chains rooted inside the dome. Detail comes
-    // from the painters themselves: alternating plate bands, dark annulus
-    // grooves at each segment boundary, a serrated dorsal keel, the pale
-    // clitellum saddle with ridge texture, a dorsal vessel dash, wet flank
-    // shine, glowing eye pair, a pale shovel face and pale hook jaws.
-    const skinDark = "#6E3D4A";
-    const skinMid = "#A85E6E";
-    const plateLite = "#D98A96";
-    const groove = "#4F2A35";
-    const shine = "#F6C2C8";
-    const saddle1 = "#EFD0C6";
-    const saddle2 = "#D9A99C";
-    const keel = "#C9788A";
-    const vessel = "#8A4A57";
-
-    // Nine plump segments, belly-down, nose at -z, gently overlapping so
-    // the body is one continuous mass; the boundary rings shade dark
-    // automatically where consecutive ellipsoids meet.
-    for (let seg = 0; seg < 9; seg++) {
-      const cz = -4.2 + seg * 1.5;
-      const t = seg / 8;
-      const swollen = seg === 3 || seg === 4;
-      const rx = 3.8 - t * 1.8 + (swollen ? 0.35 : 0); // 3.8 -> 2.0
-      const ry = 2.7 - t * 0.9;                        // 2.7 -> 1.8
-      const even = seg % 2 === 0;
-      const rxi = Math.round(rx);
-      // deep tail rings: the last three overlap their neighbour by more than
-      // half a cell so the tapering tail never reads as detached blobs
-      const rz = seg >= 6 ? 1.6 : 1.2;
-      torsoS.ellipsoid(0, ry, cz, rx, ry, rz, (x, y, z) => {
-        if (y < 0) return null;
-        const zz = z - cz;
-        // dorsal vessel dash along the spine of even segments
-        if (x === 0 && y >= ry * 2 - 0.6 && even && zz < 0.5) return { hex: vessel };
-        // serrated keel: alternating spine plates
-        if (Math.abs(x) <= 0 && y >= ry * 2 - 1 && (seg + Math.round(z)) % 2 === 0) return { hex: keel };
-        // clitellum saddle with ridge texture
-        if (swollen && y >= ry) return { hex: y % 2 === 0 ? saddle1 : saddle2 };
-        // alternating plate bands on the back
-        if (y >= ry) return { hex: even ? plateLite : skinMid };
-        // dark annulus groove at the trailing edge of each segment
-        if (zz >= 0.55) return { hex: groove };
-        // wet flank shine
-        if (Math.abs(x) >= rxi - 1 && y >= 1) return { hex: shine };
-        // belly contact row
-        if (y === 0) return { hex: groove };
-        return { hex: even ? skinMid : skinDark };
+    // World Worm: a raised annular maw, ribbed segments, and a curling tail.
+    const ink = "#261621", groove = "#563042", skin = "#823F50";
+    const ridge = "#BA6569", blush = "#DE9C91", jaw = "#985140", tooth = "#FFEBCA";
+    for (let i = 0; i < 9; i++) {
+      const zc = -3.2 + i * 1.56;
+      const xc = i > 4 ? (i - 4) * 0.56 : 0;
+      const radius = 3.9 - i * 0.27 + (i === 2 ? 0.35 : 0);
+      const yc = 3.6 - i * 0.22;
+      torsoS.ellipsoid(xc, yc, zc, radius, yc + 0.15, 1.6, (x, y, z) => {
+        if (y < 0 || z < -4) return null;
+        if (y === 0 || z - zc > 0.66) return { hex: groove };
+        if (i === 2 && y >= yc) return { hex: (y + z) % 2 ? jaw : blush };
+        if (y >= yc + 0.75) return { hex: y >= yc * 1.7 && Math.abs(x - xc) < 1.1 ? blush : ridge };
+        return { hex: y >= 1 && Math.abs(x - xc) > radius - 1.45 ? ridge : skin };
       });
     }
-
-    // Head: broad shovel-faced dome — glowing eye pair and pale face plate
-    // painted by the dome painter itself (a glow cell that is not a dome
-    // cell cannot exist, so floating parts are structurally impossible).
-    // Dome is now slightly narrower (2.7) and sits 0.4 forward: at the old
-    // size its rear flanks (half-width 2.9) were WIDER than body segment 0
-    // (~2.8 at the seam), so the buried part poked out and visibly slid
-    // against the body whenever the head yawed — the "moving voxels
-    // clipping" report. Inside the body mass, no relative slide can show.
-    headPivot = [0, 2.4, -5.4];
-    torsoPivot = [0, 2.2, 0.3];
-    headS.ellipsoid(0, 2.4, -5.4, 2.7, 2.2, 2.4, (x, y, z) => {
-      if (y < 0) return null;
-      // glowing eye pair, set into the dome flanks
-      if (Math.abs(x) === 2 && y === 3 && z <= -5.4) return { hex: "#FFE08C", glow: true };
-      // pale shovel face + crowned plate
-      if (z <= -6.8 && y >= 1) return { hex: saddle1 };
-      if (y >= 4) return { hex: saddle2 };
-      // dark cheek/belly contact
-      if (Math.abs(x) >= 2 && y <= 1) return { hex: skinDark };
-      return { hex: skinMid };
+    torsoPivot = [0, 4, -4];
+    headPivot = [0, 4, -4.5];
+    headS.ellipsoid(0, 4.6, -5.4, 4.2, 3.7, 2.9, (x, y, z) => {
+      if (z >= -3 || y < 1) return null;
+      if (z <= -6 && x * x / 8 + (y - 4.6) ** 2 / 5 < 1) return z === -6 ? { hex: ink } : null;
+      return { hex: y > 6 ? blush : y >= 3 ? ridge : groove };
     });
-
-    // Neck-corner shave: ring0's top-front edge cells sit exactly where the
-    // dome's upper rim sweeps on every nod/chomp. Carve the whole corner
-    // band — but ONLY cells the head dome provably covers (same ellipsoid
-    // test), so the silhouette cannot change; the carve is sub-surface.
-    for (let cx = -2; cx <= 2; cx++) {
-      for (let cy = 3; cy <= 4; cy++) {
-        for (let cz = -6; cz <= -4; cz++) {
-          const dx = cx / 2.7, dy = (cy - 2.4) / 2.2, dz = (cz + 5.4) / 2.4;
-          if (dx * dx + dy * dy + dz * dz <= 1) torsoS.map.delete(keyOf(cx, cy, cz));
+    // A raised, jagged lip frames the recessed dark mouth. Each fang is
+    // rooted on a lip block, not a floating decal in front of the face.
+    headS.box(-2, 7, -8, 2, 7, -7, blush);
+    headS.box(-2, 2, -8, 2, 2, -7, jaw);
+    for (const side of [-1, 1]) {
+      headS.box(side * 3, 3, -8, side * 3, 6, -7, ridge);
+      headS.set(side * 3, 6, -8, groove);
+      headS.set(side * 3, 6, -9, "#FFD677", true);
+      headS.set(side * 2, 6, -8, tooth);
+      headS.set(side * 2, 3, -8, tooth);
+      headS.set(side * 1, 3, -8, tooth);
+    }
+    headS.set(0, 6, -8, tooth);
+    headS.set(0, 5, -8, "#C59A6E");
+    headS.set(0, 3, -8, ridge);
+    headS.set(0, 8, -6, blush);
+    crownPivot = [0, 8, -6];
+    maxY = 9;
+  } else {
+    // Hyber Lantern: midnight-blue chitin supports opal panes and a caged lamp.
+    const navy = "#24273F", violet = "#685F8F", iris = "#37395B";
+    const opal = "#9DEFFF", light = "#EBFFF2", patina = "#58ACA7", brass = "#E9B978";
+    for (const side of [-1, 1]) {
+      const a = side === -1 ? legsAS : legsBS, b = side === -1 ? legsBS : legsAS;
+      a.singleLeg(side * 2, 3, -2, side * 5, 4, -4, side * 7, -5, violet, navy);
+      b.singleLeg(side * 2, 3, 1, side * 5, 3, 1, side * 7, 1, iris, violet);
+      a.singleLeg(side * 2, 2, 4, side * 5, 3, 5, side * 7, 6, iris, violet);
+    }
+    torsoS.ellipsoid(0, 3.9, 3.9, 3.8, 2.9, 5.1, (x, y, z) => {
+      if (y < 1) return null;
+      if (z <= 0) return { hex: iris };
+      if (y === 1 || z === 2 || z === 5 || z >= 8) return { hex: y >= 3 ? brass : patina };
+      if (Math.abs(x) <= 1 && y >= 5) return { hex: light, glow: true };
+      return { hex: y >= 3 ? opal : patina, glow: y >= 2 };
+    });
+    torsoS.ellipsoid(0, 4.6, -1.5, 3.8, 2.9, 3.0, (x, y) => ({
+      hex: y >= 6 ? violet : Math.abs(x) === 3 && y >= 4 ? patina : iris,
+    }));
+    torsoPivot = [0, 4.8, -0.6];
+    headPivot = [0, 4.5, -3.4];
+    headS.ellipsoid(0, 4.9, -5.6, 3.1, 2.5, 2.6, (x, y, z) => {
+      if (z >= -3) return null;
+      if (z <= -7 && Math.abs(x) === 2 && (y === 4 || y === 5)) return { hex: opal, glow: true };
+      return { hex: y >= 6 ? violet : z <= -7 ? navy : iris };
+    });
+    headS.box(-2, 6, -7, 2, 6, -6, brass);
+    headS.set(0, 7, -7, opal, true);
+    headS.symLine(2, 6, -6, 3, 8, -7, violet);
+    headS.symLine(3, 8, -7, 4, 9, -8, brass);
+    headS.sym(4, 10, -8, light, true);
+    headS.sym(4, 10, -7, opal, true);
+    // Both glass fans pivot at a root embedded in the thorax. Dark spars
+    // outline the swept, stepped elytra while the bright abdomen stays open.
+    leftArmPivot = [-1.6, 5.5, -0.4];
+    rightArmPivot = [1.6, 5.5, -0.4];
+    for (const side of [-1, 1]) {
+      const wing = side === -1 ? leftArmS : rightArmS;
+      for (let i = 0; i < 7; i++) {
+        const x = side * (i + 1), y = 5 + Math.floor(i / 3);
+        const front = -2 + Math.floor(i / 2), back = 5 + Math.min(i, 6 - i);
+        for (let z = front; z <= back; z++) {
+          const edge = z === front || z === back || i === 6;
+          wing.set(x, y, z, edge ? (z >= back - 1 ? brass : iris) : (z - front) % 3 === 1 ? patina : violet);
+          if (!edge && z >= 3 && i >= 2) wing.set(x, y + 1, z, (z + i) % 3 === 0 ? opal : patina, (z + i) % 3 === 0);
         }
       }
     }
-
-    // Seam seal: drop dome cells in the rear half whose rim lies outside
-    // segment 0's footprint — those slivers poked out of the body flank and
-    // visibly slid against it whenever the head reared or bulldozed. The
-    // neck is now carried by ring0's own surface and every head rotation
-    // happens on sub-surface volume.
-    headS.map.forEach((_cell, k) => {
-      const x = unpackX(k), y = unpackY(k), z = unpackZ(k);
-      if (z < -5.3) return;
-      const dx = x / 3.8, dy = (y - 2.7) / 2.7, dz = (z + 4.2) / 1.2;
-      if (dx * dx + dy * dy + dz * dz > 0.98) headS.map.delete(k);
-    });
-
-    // Hooked jaw chains — five cells each, the two roots buried INSIDE the
-    // dome (multi-face contact), then out, forward, and an upturned pale
-    // hook. No single-cell nubs anywhere.
-    leftArmPivot = [-2, 2, -5.5];
-    rightArmPivot = [2, 2, -5.5];
-    // chains protrude from the shovel face — every cell is OUTSIDE the dome
-    // ellipsoid (the old interior roots shared cells with it and z-fought)
-    leftArmS.set(-2, 2, -7, skinDark); // root, face-adjacent to the dome skin
-    leftArmS.set(-3, 2, -7, skinDark);
-    leftArmS.set(-3, 2, -6, skinDark);
-    leftArmS.set(-3, 3, -6, saddle1); // pale hook
-    leftArmS.set(-3, 4, -6, skinDark); // upturned point
-    leftArmS.set(-2, 3, -7, skinDark); // second root mass
-    rightArmS.set(2, 2, -7, skinDark);
-    rightArmS.set(3, 2, -7, skinDark);
-    rightArmS.set(3, 2, -6, skinDark);
-    rightArmS.set(3, 3, -6, saddle1);
-    rightArmS.set(3, 4, -6, skinDark);
-    rightArmS.set(2, 3, -7, skinDark);
-
-    // Hidden filler exactly at ONE legs pivot only — keeps the leg group
-    // non-empty with zero visible, swingable parts. (Both groups used to
-    // carry this cell: two coincident cubes z-fighting inside the body.)
-    legsAS.set(0, 2, 0, skinDark);
-
-    // Neck-corner shave, part 2: the ring0 shoulder-top corner cells stand
-    // proud beside the dome rim and every jaw swing / head bob grazes them
-    // (audit-proven across stun, death and idle). Flanked by the dome rim
-    // (±1,4,−5), the dome flank (±2,3,−5) and the body flank (±3,3,−4),
-    // their removal reads as a smooth neck crease.
-    torsoS.map.delete(keyOf(2, 4, -5));
-    torsoS.map.delete(keyOf(-2, 4, -5));
-    torsoS.map.delete(keyOf(2, 4, -4));
-    torsoS.map.delete(keyOf(-2, 4, -4));
-    torsoS.map.delete(keyOf(1, 4, -4));
-    torsoS.map.delete(keyOf(-1, 4, -4));
-    // Neck-corner shave, part 3: the ring0 y2 corner row interlocks
-    // diagonally with the dome's lower rim and the jaw chains — idle
-    // pulse/roll closed those diagonals (0.05-0.08 vox). Carve the row
-    // (±0..2, 2, −5/−4): every cell is deep-interior (ellipsoid ≤ 0.72)
-    // and sealed — the dome overhangs the column from the front, the belly
-    // row (y1) from below. The neck now parts cleanly: dome rim at z −5/−6,
-    // next body surface at z −3.
-    for (const cx of [-2, -1, 0, 1, 2]) {
-      torsoS.map.delete(keyOf(cx, 2, -5));
-      torsoS.map.delete(keyOf(cx, 2, -4));
-    }
-    // part 4: the belly's top-front corner row (±1..0, 1, −5) sat diagonal
-    // to the dome's lower-front rim — same closure class. Sealed by the
-    // belly row (±1..0, 1, −4) behind, flank (±2,1,−5) beside and the
-    // chin-front (±1,1,−6) ahead; the dome overhangs it from above.
-    for (const cx of [-1, 0, 1]) {
-      torsoS.map.delete(keyOf(cx, 1, -5));
-    }
-    // part 5: the dome's bottom-front cells (±1..0, 1, −4) shared sculpt
-    // cells with the belly top — two boxes, one cell, z-fight. The dome
-    // provably covers them (same ellipsoid test); the belly row behind and
-    // the flank beside seal the void.
-    for (const cx of [-1, 0, 1]) {
-      const dx = cx / 2.7, dy = (1 - 2.4) / 2.2, dz = (-4 + 5.4) / 2.4;
-      if (dx * dx + dy * dy + dz * dz <= 1) torsoS.map.delete(keyOf(cx, 1, -4));
-    }
-
-    // NECK-ANCHOR the torso transform: peristalsis (torsoS) scaled about the
-    // old body-center pivot swung ring0's neck corner ±0.24 vox into the
-    // dome every pulse — the 20-wave "head noclips the body" read. Sculpt
-    // keys are absolute world-vox, so RE-ANCHORING the pivot alone moves no
-    // geometry: the pulse now travels down the segments while the seam
-    // stays still.
-    torsoPivot = [0, 4.2, -4.7];
-
-    crownPivot = [0, 6.4, -1];
-    maxY = 7;
-    } else {
-    // lampyris
-    legsAS.singleLeg(-3, 2, -3, -5, 4, -4, -7, -5, "#323D2E", "#1B2219");
-    legsAS.singleLeg(3, 2, 0, 6, 4, 0, 7, 1, "#323D2E", "#1B2219");
-    legsAS.singleLeg(-3, 2, 3, -6, 4, 4, -7, 6, "#323D2E", "#1B2219");
-
-    legsBS.singleLeg(3, 2, -3, 5, 4, -4, 7, -5, "#323D2E", "#1B2219");
-    legsBS.singleLeg(-3, 2, 0, -6, 4, 0, -7, 1, "#323D2E", "#1B2219");
-    legsBS.singleLeg(3, 2, 3, 6, 4, 4, 7, 6, "#323D2E", "#1B2219");
-
-    // Torso: Radiant glowing lantern abdomen (+1..+8)
-    torsoS.ellipsoid(0, 3.6, 4.2, 3.6, 2.1, 4.0, (_x, y, z) => {
-      if (y <= 1) return null;
-      if (z >= 3) return { hex: y >= 4 ? "#FFF8D1" : "#F0A93B", glow: true };
-      return { hex: "#96FFE5", glow: y <= 3 };
-    });
-
-    headPivot = [0, 4.2, -4.0];
-    torsoPivot = [0, 3.6, 0.0];
-    headS.ellipsoid(0, 4.2, -4.6, 3.6, 2.3, 2.6, (x, y, z) => {
-      if (y <= 1) return null;
-      if (z <= -6 && Math.abs(x) === 2 && y === 4) return { hex: "#96FFE5", glow: true };
-      if (Math.abs(x) >= 3 || z <= -6) return { hex: "#F0A93B" };
-      if (y >= 5 && Math.abs(x) <= 1) return { hex: "#E06A3B" };
-      return { hex: "#1C241A" };
-    });
-    headS.symLine(1, 5, -7, 3, 7, -9, "#A69470");
-    headS.sym(3, 7, -9, "#FFE7A3", true); // glowing antennal clubs
-    headS.sym(3, 7, -10, "#A69470");
-
-    // Articulated Left & Right Translucent Wing Covers (Elytra)!
-    leftArmPivot = [-1.8, 5.0, 0.5];
-    rightArmPivot = [1.8, 5.0, 0.5];
-
-    leftArmS.ellipsoid(-2.4, 5.0, 1.5, 2.2, 1.8, 4.0, (_x, y) => {
-      if (y <= 3) return null;
-      return { hex: y >= 6 ? "#2E3B2B" : "#1C241A" };
-    });
-    leftArmS.line(-1.0, 5.2, -1.0, -1.0, 5.2, 4.5, "#D9A443");
-    leftArmS.set(-2, 6, 5, "#96FFE5", true); // wing-tip signal lights
-
-    rightArmS.ellipsoid(2.4, 5.0, 1.5, 2.2, 1.8, 4.0, (_x, y) => {
-      if (y <= 3) return null;
-      return { hex: y >= 6 ? "#2E3B2B" : "#1C241A" };
-    });
-    rightArmS.line(1.0, 5.2, -1.0, 1.0, 5.2, 4.5, "#D9A443");
-    rightArmS.set(2, 6, 5, "#96FFE5", true);
-
-    crownPivot = [0, 8, -2];
-    maxY = 8;
+    crownPivot = [0, 10, -5];
+    maxY = 11;
   }
 
   // Star Regalia
@@ -1184,7 +1059,7 @@ function buildRigSculptures(id: string, star: number): CompiledRig {
     legsB: compilePart(legsBS, [0, 2, 0]),
     crown: crownS.map.size > 0 ? compilePart(crownS, crownPivot) : null,
     height: maxY * V,
-    armsOnHead: id !== "dragonfly",
+    armsOnHead: id !== "dragonfly" && id !== "lampyris",
   };
 }
 

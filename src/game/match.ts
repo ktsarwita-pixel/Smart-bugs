@@ -128,6 +128,7 @@ function simulateDuel(match: MatchState, fixture: RoundFixture, playerTeam: Prep
     teamFor(b, match.round, "foe", playerTeam),
     a.commander,
     b.commander,
+    { autoOracle: ["ally", "foe"] },
   );
   for (let tick = 0; !battle.over && tick < 420; tick++) battle = stepBattle(battle, 0.1);
   return battle;
@@ -153,7 +154,7 @@ export function resolveMatchRound(
     if (survivors.some(c => c.id === PLAYER_ID) && !playerBattle?.over) return match;
     const duels: DuelResult[] = fixtures.map(fixture => {
       const colony = survivors.find(c => c.id === fixture.aId)!;
-      let battle = colony.id === PLAYER_ID ? playerBattle! : createTreasureBattle(teamFor(colony, match.round, "ally", playerTeam), colony.commander, match.round);
+      let battle = colony.id === PLAYER_ID ? playerBattle! : createTreasureBattle(teamFor(colony, match.round, "ally", playerTeam), colony.commander, match.round, true);
       if (colony.id !== PLAYER_ID) for (let tick = 0; !battle.over && tick < 420; tick++) battle = stepBattle(battle, 0.1);
       const won = battle.over === "ally";
       return { ...fixture, winnerId: won ? colony.id : TREASURE_ID, loserId: won ? TREASURE_ID : colony.id, damage: 0, survivors: battle.units.filter(u => !u.dead && u.side === (won ? "ally" : "foe")).length };

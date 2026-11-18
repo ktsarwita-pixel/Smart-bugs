@@ -43,7 +43,7 @@ const {VERSIONS, PatchNotesModal, SettingsProvider, hasTranslation, translate, G
 
 // ── The newest card is the version the build claims to be ─────────────────
 assert.equal(VERSIONS[0].v, GAME_INFO.version, 'the top patch-notes card must match GAME_INFO.version');
-assert.equal(GAME_INFO.version, '0.8', 'the shipped build is v0.8');
+assert.equal(GAME_INFO.version, '0.9', 'the shipped build is v0.9');
 
 const seen = new Set();
 for (const entry of VERSIONS) {
@@ -63,9 +63,9 @@ for (const marker of ['DAMAGE SHOWER chart', 'SHOW ENEMY DAMAGE', 'credited to t
   );
 }
 
-// ── The current card (v0.8) announces what actually changed ───────────────
+// ── The current card (v0.9) announces what actually changed ───────────────
 const current = VERSIONS[0];
-for (const marker of ['COLONY BONDS', 'Shield Wall', 'Fair initiative', 'Sound:', 'Career record', 'press E']) {
+for (const marker of ['Colony Bonds have been removed', 'Ancient Scavanger', 'Hyber Lantern', 'World Worm', 'animated voxel models']) {
   assert.ok(
     current.items.some((item) => item.includes(marker)),
     `the current card should carry the "${marker}" note`,

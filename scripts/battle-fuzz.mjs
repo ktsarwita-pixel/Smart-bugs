@@ -33,9 +33,9 @@ const rngFor = (seed) => () => {
   seed = (seed * 1664525 + 1013904223) >>> 0;
   return seed / 0x100000000;
 };
-const COMMANDERS = ['matriarch', 'oracle', 'lamppris'];
+const COMMANDERS = ['matriarch', 'lampyris', 'worm'];
 /** Commanders that restore HP, so the HP-ledger equality legitimately breaks. */
-const healers = new Set(['lamppris']);
+const healers = new Set(['lampyris']);
 
 let battles = 0;
 let totalDamage = 0;
@@ -54,7 +54,7 @@ for (let seed = 1; seed <= 400; seed++) {
     }));
   };
   try {
-    const b = createBattle(team('ally'), team('foe'), pick(COMMANDERS), pick(COMMANDERS));
+    const b = createBattle(team('ally'), team('foe'), pick(COMMANDERS), pick(COMMANDERS), { autoOracle: ['ally', 'foe'] });
     let guard = 0;
     while (!b.over && guard++ < 1200) stepBattle(b, 0.1);
     battles++;

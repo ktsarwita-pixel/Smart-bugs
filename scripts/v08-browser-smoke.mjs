@@ -1,15 +1,5 @@
-/**
- * v0.8 browser check: Colony Bonds strip, sound, career record, phone fit.
- *
- *   npm run build && npx vite preview --port 4173 &
- *   CHROMIUM_PATH=/path/to/chromium node scripts/v08-browser-smoke.mjs
- *
- * BASE_URL overrides the address; SHOTS=dir keeps screenshots of each stage.
- * Drives the real build with real key presses: recruits a line, checks the
- * bond that line must produce, fights a live battle, then plays a whole
- * losing match through to the final standings to prove the career record is
- * written exactly once and shown.
- */
+/** Live regression for sound, career bookkeeping, and compact phone layout.
+ * BASE_URL overrides the preview URL; SHOTS=dir keeps browser captures. */
 import assert from 'node:assert/strict';
 import {mkdirSync} from 'node:fs';
 import {chromium} from 'playwright-core';
@@ -75,71 +65,38 @@ const visibleButton = (page, text) => page.locator(`button:has-text("${text}"):v
 async function startMatch(page, play = 'PLAY MATCH', begin = 'BEGIN ROUND 1') {
   await visibleButton(page, play).click();
   await visibleButton(page, begin).click();
-  await page.locator('.bonds-bar').waitFor({state: 'visible', timeout: 20000});
+  await page.locator('.prep-dock .commander-control').waitFor({state: 'visible', timeout: 20000});
   await page.evaluate(() => { window.__pinShop = false; });
 }
 
-/** No sideways scroll, and the bonds strip keeps every chip inside itself. */
 async function assertFits(page, label) {
-  const m = await page.evaluate(() => {
-    const bar = document.querySelector('.bonds-bar');
-    const box = bar?.getBoundingClientRect();
-    const chips = [...document.querySelectorAll('.bond-chip')].map((c) => c.getBoundingClientRect());
-    const rival = document.querySelector('.bonds-bar__rival')?.getBoundingClientRect();
-    return {
-      docOverflow: document.documentElement.scrollWidth - window.innerWidth,
-      bar: box && {l: box.left, r: box.right, h: box.height},
-      chips: chips.map((c) => ({l: c.left, r: c.right, h: c.height, w: c.width})),
-      rival: rival && {l: rival.left, r: rival.right},
-      vw: window.innerWidth,
-    };
+  const m = await page.locator('.commander-control').evaluate(el => {
+    const row = el.getBoundingClientRect(), button = el.querySelector('button').getBoundingClientRect();
+    return {overflow:document.documentElement.scrollWidth - innerWidth, fits:button.left >= row.left && button.right <= row.right, height:button.height};
   });
-  assert.ok(m.docOverflow <= 1, `${label}: page scrolls sideways by ${m.docOverflow}px`);
-  assert.ok(m.bar, `${label}: bonds strip missing`);
-  assert.equal(m.chips.length, 3, `${label}: three bond chips`);
-  for (const c of m.chips) {
-    assert.ok(c.l >= m.bar.l - 0.5 && c.r <= m.bar.r + 0.5, `${label}: a bond chip leaves the strip (${JSON.stringify(c)} vs ${JSON.stringify(m.bar)})`);
-    assert.ok(c.w >= 40, `${label}: a bond chip is crushed to ${c.w}px`);
-    assert.ok(c.h >= 24, `${label}: a bond chip is only ${c.h}px tall`);
-  }
-  if (m.rival) assert.ok(m.rival.r <= m.bar.r + 0.5, `${label}: the rival bonds are clipped`);
-  for (let i = 1; i < m.chips.length; i++) assert.ok(m.chips[i].l >= m.chips[i - 1].r - 0.5, `${label}: bond chips overlap`);
-  return m;
+  assert.ok(m.overflow <= 1 && m.fits && m.height >= 40, `${label}: commander control must fit: ${JSON.stringify(m)}`);
+  assert.equal(await page.locator('.bonds-bar, .bond-chip').count(),0);
 }
 
-const levels = (page) => page.locator('.bond-chip').evaluateAll((els) => els.map((e) => e.getAttribute('data-level')));
-
 try {
-  // ── A. Desktop: recruit five Stag Beetles → Shield Wall I, then fight ───
+  // ── A. Desktop: recruit five Stag Beetles, then fight ───
   {
     const {context, page, errors} = await open({width: 1280, height: 800, stagShop: true});
     assert.equal(await page.locator('.career-strip').count(), 0, 'no career strip before any match is finished');
     await shot(page, 'a1-title');
     await startMatch(page);
-    assert.deepEqual(await levels(page), ['0', '0', '0'], 'an empty line has no bond');
     await assertFits(page, 'desktop prep (empty)');
 
     for (const key of ['1', '2', '3', '4', '5']) { await page.keyboard.press(key); await page.waitForTimeout(120); }
     await page.keyboard.press('a'); // auto-deploy: a 2-star Stag + two 1-star Stags
     await page.waitForTimeout(500);
-    assert.deepEqual(await levels(page), ['1', '0', '0'], 'three fielded Frontline bugs = Shield Wall I, nothing else');
-    const frontline = page.locator('.bond-chip').first();
-    assert.match(await frontline.innerText(), /\+12% HP/, 'the chip shows the live bonus');
-    assert.match(await frontline.getAttribute('title'), /Shield Wall I — \+12% max HP/, 'the tooltip states the exact effect');
-    assert.match(await page.locator('body').innerText(), /SHIELD WALL I ACTIVE/, 'activating a bond is announced');
     assert.ok(await page.evaluate(() => window.__voices) > 0, 'recruiting and deploying made sound');
-    await assertFits(page, 'desktop prep (bonded)');
-    await shot(page, 'a2-prep-bonded');
-
-    // bond chips open the Field Guide, which documents the rule
-    await frontline.click();
-    await page.getByRole('dialog').first().waitFor({state: 'visible'});
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(250);
+    await assertFits(page, 'desktop prep (recruited)');
+    await shot(page, 'a2-prep-recruited');
 
     const before = await page.evaluate(() => window.__voices);
-    await page.keyboard.press(' '); // ENGAGE
-    await page.locator('.bonds-bar--combat').waitFor({state: 'visible', timeout: 15000});
+    await page.getByRole('button', { name: /Engage battle/ }).click();
+    await page.locator('.combat-scroll').waitFor({state: 'visible', timeout: 15000});
     await page.waitForTimeout(2500);
     await shot(page, 'a3-battle');
     await page.locator('#round-result-title').waitFor({state: 'visible', timeout: 90000});
@@ -148,7 +105,7 @@ try {
 
     // Settings: the sound switch persists
     await page.keyboard.press('Enter');
-    await page.locator('.bonds-bar:not(.bonds-bar--combat)').waitFor({state: 'visible', timeout: 15000});
+    await page.locator('.prep-dock .commander-control').waitFor({state: 'visible', timeout: 15000});
     await page.locator('button[aria-label="SETTINGS"]:visible').first().click();
     await page.getByRole('radiogroup', {name: 'SOUND'}).waitFor({state: 'visible'});
     await page.waitForTimeout(900); // let the sheet finish sliding in before the screenshot
@@ -181,8 +138,8 @@ try {
         rounds++;
         await page.keyboard.press('Enter');
         await page.waitForTimeout(350);
-      } else if (await page.locator('.bonds-bar:not(.bonds-bar--combat)').count()) {
-        await page.keyboard.press(' '); // prep only — in battle Space would change speed
+      } else if (await page.locator('.prep-dock .commander-control').count()) {
+        await page.getByRole('button', { name: /Engage battle/ }).click();
         await page.waitForTimeout(700);
       } else {
         await page.waitForTimeout(400);
@@ -210,7 +167,7 @@ try {
     await context.close();
   }
 
-  // ── C. Small phone, Indonesian, bonded line: the tightest layout ────────
+  // ── C. Small phone, Indonesian supply: the tightest layout ────────
   {
     const {context, page, errors} = await open({width: 360, height: 640, stagShop: true, lang: 'id'});
     await startMatch(page, 'MAINKAN', 'MULAI RONDE 1').catch(async () => {
@@ -220,15 +177,14 @@ try {
     for (const key of ['1', '2', '3', '4', '5']) { await page.keyboard.press(key); await page.waitForTimeout(120); }
     await page.keyboard.press('a');
     await page.waitForTimeout(500);
-    assert.deepEqual(await levels(page), ['1', '0', '0']);
-    await assertFits(page, 'phone 360 Indonesian (bonded)');
-    assert.match(await page.locator('.bond-chip').first().getAttribute('title'), /Tembok Perisai I — \+12% HP maks/, 'the bond reads in Indonesian');
+    await assertFits(page, 'phone 360 Indonesian');
+    assert.match(await page.locator('.commander-control').innerText(), /Pendapatan/i, 'the skill reads in Indonesian');
     await shot(page, 'c1-small-phone-id');
     assert.deepEqual(errors, [], `small-phone session logged errors:\n${errors.join('\n')}`);
     await context.close();
   }
 
-  console.log(`v08-browser-smoke: PASS — Shield Wall I from a real line, voiced battle, sound switch, phone fit at 390/360px, full match recorded once (place #${recorded.lastPlace}, ${recorded.roundsPlayed} rounds)`);
+  console.log(`v08-browser-smoke: PASS — real recruitment, voiced battle, sound switch, phone fit at 390/360px, full match recorded once (place #${recorded.lastPlace}, ${recorded.roundsPlayed} rounds)`);
 } finally {
   await browser.close();
 }

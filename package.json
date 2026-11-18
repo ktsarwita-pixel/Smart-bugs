@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test:commanders": "node scripts/commander-rules-smoke.mjs",
+    "test:commanders:browser": "node scripts/commander-browser-smoke.mjs && node scripts/commander-fx-smoke.mjs",
     "test:gameplay-size": "node scripts/gameplay-size-smoke.mjs",
     "test:mobile": "node scripts/mobile-ui-smoke.mjs",
     "test:chest": "node scripts/chest-mesh-smoke.mjs && node scripts/chest-model-smoke.mjs && node scripts/chest-3d-visual-smoke.mjs",

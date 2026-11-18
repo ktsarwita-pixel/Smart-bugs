@@ -16,8 +16,9 @@ import { SettingsModal } from "./components/SettingsModal";
 import { UiDoctor } from "./components/UiDoctor";
 import { AdvancedView, DEV_BUILD } from "./components/AdvancedView";
 import { fill, useSettings } from "./i18n";
-import { BONDS, NO_BONDS, ROLE_ORDER, bondCounts, bondLevels, bondPercent, roleOf } from "./game/bonds";
-import { BondsBar } from "./components/BondsBar";
+import { CommanderSkillControl } from "./components/CommanderSkillControl";
+import { eatAndSpit, freshCommander, incomeFrom, PRESSURE_GOLD, settleCommander, strongestOwned, WORM_CAP, WORM_INTERVAL } from "./game/commander";
+import { addRecruit, combine, deliverRecruits } from "./game/roster";
 import { CareerPanel } from "./components/CareerPanel";
 import { saveMatch, type RecordOutcome } from "./game/career";
 import { msSinceLastSfx, playSfx, sfxForPop } from "./game/sfx";
@@ -68,6 +69,7 @@ import {
 import {
   createBattle,
   makeFoeTeam,
+  markOracleTarget,
   nextUid,
   smartSlotFor,
   stepBattle,
@@ -153,6 +155,7 @@ interface Report {
   treasure?: 1 | 4 | null;
   rewards?: BugId[];
   treasureGold?: number;
+  pressure?: { gold: number; bugId: BugId | null };
 }
 
 /** Hand-drawn low-resolution pixel sprites; lid and loot snap between
@@ -275,6 +278,18 @@ export default function App() {
   const [level, setLevel] = useState(3);
   const [units, setUnits] = useState<PrepUnit[]>([]);
   const [pendingRewards, setPendingRewards] = useState<BugId[]>([]);
+  const [commanderProgress, setCommanderProgress] = useState(freshCommander);
+  const [commanderReserve, setCommanderReserve] = useState<BugId[]>([]);
+  const [skillTargeting, setSkillTargeting] = useState(false);
+  const [oraclePrepMark, setOraclePrepMark] = useState<number | null>(null);
+  useEffect(() => {
+    if (phase !== "prep" || !commanderReserve.length) return;
+    const received = deliverRecruits(units, commanderReserve);
+    if (received.out !== units) {
+      setUnits(received.out);
+      setCommanderReserve(received.reserve);
+    }
+  }, [units, commanderReserve, phase]);
   const [shop, setShop] = useState<(BugId | null)[]>(rollShop);
   const [match, setMatch] = useState(createMatch);
   const [selected, setSelected] = useState<number | null>(null);
@@ -356,36 +371,6 @@ export default function App() {
     toastTimer.current = window.setTimeout(() => setToast(""), 2200);
   }, [t]);
 
-  /* ── Colony Bonds (v0.8) ─────────────────────────────────────
-     Role synergies counted from the fielded line. The same bondLevels()
-     the engine calls in createBattle, so the strip can never disagree
-     with the fight. */
-  const bondCountsNow = useMemo(() => bondCounts(boardUnits.map((u) => u.bugId)), [boardUnits]);
-  const bonds = useMemo(() => bondLevels(boardUnits.map((u) => u.bugId)), [boardUnits]);
-  // The rival's line-up for this round is already decided, so its bonds are
-  // honest scouting intel rather than a guess.
-  const rivalBonds = useMemo(() => {
-    if (!roundFixture) return null;
-    // Treasure guards are neutral: fixed stats, no bonds (see treasure.ts).
-    if (treasure) return NO_BONDS;
-    return bondLevels(makeFoeTeam(foeIdx, round).map((u) => u.bugId));
-  }, [roundFixture, treasure, round, foeIdx]);
-  const prevBonds = useRef(bonds);
-  useEffect(() => {
-    const prev = prevBonds.current;
-    prevBonds.current = bonds;
-    if (phase !== "prep") return;
-    const role = ROLE_ORDER.find((r) => bonds[r] > prev[r]);
-    if (!role) return;
-    playSfx("bond");
-    say(tf("{name} {tier} ACTIVE — {effect}", {
-      name: t(BONDS[role].name).toUpperCase(),
-      tier: bonds[role] === 2 ? "II" : "I",
-      effect: tf(BONDS[role].effect, { n: bondPercent(role, bonds[role]) }).toUpperCase(),
-    }), "good");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bonds]);
-
   /* ── Career record (v0.8): per-match counters, written once at the end. */
   const matchStats = useRef({ roundsWon: 0, bestStreak: 0, recorded: false });
   const [careerNote, setCareerNote] = useState<RecordOutcome | null>(null);
@@ -411,33 +396,86 @@ export default function App() {
     }
   }, [gold]);
 
-  const combine = useCallback(
-    (list: PrepUnit[]): { out: PrepUnit[]; moulted: PrepUnit | null } => {
-      let out = list;
-      let moulted: PrepUnit | null = null;
-      let changed = true;
-      while (changed) {
-        changed = false;
-        for (const bugId of BUG_ORDER) {
-          for (const star of [1, 2]) {
-            const group = out.filter((u) => u.bugId === bugId && u.star === star);
-            if (group.length >= 3) {
-              const keep = group.find((u) => u.zone === "board") ?? group[0];
-              const drop = group.filter((u) => u.uid !== keep.uid).slice(0, 2);
-              const rest = out.filter((u) => u.uid !== keep.uid && !drop.some((d) => d.uid === u.uid));
-              const upgraded: PrepUnit = { ...keep, star: star + 1 };
-              out = [...rest, upgraded];
-              moulted = upgraded;
-              changed = true;
-              break;
-            }
-          }
-          if (changed) break;
-        }
-      }
-      return { out, moulted };
-    },
-    []
+  const currentCommander = cmdById(cmd ?? "matriarch");
+  const prepMark = boardUnits.find((u) => u.uid === oraclePrepMark);
+  const combatWave = battleSnap?.waves.ally;
+  const combatMark = combatWave && battleSnap?.units.find((u) => u.uid === combatWave.uid && !u.dead);
+  const oracleSpent = combatWave?.startAt != null;
+  const pickable = phase === "prep"
+    ? cmd === "worm" ? benchUnits : cmd === "lampyris" ? boardUnits : units
+    : phase === "battle" && cmd === "lampyris" && !oracleSpent && !battleSnap?.over
+      ? battleSnap?.units.filter((u) => u.side === "ally" && !u.dead) ?? [] : [];
+  const skillPrompt = t(cmd === "worm" ? "Pick a bench bug to eat" : cmd === "lampyris" ? "Pick an ally in the drawer" : "Pick a bug you own");
+  const skillReady = pickable.length > 0 && (cmd === "lampyris" || (
+    commanderProgress.charges > 0 && round >= commanderProgress.readyRound));
+
+  const toggleSkill = () => {
+    if (skillTargeting) return setSkillTargeting(false);
+    if (!skillReady) return;
+    setSelected(null);
+    setBenchInspectMode(false);
+    setScouting(false);
+    playSfx("select");
+    setSkillTargeting(true);
+  };
+
+  const applySkillTarget = (uid: number) => {
+    if (!skillTargeting) return;
+    if (phase === "battle" && cmd === "lampyris") {
+      const live = battleRef.current;
+      if (!live || !markOracleTarget(live, "ally", uid)) return say("Pick a living ally", "warn");
+      setBattleSnap({ ...live, units: live.units.map((u) => ({ ...u })) });
+      setSkillTargeting(false);
+      playSfx("select");
+      return;
+    }
+    if (phase !== "prep") return;
+    const target = units.find((u) => u.uid === uid);
+    if (!target) return;
+    if (cmd === "lampyris") {
+      if (target.zone !== "board") return say("Pick an ally in the drawer", "warn");
+      setOraclePrepMark(uid);
+      playSfx("select");
+    } else if (cmd === "worm") {
+      if (target.zone !== "bench") return say("Pick a bench bug to eat", "warn");
+      const fed = eatAndSpit(commanderProgress, target);
+      if (!fed) return;
+      const received = deliverRecruits(units.filter((u) => u.uid !== uid), [...commanderReserve, ...fed.rewards]);
+      setUnits(received.out);
+      setCommanderReserve(received.reserve);
+      setCommanderProgress(fed.progress);
+      playSfx("skill");
+      say(tf("Recruited {a} and {b}", { a: t(BUGS[fed.rewards[0]].name), b: t(BUGS[fed.rewards[1]].name) }), "good");
+    } else if (cmd === "matriarch") {
+      const income = incomeFrom(commanderProgress, round, target);
+      if (!income) return;
+      setCommanderProgress(income.progress);
+      setGold((g) => g + income.gold);
+      playSfx("sell");
+      say(tf("Incomes: +{n}G", { n: income.gold }), "good");
+    }
+    setSkillTargeting(false);
+  };
+
+  const activeMark = phase === "prep" ? prepMark : combatMark;
+  const cooldown = Math.max(0, commanderProgress.readyRound - round);
+  const skillStatus = cmd === "lampyris"
+    ? oracleSpent && phase === "battle"
+      ? combatMark && combatWave && combatWave.pulses < 4
+        ? tf("Healing waves · {n}/4", { n: combatWave.pulses }) : t("Used this battle")
+      : activeMark ? tf("Marked: {name} · ≤50 HP", { name: t(BUGS[activeMark.bugId].short) })
+        : t(pickable.length ? "Once per battle · ≤50 HP" : "Deploy an ally first")
+    : cmd === "worm"
+      ? `${tf("{n}/{max} uses", { n: commanderProgress.charges, max: WORM_CAP })} · ${commanderProgress.charges === WORM_CAP
+        ? t("Full") : tf("Next in {n} rd", { n: WORM_INTERVAL - round % WORM_INTERVAL })}`
+      : `${tf("Uses: {n}", { n: commanderProgress.charges })} · ${cooldown > 0 ? tf("Ready in {n} rd", { n: cooldown })
+        : commanderProgress.charges === 0 ? t("Win two in a row") : t("Ready")}`;
+  const skillControl = (
+    <CommanderSkillControl commander={currentCommander} status={skillStatus} prompt={skillPrompt}
+      targeting={skillTargeting} disabled={!skillReady} onToggle={toggleSkill} onTarget={applySkillTarget}
+      options={skillTargeting ? pickable.map((u) => ({ uid: u.uid,
+        label: `${t(BUGS[u.bugId].name)} · ${u.star}★${"zone" in u ? ` · ${t(u.zone === "bench" ? "BENCH" : "DRAWER")}` : ""}`,
+      })) : []} />
   );
 
   const buy = (idx: number) => {
@@ -446,20 +484,9 @@ export default function App() {
     const cost = BUGS[id].cost;
     if (gold < cost) { playSfx("deny"); return say("NOT ENOUGH GOLD"); }
 
-    // Allow buying even when bench is full IF buying immediately moults 2 bench copies!
-    const used = new Set(units.filter((u) => u.zone === "bench").map((u) => u.slot));
-    let free = -1;
-    for (let i = 0; i < BENCH_SIZE; i++) {
-      if (!used.has(i)) {
-        free = i;
-        break;
-      }
-    }
-    const willMoult = ownedCounts[id].s1 >= 2;
-    if (free < 0 && !willMoult) { playSfx("deny"); return say("BENCH IS FULL"); }
-
-    const nu: PrepUnit = { uid: nextUid(), bugId: id, star: 1, zone: "bench", slot: Math.max(0, free) };
-    const { out, moulted } = combine([...units, nu]);
+    const received = addRecruit(units, id);
+    if (!received) { playSfx("deny"); return say("BENCH IS FULL"); }
+    const { out, moulted, recruit: nu } = received;
     setUnits(out);
     setGold((g) => g - cost);
     setShop((s) => s.map((v, i) => (i === idx ? null : v)));
@@ -515,6 +542,10 @@ export default function App() {
   const onCell = (slot: number) => {
     if (phase !== "prep") return;
     const occupant = units.find((x) => x.zone === "board" && x.slot === slot);
+    if (skillTargeting) {
+      if (occupant) applySkillTarget(occupant.uid);
+      return;
+    }
 
     // Touch forgiveness: if nothing selected and user taps an occupied tile, select that bug!
     if (selected == null) {
@@ -544,7 +575,8 @@ export default function App() {
   };
 
   const onUnit = (uid: number) => {
-    if (phase !== "prep") return;
+    if (skillTargeting) return applySkillTarget(uid);
+    if (phase !== "prep" || !boardUnits.some((u) => u.uid === uid)) return;
     playSfx("select");
     setSelected((s) => (s === uid ? null : uid));
   };
@@ -599,6 +631,10 @@ export default function App() {
   const onBench = (slotIdx: number) => {
     if (phase !== "prep") return;
     const occupant = units.find((u) => u.zone === "bench" && u.slot === slotIdx);
+    if (skillTargeting) {
+      if (occupant) applySkillTarget(occupant.uid);
+      return;
+    }
     const su = units.find((u) => u.uid === selected);
     if (su && su.zone === "board") {
       setUnits((l) =>
@@ -666,13 +702,17 @@ export default function App() {
         return say("RECRUIT & DEPLOY A BUG FIRST");
       }
     }
-    const initial = treasure ? createTreasureBattle(activeBoard, cmd ?? "matriarch", round) : createBattle(activeBoard, makeFoeTeam(foeIdx, round), cmd ?? "matriarch", BOTS[foeIdx].cmd);
+    const initial = treasure
+      ? createTreasureBattle(activeBoard, currentCommander.id, round)
+      : createBattle(activeBoard, makeFoeTeam(foeIdx, round), currentCommander.id, BOTS[foeIdx].cmd, { autoOracle: ["foe"] });
+    if (prepMark) markOracleTarget(initial, "ally", prepMark.uid);
+    setSkillTargeting(false);
     // Pre-render pass 1: guarantee every sculpt in this exact matchup exists
     // BEFORE the scene draws its first frame of the fight.
     warmRoster(initial.units);
     // In the test build the fight card plays during the existing pre-roll,
     // so it cannot cover most of a three-star Spider's opening cast.
-    fightHasRoar.current = advancedGame && initial.units.some((u) => u.roarEnd !== undefined && !u.dead);
+    fightHasRoar.current = advancedGame && initial.units.some((u) => u.roarEnd !== undefined && !u.dead && u.stun === 0);
     if (fightHasRoar.current) setFightFlash((n) => n + 1);
     battleRef.current = initial;
     settledBattleRef.current = null;
@@ -753,6 +793,15 @@ export default function App() {
     // continuing a run pays out; a broken run resets to ±1
     const nextStreak = advanceStreak(streak, win);
     const streakGold = streakBonus(nextStreak);
+    const commanderRound = settleCommander(commanderProgress, currentCommander.id, round, nextStreak);
+    setCommanderProgress(commanderRound.progress);
+    const pressure = commanderRound.payout ? { gold: PRESSURE_GOLD, bugId: strongestOwned(units) } : undefined;
+    if (pressure?.bugId) {
+      const received = deliverRecruits(units, [...commanderReserve, pressure.bugId, pressure.bugId]);
+      setUnits(received.out);
+      setCommanderReserve(received.reserve);
+    }
+    setSkillTargeting(false);
     const treasureGold = treasure === 4 && win ? 25 : 0;
     const rewards = treasure && win ? [rollShop()[0]!, rollShop()[0]!] : [];
     if (rewards.length) setPendingRewards(q => [...q, ...rewards]);
@@ -786,8 +835,8 @@ export default function App() {
     );
 
     setMatch(updated);
-    setGold((g) => g + 5 + interest + bonus + treasureGold);
-    setReport({ win, foeIdx, dealt, taken, hpBefore: hp, hpAfter: updated.colonies.find((c) => c.id === PLAYER_ID)?.hp ?? hp, base, interest, bonus, streak: nextStreak, streakGold, echo: duel.echo, treasure, rewards, treasureGold });
+    setGold((g) => g + 5 + interest + bonus + treasureGold + (pressure?.gold ?? 0));
+    setReport({ win, foeIdx, dealt, taken, hpBefore: hp, hpAfter: updated.colonies.find((c) => c.id === PLAYER_ID)?.hp ?? hp, base, interest, bonus, streak: nextStreak, streakGold, echo: duel.echo, treasure, rewards, treasureGold, pressure });
     setPhase("result");
   };
 
@@ -842,6 +891,8 @@ export default function App() {
       setShop(rollShop());
     }
     setScouting(false);
+    setSkillTargeting(false);
+    setOraclePrepMark(null);
     setLadderFocus(null);
     battleRef.current = null;
     setBattleSnap(null);
@@ -858,6 +909,10 @@ export default function App() {
     setLevel(3);
     setUnits([]);
     setPendingRewards([]);
+    setCommanderProgress(freshCommander());
+    setCommanderReserve([]);
+    setSkillTargeting(false);
+    setOraclePrepMark(null);
     setShop(rollShop());
     setShopLocked(false);
     setStreak(0);
@@ -1224,10 +1279,12 @@ export default function App() {
       if (settingsOpen || guideOpen || patchOpen || adminOpen) return;
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      if (el?.tagName === "SELECT" && e.key !== "Escape") return;
+      if (el?.closest("button") && (e.key === " " || e.key === "Enter")) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const k = e.key.toLowerCase();
 
-      if (k === "escape") { setSelected(null); setScouting(false); setGuideOpen(false); return; }
+      if (k === "escape") { setSkillTargeting(false); setSelected(null); setScouting(false); setGuideOpen(false); return; }
       if (k === "?" ) { setGuideOpen((v) => !v); e.preventDefault(); return; }
       if (phase === "battle") {
         if (k === " " || k === "s") { setSpeed((v) => (v === 1 ? 2 : v === 2 ? 3 : 1)); e.preventDefault(); }
@@ -1281,6 +1338,7 @@ export default function App() {
       badge: t(c.title).toUpperCase(),
       accent: c.accent,
       abilityTitle: t(c.perk),
+      active: c.skill,
       abilityDesc: t(c.desc),
       stats: t("GENERAL OF THE COLONY"),
     };
@@ -1438,6 +1496,12 @@ export default function App() {
                     <b className="label mr-1.5 text-[7.5px] text-[#8E2A16]">{focusInfo.abilityTitle}:</b>
                     {focusInfo.abilityDesc}
                   </p>
+                  {focusInfo.kind === "COMMANDER" && (
+                    <p className="mt-1 text-[11px] leading-snug text-[#241B14]">
+                      <b className="label mr-1.5 text-[7.5px] text-[#165C43]">{t(focusInfo.active.name)}:</b>
+                      {t(focusInfo.active.desc)}
+                    </p>
+                  )}
                   {/* Per-star stat strip (stats were computed but never rendered) */}
                   {focusId in BUGS ? (
                     <div className="mt-2 grid grid-cols-3 gap-1">
@@ -1597,7 +1661,7 @@ export default function App() {
               {t("CHOOSE YOUR")} <span className="text-[#56DCA8]">{t("COLONY GENERAL")}</span>
             </h2>
             <p className="commander-intro latin mt-1 text-[14px] text-[#B3A594]">
-              {GAME_INFO.colonies} {t("colonies enter. One survives. Your general grants a unique passive for the entire match.")}
+              {GAME_INFO.colonies} {t("colonies enter. Choose a commander with a passive and an active skill.")}
             </p>
 
             <div className="commander-cards mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -1642,9 +1706,13 @@ export default function App() {
                     {advancedGame && <span className="commander-short" aria-hidden="true">{t(c.short)}</span>}
                     <div className="commander-perk mt-3 border-t border-[#241B14]/20 pt-2.5">
                       <span className="label inline-block bg-[#8E2A16] px-1.5 py-0.5 text-[7.5px] text-[#FFF3DC]">
-                        {t("PERK")} · {t(c.perk)}
+                        {t("PASSIVE")} · {t(c.perk)}
                       </span>
                       <p className="mt-1.5 text-[12px] leading-snug text-[#241B14]">{t(c.desc)}</p>
+                      <span className="label mt-2 inline-block bg-[#165C43] px-1.5 py-0.5 text-[7.5px] text-[#FFF3DC]">
+                        {t("ACTIVE SKILL")} · {t(c.skill.name)}
+                      </span>
+                      <p className="mt-1.5 text-[12px] leading-snug text-[#241B14]">{t(c.skill.desc)}</p>
                     </div>
                   </button>
                 );
@@ -1658,6 +1726,7 @@ export default function App() {
                   <span>{t(selectedCommander.perk)}</span>
                 </div>
                 <p>{t(selectedCommander.desc)}</p>
+                <p className="commander-current__skill"><strong>{t(selectedCommander.skill.name)}:</strong> {t(selectedCommander.skill.desc)}</p>
               </div>
             )}
 
@@ -1846,13 +1915,7 @@ export default function App() {
      ════════════════════════════════════════════════════════════ */
   const interestNext = Math.min(5, Math.floor(gold / 10));
   const inCombat = phase === "battle" || phase === "result";
-  // Inspector stats come from the same battleStats() the engine uses. A bug
-  // on the bench is not fielded, so it shows no bond bonus until deployed.
-  const selStats = sel
-    ? battleStats(sel.bugId, sel.star, cmd ?? "matriarch", sel.zone === "board" ? bonds : NO_BONDS)
-    : null;
-  const selRole = sel ? roleOf(sel.bugId) : null;
-  const selBondLevel = sel && selRole && sel.zone === "board" ? bonds[selRole] : 0;
+  const selStats = sel ? battleStats(sel.bugId, sel.star) : null;
   const allyLiveHp = battleSnap
     ? battleSnap.units.filter((u) => u.side === "ally").reduce((n, u) => n + Math.max(0, u.hp), 0)
     : 1;
@@ -1871,7 +1934,7 @@ export default function App() {
     (u) => u.side === "foe" && u.bugId === "dragonfly" && u.star >= 3 && !u.dead
   );
 
-  const armedHoles = battleSnap?.holes.filter((h) => h.armed).length ?? 0;
+  const trappedCount = battleSnap?.units.filter((u) => !u.dead && u.trapExposeAt !== undefined).length ?? 0;
   const liveZones = battleSnap?.zones ?? [];
   const zoneSeconds = liveZones.length
     ? Math.max(1, Math.ceil(Math.max(...liveZones.map((z) => z.remaining))))
@@ -2078,17 +2141,6 @@ export default function App() {
 
           </div>
 
-          {/* Colony Bonds (v0.8): your role synergies + the rival line's.
-              A slim row of its own, so nothing sits on top of the board. */}
-          {hp > 0 && (
-            <BondsBar
-              counts={bondCountsNow}
-              rival={inCombat ? battleSnap?.bondsB ?? rivalBonds : rivalBonds}
-              onInfo={() => setGuideOpen(true)}
-              className={inCombat ? "bonds-bar--combat" : ""}
-            />
-          )}
-
           {/* 3D Specimen Drawer Viewport (Fills Flexible Height!) */}
           <div className="battle-stage relative min-h-[235px] flex-1 bg-[#0D0907] min-[720px]:min-h-[175px]">
             {/* Compact unit controls stay over the upper board, away from the ladder. */}
@@ -2158,7 +2210,9 @@ export default function App() {
               advancedEffects={advancedGame}
               selectedUid={selected}
               canDeployMore={canDeployMore}
-              interactive={phase === "prep"}
+              interactive={phase === "prep" || (phase === "battle" && skillTargeting && skillReady)}
+              targetableUids={skillTargeting ? new Set(pickable.map((u) => u.uid)) : undefined}
+              markedUid={activeMark?.uid}
               cmdA={cmd ?? "matriarch"}
               cmdB={foe.cmd}
               treasure={!!treasure}
@@ -2201,11 +2255,9 @@ export default function App() {
             {/* Subtle Onboarding Prompt when Drawer is Empty */}
             {!advancedGame && phase === "prep" && boardUnits.length === 0 && !sel && (
               <div className="stage-hint pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 border border-[#3B322A] bg-[#120D09]/92 px-2.5 py-1 label text-[7.5px] text-[#EDE2CB]">
-                {(cmd ?? "matriarch") === "worm"
-                  ? t("THE WORM DIGS A HOLE BENEATH THE STRONGEST FOE — STEPPING IN STUNS & EXPOSES")
-                  : benchUnits.length > 0
-                    ? t("TAP YOUR BENCH BUG BELOW OR HIT ENGAGE TO AUTO-DEPLOY")
-                    : t("RECRUIT SPECIMENS FROM PIPKIN SUPPLY BELOW")}
+                {benchUnits.length > 0
+                  ? t("TAP YOUR BENCH BUG BELOW OR HIT ENGAGE TO AUTO-DEPLOY")
+                  : t("RECRUIT SPECIMENS FROM PIPKIN SUPPLY BELOW")}
               </div>
             )}
           </div>
@@ -2231,11 +2283,6 @@ export default function App() {
                   <div className="label mt-1 text-[7.5px] text-[#B3A594]">
                     {t(BUGS[sel.bugId].role)} · HP {selStats?.hp} · ATK {selStats?.atk}
                   </div>
-                  {selRole && selBondLevel > 0 && (
-                    <div className="label mt-1 text-[7px]" style={{ color: BONDS[selRole].accent }}>
-                      {t(BONDS[selRole].name)} {selBondLevel === 2 ? "II" : "I"} · {tf(BONDS[selRole].effect, { n: bondPercent(selRole, selBondLevel) })}
-                    </div>
-                  )}
                   <p className="mt-1 text-[11px] leading-snug text-[#9C8F7E]">
                     <span className="label mr-1 text-[7.5px] text-[#F0A93B]">
                       {selSkillUnlocked ? `${t(BUGS[sel.bugId].skill.name)}:` : `${t("NO SKILL")}:`}
@@ -2295,13 +2342,13 @@ export default function App() {
               <div className="combat-toolbar shrink-0 px-2.5 py-2 sm:px-3">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="label text-[8px] text-[#56DCA8]">{t("COMBAT TELEMETRY")}</span>
-                  {armedHoles > 0 && (
+                  {trappedCount > 0 && (
                     <span
                       className="label flex items-center gap-1 border border-[#E8A0A8]/60 bg-[#2A151A] px-1.5 py-0.5 text-[7px] text-[#E8A0A8]"
-                      title={t("Dig Hole traps waiting underfoot")}
+                      title={t("Opening traps hold their victims for 3 seconds")}
                     >
                       <IconBurrow size={10} />
-                      <span>{armedHoles} {t("HOLE")}</span>
+                      <span>{trappedCount} {t("TRAPPED")}</span>
                     </span>
                   )}
                   {liveZones.length > 0 && (
@@ -2319,7 +2366,7 @@ export default function App() {
                       title={t("Vulnerable units take 1.5× damage")}
                     >
                       <IconVulnerable size={10} />
-                      <span>VULN ×{vulnerableCount}</span>
+                      <span>{vulnerableCount} · VULN ×1.5</span>
                     </span>
                   )}
                   <span
@@ -2368,6 +2415,7 @@ export default function App() {
                   {adminButton("h-11 w-11 shrink-0 px-0 [&>span]:hidden")}
                 </div>
               </div>
+              {cmd === "lampyris" && phase === "battle" && skillControl}
               <div className="combat-scroll flex flex-1 flex-col justify-between px-2.5 pb-2.5 sm:px-3 sm:pb-3"
                 role="region" aria-label={t("COMBAT TELEMETRY")} tabIndex={0}>
                 <div>
@@ -2528,6 +2576,7 @@ export default function App() {
           ) : (
             /* ── PREP COMMAND DOCK: Bench + Shop + Actions ─────── */
             <div className="prep-dock dock-in flex flex-1 flex-col justify-start">
+              {skillControl}
               <div className="dock-scroll">
               {/* Bench Row (6 Slots) */}
               <div className="bench-section px-2 pt-1.5 pb-1.5 sm:px-3">
@@ -2570,6 +2619,9 @@ export default function App() {
                   )}
                   </div>
                 </div>
+                {commanderReserve.length > 0 && (
+                  <p className="commander-reserve" role="status">{tf("Skill recruits in reserve: {n}. Make room on the bench.", { n: commanderReserve.length })}</p>
+                )}
                 <div className="bench-grid grid grid-cols-6 gap-1">
                   {Array.from({ length: BENCH_SIZE }).map((_, i) => {
                     const u = benchUnits.find((b) => b.slot === i);
@@ -2579,10 +2631,11 @@ export default function App() {
                       <button
                         type="button"
                         onClick={() => {
-                          if (benchInspectMode && u) { setSelected(u.uid); setBenchInspectMode(false); }
+                          if (!skillTargeting && benchInspectMode && u) { setSelected(u.uid); setBenchInspectMode(false); }
                           else onBench(i);
                         }}
-                        title={u ? benchInspectMode ? tf("Inspect {name}", { name: t(BUGS[u.bugId].name) }) : tf("{name} — tap to deploy instantly", { name: t(BUGS[u.bugId].name) }) : t("Empty bench slot")}
+                        title={u ? skillTargeting ? skillPrompt : benchInspectMode ? tf("Inspect {name}", { name: t(BUGS[u.bugId].name) }) : tf("{name} — tap to deploy instantly", { name: t(BUGS[u.bugId].name) }) : t("Empty bench slot")}
+                        data-skill-target={!!u && skillTargeting && pickable.some((target) => target.uid === u.uid)}
                         className={`lift bench-slot relative grid h-11 w-full place-items-center border sm:h-12 ${
                           isSel ? "border-[#F0A93B] bg-[#241B14]" : "border-[#3B322A] bg-[#120D09]"
                         } ${!u && benchUnits.length >= BENCH_SIZE ? "bench-slot--over" : ""}`}
@@ -2870,6 +2923,14 @@ export default function App() {
                 </div>
               </div>
             )}
+            {report.pressure ? (
+              <div className="pressure-result" role="status">
+                {report.pressure.bugId && <SpecimenIcon id={report.pressure.bugId} size={32} badge="none" />}
+                <div><strong>{t("Pressure present")}</strong><div>+{report.pressure.gold}G{report.pressure.bugId && ` · ${tf("2 × {name} (1★)", { name: t(BUGS[report.pressure.bugId].name) })}`}</div></div>
+              </div>
+            ) : hp > 0 && !match.winnerId && typeof commanderProgress.pressure === "object" && (
+              <p className="pressure-result" role="status">{t("Pressure present arrives after the next round.")}</p>
+            )}
             <div className="result-health" aria-label={t("Colony HP")}>
               <div className="result-health__heading">
                 <div>
@@ -2893,13 +2954,14 @@ export default function App() {
               </div>
               <div className="flex items-baseline justify-between">
                 <span className="label text-[8.5px] text-[#241B14]">{t("TOTAL GOLD EARNED")}</span>
-                <span className="font-mono text-[12px] font-bold tabular-nums text-[#241B14]">+{5 + report.interest + report.bonus + (report.treasureGold ?? 0)}G</span>
+                <span className="font-mono text-[12px] font-bold tabular-nums text-[#241B14]">+{5 + report.interest + report.bonus + (report.treasureGold ?? 0) + (report.pressure?.gold ?? 0)}G</span>
               </div>
             </div>
             <details className="result-details">
               <summary>{t("ROUND DETAILS")}</summary>
               <div className="result-breakdown result-breakdown--details">
                 {[
+                  ...(report.pressure ? [{ l: t("Pressure present"), v: `+${report.pressure.gold}G`, c: "#7A5318" }] : []),
                   ...(report.treasureGold ? [{ l: t("  · TREASURE"), v: `+${report.treasureGold}G`, c: "#7A5318" }] : []),
                   { l: t("  · ROUND STIPEND"), v: "+5G", c: "#5C4A38" },
                   { l: t("  · INTEREST (10G/PT)"), v: `+${report.interest}G`, c: "#5C4A38" },

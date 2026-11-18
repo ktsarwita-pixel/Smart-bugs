@@ -16,7 +16,7 @@ import { useSyncExternalStore } from "react";
 
 export type SfxName =
   | "click" | "select" | "buy" | "sell" | "reroll" | "lock" | "levelup" | "merge"
-  | "deny" | "deploy" | "bond" | "engage"
+  | "deny" | "deploy" | "engage"
   | "hit" | "shell" | "skill" | "heavy" | "ko" | "heal"
   | "win" | "lose" | "champion" | "eliminated";
 
@@ -224,10 +224,6 @@ const RECIPES: Record<SfxName, (ac: AudioContext) => void> = {
     tone(ac, { type: "sine", f: 260, to: 130, dur: 0.11, gain: 0.16 });
     noise(ac, { dur: 0.07, gain: 0.06, filter: "lowpass", f: 900 });
   },
-  bond: (ac) => {
-    arp(ac, [440, 554, 659], 0.05, "sine", 0.1, 0.22);
-    tone(ac, { type: "triangle", f: 880, t: 0.16, dur: 0.3, gain: 0.08 });
-  },
   engage: (ac) => {
     tone(ac, { type: "sawtooth", f: 98, to: 147, dur: 0.5, gain: 0.1, attack: 0.05 });
     tone(ac, { type: "sawtooth", f: 147, to: 196, t: 0.02, dur: 0.5, gain: 0.07, attack: 0.05 });
@@ -308,6 +304,7 @@ export function sfxForPop(kind: "dmg" | "heal" | "skill" | "ko", text: string): 
   if (kind === "heal") return "heal";
   if (kind === "skill") {
     if (text === "ROAR!" || text === "TOUCHDOWN" || text === "AIRSTRIKE") return "heavy";
+    if (text === "WAVE IMPACT") return "heal";
     if (text === "BURST" || text === "TRAP!" || text === "SNARED!") return "shell";
     return "skill";
   }

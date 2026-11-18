@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { BUGS, BOTS, COMMANDERS, GAME_INFO, STARTING_COLONY_HP, MAX_FIELD_SIZE, BENCH_SIZE, BOARD_SLOTS, type BugId, type CmdId } from "../game/data";
+import { useState } from "react";
+import { BUGS, BOTS, GAME_INFO, STARTING_COLONY_HP, MAX_FIELD_SIZE, BENCH_SIZE, BOARD_SLOTS, type BugId } from "../game/data";
 import { battleStats } from "../game/engine";
 import { useSettings } from "../i18n";
 import { SpecimenIcon } from "./SpecimenIcon";
@@ -20,18 +20,12 @@ const ALL_IDS: BugId[] = ["stag", "bomb", "mantis", "dragonfly", "spider"];
 
 export function AdvancedView({ onExit }: { onExit: () => void }) {
   const { t } = useSettings();
-  const [cmd, setCmd] = useState<CmdId>("matriarch");
   const [tab, setTab] = useState<"units" | "bots" | "sys">("units");
-
-  const rows = useMemo(
-    () =>
-      ALL_IDS.map((id) => ({
-        id,
-        def: BUGS[id],
-        s: ([1, 2, 3] as const).map((star) => battleStats(id, star, cmd)),
-      })),
-    [cmd],
-  );
+  const rows = ALL_IDS.map((id) => ({
+    id,
+    def: BUGS[id],
+    s: [1, 2, 3].map((star) => battleStats(id, star)),
+  }));
 
   return (
     <div className="cabinet-bg safe-t safe-b min-h-[100dvh] w-full overflow-x-hidden text-[#EDE2CB]">
@@ -72,21 +66,7 @@ export function AdvancedView({ onExit }: { onExit: () => void }) {
 
         {tab === "units" && (
           <section className="mt-3 flex-1">
-            <div className="mb-2 flex flex-wrap items-center gap-1.5">
-              <span className="label text-[7.5px] text-[#8C7E6E]">{t("Commander perk")}:</span>
-              {COMMANDERS.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setCmd(c.id)}
-                  aria-pressed={cmd === c.id}
-                  className={`lift min-h-[34px] border px-2 label text-[7.5px] ${
-                    cmd === c.id ? "border-[#F0A93B] bg-[#241B14] text-[#F0A93B]" : "border-[#3B322A] bg-[#16110D] text-[#9C8F7E]"
-                  }`}
-                >
-                  {t(c.short)}
-                </button>
-              ))}
-            </div>
+            <p className="mb-2 text-[11px] text-[#B3A594]">{t("HP / ATK / DEF before combat effects")}</p>
             <div className="overflow-x-auto">
               <table className="w-full border-collapse font-mono text-[10px] tabular-nums">
                 <thead>

@@ -1,5 +1,4 @@
 import { BUGS, BOTS, MAX_FIELD_SIZE, STAR_MULT, type BugId, type CmdId, BOARD_SLOTS } from "./data";
-import { NO_BONDS, bondLevels, bondMods, type BondLevels } from "./bonds";
 import {
   AIRSTRIKE_FLIGHT, AIRSTRIKE_LOCK_PROGRESS, AIRSTRIKE_RADIUS, AIRSTRIKE_RECOVERY, AIRSTRIKE_SECONDS,
   airstrikeTickDamage,
@@ -79,6 +78,13 @@ export const ROWS = 6;
 export const TICK = 0.1;
 export const SPIDER_ROAR_SECONDS = 1.5;
 export const SPIDER_ROAR_DAMAGE = 650;
+export const TRAP_STUN_SECONDS = 3;
+export const TRAP_VULNERABLE_SECONDS = 10;
+export const WAVE_HP_THRESHOLD = 50;
+export const WAVE_BEATS = [0, 1.5, 3, 6] as const;
+const SPARK_TRAVEL_SECONDS = 0.45;
+const EPSILON = 1e-9;
+export type BattleSide = "ally" | "foe";
 
 export interface PrepUnit {
   uid: number;
@@ -108,6 +114,8 @@ export interface BUnit {
   maxEnergy: number;
   stun: number;
   vuln: number;
+  /** When the opening trap releases its hold and Vulnerable begins. */
+  trapExposeAt?: number;
   flash: number;
   cast: number;
   /** Opening roar ends at this battle time; absent after completion. */
@@ -194,17 +202,30 @@ export interface Zone {
   expiresAt: number;
 }
 
-/** Dig Hole — a one-tile trap that stuns and exposes whatever steps in. */
+/** A biting mouth at the opening position; the status lives on the victim. */
 export interface Hole {
   id: number;
-  owner: "ally" | "foe";
+  owner: BattleSide;
+  targetUid: number;
   x: number;
   y: number;
-  armed: boolean;
-  /** a triggered hole collapses and can never re-arm */
-  spent: boolean;
-  arm: number;
-  life: number;
+}
+
+export interface SoulSpark {
+  id: number;
+  x: number;
+  y: number;
+  targetUid: number;
+  startAt: number;
+  arrivesAt: number;
+}
+
+export interface OracleWave {
+  uid: number;
+  startAt: number | null;
+  pulses: number;
+  /** Tile-centered footprint of the fourth pulse (also used by the renderer). */
+  impact?: { x: number; y: number; at: number };
 }
 
 /**
@@ -241,18 +262,15 @@ export interface BattleState {
   units: BUnit[];
   pops: Pop[];
   cmdA: CmdId;
-  cmdB: CmdId;
-  /** Colony Bond tiers each side entered the fight with (absent on old snapshots). */
-  bondsA?: BondLevels;
-  bondsB?: BondLevels;
-  glowA: number;
-  glowB: number;
+  cmdB: CmdId | null;
+  sparks: SoulSpark[];
+  waves: Record<BattleSide, OracleWave | null>;
   nid: number;
   over: null | "ally" | "foe";
   banner: string;
   shots: Shot[];
   pending: PendingHit[];
-  /** at most one burrow per worm side, dug at battle start */
+  /** Up to two opening traps for each Worm side. */
   holes: Hole[];
   /** live Airstrike fields */
   zones: Zone[];
@@ -294,15 +312,9 @@ export const statsFor = (bugId: BugId, star: number) => {
   };
 };
 
-/** Shared targeting priority for the Worm's opening burrow and combat AI. */
-export function isStrongerTarget(candidate: BUnit, current: BUnit | null): boolean {
-  return (
-    !current ||
-    candidate.star > current.star ||
-    (candidate.star === current.star && candidate.maxHp > current.maxHp) ||
-    (candidate.star === current.star && candidate.maxHp === current.maxHp && candidate.atk > current.atk) ||
-    (candidate.star === current.star && candidate.maxHp === current.maxHp && candidate.atk === current.atk && candidate.uid < current.uid)
-  );
+/** Highest star, then largest health pool, then ATK, then oldest recruit. */
+export function compareStrength(a: Pick<BUnit, "uid" | "star" | "maxHp" | "atk">, b: typeof a): number {
+  return b.star - a.star || b.maxHp - a.maxHp || b.atk - a.atk || a.uid - b.uid;
 }
 
 export const boardXY = (slot: number) => ({
@@ -315,29 +327,19 @@ export const foeXY = (slot: number) => ({
   y: Math.floor(slot / COLS) + 0.5,
 });
 
-/**
- * The stats a unit actually enters battle with, commander bonus included.
- * Single source of truth: mkUnit uses it, and the prep inspector shows
- * it — so the ATK on the stat sheet is the damage the bug deals.
- */
-export function battleStats(bugId: BugId, star: number, cmd: CmdId, bonds: BondLevels = NO_BONDS) {
-  const s = statsFor(bugId, star);
-  const hpMul = cmd === "matriarch" ? 1.18 : 1;
-  const atkMul = cmd === "matriarch" ? 1.08 : 1;
-  // Colony Bonds (v0.8) move the same stat-sheet numbers the commander does,
-  // so the card still shows exactly what the bug brings to the fight.
-  const bond = bondMods(bugId, bonds);
-  return {
-    hp: Math.round(s.hp * hpMul * bond.hpMul),
-    atk: Math.round(s.atk * atkMul * bond.atkMul),
-    def: s.def,
-    /** Seconds between attacks, Ambush bond included. */
-    atkCd: Math.round(BUGS[bugId].atkCd * bond.cdMul * 1000) / 1000,
-  };
+/** Exact entry stats shared by the simulator and the specimen inspector. */
+export function battleStats(bugId: BugId, star: number) {
+  return { ...statsFor(bugId, star), atkCd: BUGS[bugId].atkCd };
 }
 
-function mkUnit(uid: number, bugId: BugId, star: number, side: "ally" | "foe", x: number, y: number, cmd: CmdId, bonds: BondLevels = NO_BONDS): BUnit {
-  const s = battleStats(bugId, star, cmd, bonds);
+function mkUnit(uid: number, bugId: BugId, star: number, side: BattleSide, x: number, y: number, guardMultiplier?: number): BUnit {
+  const base = battleStats(bugId, star);
+  const s = guardMultiplier === undefined ? base : {
+    ...base,
+    hp: Math.round(base.hp * guardMultiplier),
+    atk: Math.round(base.atk * guardMultiplier),
+    def: Math.round(base.def * guardMultiplier),
+  };
   const b = BUGS[bugId];
   const maxHp = s.hp;
   return {
@@ -345,6 +347,7 @@ function mkUnit(uid: number, bugId: BugId, star: number, side: "ally" | "foe", x
     bugId,
     star,
     side,
+    ...(guardMultiplier === undefined ? {} : { treasureGuard: true }),
     x,
     y,
     hp: maxHp,
@@ -381,24 +384,27 @@ function mkUnit(uid: number, bugId: BugId, star: number, side: "ally" | "foe", x
  *  longer than most fights, so the passive literally never fired). */
 const enrageInterval = (star: number) => (star >= 3 ? 2.5 : star === 2 ? 4 : 5);
 
+interface BattleOptions {
+  autoOracle?: readonly BattleSide[];
+  /** Guards' actual stats must exist before any opening trap can bite. */
+  guardMultiplier?: number;
+}
+
 export function createBattle(
   allies: PrepUnit[],
   foes: PrepUnit[],
   cmdA: CmdId,
-  cmdB: CmdId
+  cmdB: CmdId | null,
+  options: BattleOptions = {},
 ): BattleState {
   const units: BUnit[] = [];
-  // Colony Bonds are counted from each side's own fielded line, by the same
-  // function for both — rivals earn exactly the bonds their line-up shows.
-  const bondsA = bondLevels(allies.map((u) => u.bugId));
-  const bondsB = bondLevels(foes.map((u) => u.bugId));
   for (const u of allies) {
     const p = boardXY(u.slot);
-    units.push(mkUnit(u.uid, u.bugId, u.star, "ally", p.x, p.y, cmdA, bondsA));
+    units.push(mkUnit(u.uid, u.bugId, u.star, "ally", p.x, p.y));
   }
   for (const u of foes) {
     const p = foeXY(u.slot);
-    units.push(mkUnit(u.uid, u.bugId, u.star, "foe", p.x, p.y, cmdB, bondsB));
+    units.push(mkUnit(u.uid, u.bugId, u.star, "foe", p.x, p.y, options.guardMultiplier));
   }
   const st: BattleState = {
     t: 0,
@@ -406,10 +412,8 @@ export function createBattle(
     pops: [],
     cmdA,
     cmdB,
-    bondsA,
-    bondsB,
-    glowA: 5,
-    glowB: 5,
+    sparks: [],
+    waves: { ally: null, foe: null },
     nid: 1,
     over: null,
     banner: "",
@@ -419,16 +423,17 @@ export function createBattle(
     zones: [],
     webs: [],
   };
-  // Dig Hole is an opening gambit: each worm side burrows exactly once,
-  // under the enemy's strongest bug, before the first step is taken.
-  if (cmdA === "worm") digHole(st, "ally");
-  if (cmdB === "worm") digHole(st, "foe");
-  // The three-star spider roars in place before dealing its opening hit.
+  openTraps(st);
   for (const u of units) {
-    if (u.bugId === "spider" && u.star >= 3) {
-      u.roarEnd = SPIDER_ROAR_SECONDS;
-      pop(st, u, "ROAR!", "skill");
+    if (u.bugId === "spider" && u.star >= 3 && !u.dead) {
+      u.roarEnd = (u.trapExposeAt ?? 0) + SPIDER_ROAR_SECONDS;
+      if (u.stun === 0) pop(st, u, "ROAR!", "skill");
     }
+  }
+  for (const side of options.autoOracle ?? []) {
+    if (commanderFor(st, side) !== "lampyris") continue;
+    const target = alliesOf(st, side).sort(compareStrength)[0];
+    if (target) markOracleTarget(st, side, target.uid);
   }
   return st;
 }
@@ -534,6 +539,10 @@ function damage(b: BattleState, src: BUnit, tgt: BUnit, raw: number, projectile 
     tgt.deadT = 0;
     tgt.dive = null;
     pop(b, tgt, "KO", "ko");
+    sendLastSpark(b, tgt);
+  } else {
+    // Check on the actual crossing hit, before any other attacker can act.
+    startOracleWave(b, tgt);
   }
 }
 
@@ -599,7 +608,7 @@ function castSkill(b: BattleState, u: BUnit, t: BUnit): boolean {
   u.cast = 0.55;
   if (u.bugId === "stag") {
     damage(b, u, t, u.atk * 2.1);
-    if (!t.dead) t.stun = 1.4;
+    if (!t.dead) t.stun = Math.max(t.stun, 1.4);
     pop(b, t, "PINCER", "skill");
   } else if (u.bugId === "bomb") {
     fireShell(b, u, t, true);
@@ -706,15 +715,69 @@ function attack(b: BattleState, u: BUnit, t: BUnit) {
   }
 }
 
-function glow(b: BattleState, side: "ally" | "foe") {
-  const a = alliesOf(b, side);
-  if (!a.length) return;
-  const wounded = a.slice().sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0];
-  heal(b, wounded, wounded.maxHp * 0.12);
-  wounded.energy = Math.min(wounded.maxEnergy, wounded.energy + 25);
-  pop(b, wounded, "GLOW", "skill");
+const commanderFor = (b: BattleState, side: BattleSide) => side === "ally" ? b.cmdA : b.cmdB;
+
+function sendLastSpark(b: BattleState, fallen: BUnit) {
+  if (commanderFor(b, fallen.side) !== "lampyris") return;
+  const target = alliesOf(b, fallen.side).sort((a, c) => dist(fallen, a) - dist(fallen, c) || a.uid - c.uid)[0];
+  if (!target) return;
+  b.sparks.push({ id: b.nid++, x: fallen.x, y: fallen.y, targetUid: target.uid, startAt: b.t, arrivesAt: b.t + SPARK_TRAVEL_SECONDS });
+  pop(b, fallen, "LAST SPARK", "skill");
 }
 
+/** A mark may be replaced before the first pulse, but never after it fires. */
+export function markOracleTarget(b: BattleState, side: BattleSide, uid: number): boolean {
+  if (b.over || commanderFor(b, side) !== "lampyris" || b.waves[side]?.startAt != null) return false;
+  const target = b.units.find((u) => u.uid === uid && u.side === side && !u.dead);
+  if (!target) return false;
+  b.waves[side] = { uid, startAt: null, pulses: 0 };
+  startOracleWave(b, target);
+  return true;
+}
+
+function startOracleWave(b: BattleState, target: BUnit) {
+  const wave = b.waves[target.side];
+  if (!wave || wave.uid !== target.uid || wave.startAt !== null || target.dead || target.hp > WAVE_HP_THRESHOLD) return;
+  wave.startAt = b.t;
+  pop(b, target, "HEALING WAVES", "skill");
+  deliverWavePulse(b, target, wave);
+}
+
+function deliverWavePulse(b: BattleState, target: BUnit, wave: OracleWave) {
+  const final = ++wave.pulses === WAVE_BEATS.length;
+  heal(b, target, target.maxHp * (final ? 0.30 : 0.15));
+  if (!final) return;
+  const col = Math.floor(target.x), row = Math.floor(target.y);
+  wave.impact = { x: col + 0.5, y: row + 0.5, at: b.t };
+  pop(b, target, "WAVE IMPACT", "skill");
+  for (const enemy of enemiesOf(b, target.side)) {
+    if (Math.abs(Math.floor(enemy.x) - col) <= 1 && Math.abs(Math.floor(enemy.y) - row) <= 1) {
+      // The ray is a ranged strike (it doesn't trigger Slipstream).
+      damage(b, target, enemy, target.atk * 1.5 / 2, true);
+    }
+  }
+}
+
+function stepOracleEffects(b: BattleState) {
+  if (b.sparks.length) {
+    b.sparks = b.sparks.filter((spark) => {
+      if (b.t + EPSILON < spark.arrivesAt) return true;
+      const target = b.units.find((u) => u.uid === spark.targetUid);
+      if (target) heal(b, target, target.maxHp * 0.10);
+      return false;
+    });
+  }
+  for (const wave of [b.waves.ally, b.waves.foe]) {
+    if (!wave || wave.pulses === WAVE_BEATS.length) continue;
+    const target = b.units.find((u) => u.uid === wave.uid);
+    if (!target || target.dead) continue;
+    startOracleWave(b, target);
+    if (wave.startAt === null) continue;
+    while (wave.pulses < WAVE_BEATS.length && b.t + EPSILON >= wave.startAt + WAVE_BEATS[wave.pulses]) {
+      deliverWavePulse(b, target, wave);
+    }
+  }
+}
 
 /** Resolve any shell whose flight time has elapsed. */
 function resolveShells(b: BattleState) {
@@ -780,60 +843,23 @@ export function densestFoeCluster(
   return best ? { x: best.x, y: best.y, count: best.count, ids: best.ids } : null;
 }
 
-/** The strongest hostile: highest star, then biggest health pool, then attack. */
-function strongestFoe(b: BattleState, side: "ally" | "foe"): BUnit | null {
-  let best: BUnit | null = null;
-  for (const u of b.units) {
-    if (u.dead || u.side === side) continue;
-    if (isStrongerTarget(u, best)) best = u;
-  }
-  return best;
-}
-
-/** Dig Hole: burrow beneath the enemy's strongest bug. Called once at battle start. */
-function digHole(b: BattleState, side: "ally" | "foe") {
-  const target = strongestFoe(b, side);
-  if (!target) return;
-  if (b.holes.some((h) => h.owner === side)) return; // one burrow per side, ever
-  const tx = Math.min(COLS - 0.5, Math.max(0.5, Math.floor(target.x) + 0.5));
-  const ty = Math.min(ROWS - 0.5, Math.max(0.5, Math.floor(target.y) + 0.5));
-  b.holes.push({
-    id: b.nid++,
-    owner: side,
-    x: tx,
-    y: ty,
-    armed: true, // the pit opens underfoot — no warning
-    spent: false,
-    arm: 0,
-    life: 40, // an untriggered pit waits all battle as a hazard
+/** Lock both sides' targets before any hit, so mirror openers are simultaneous. */
+function openTraps(b: BattleState) {
+  const bites = (["ally", "foe"] as const).flatMap((side) => {
+    if (commanderFor(b, side) !== "worm") return [];
+    const src = alliesOf(b, side).sort(compareStrength)[0];
+    if (!src) return [];
+    return enemiesOf(b, side).sort(compareStrength).slice(0, 2).map((target) => ({ side, src, target }));
   });
-  pop(b, target, "HOLE", "skill");
-}
-
-/** Arms, triggers and expires burrows. No digging here — holes are dug once at battle start. */
-function stepHoles(b: BattleState, dt: number) {
-  for (const h of b.holes) {
-    h.life -= dt;
-    if (h.spent) continue; // collapsing; never re-arms, never re-triggers
-    if (!h.armed) {
-      h.arm -= dt;
-      if (h.arm <= 0) h.armed = true;
-      continue;
-    }
-    for (const u of b.units) {
-      if (u.dead || u.side === h.owner || (u.dive && !u.dive.landed)) continue;
-      if (Math.hypot(u.x - h.x, u.y - h.y) <= 0.5) {
-        u.stun = Math.max(u.stun, 2); // held for 2s
-        u.vuln = 2; // and exposed for 2s (1.5x incoming)
-        h.armed = false;
-        h.spent = true;
-        h.life = 0.5; // brief collapse animation, then gone
-        pop(b, u, "TRAP!", "skill");
-        break;
-      }
+  for (const { side, src, target } of bites) {
+    b.holes.push({ id: b.nid++, owner: side, targetUid: target.uid, x: target.x, y: target.y });
+    damage(b, src, target, 100, false, true);
+    if (!target.dead) {
+      target.stun = TRAP_STUN_SECONDS;
+      target.trapExposeAt = b.t + TRAP_STUN_SECONDS;
+      pop(b, target, "TRAP!", "skill");
     }
   }
-  if (b.holes.some((h) => h.life <= 0)) b.holes = b.holes.filter((h) => h.life > 0);
 }
 
 /** Worst slow affecting the unit right now from enemy webs (0..0.5). */
@@ -980,8 +1006,14 @@ export function stepBattle(b: BattleState, dt: number): BattleState {
       continue;
     }
     u.cd = Math.max(0, u.cd - dt);
-    u.stun = Math.max(0, u.stun - dt);
-    u.vuln = Math.max(0, u.vuln - dt);
+    u.stun = u.stun - dt > EPSILON ? u.stun - dt : 0;
+    u.vuln = u.vuln - dt > EPSILON ? u.vuln - dt : 0;
+    if (u.trapExposeAt !== undefined && b.t + EPSILON >= u.trapExposeAt) {
+      u.trapExposeAt = undefined;
+      u.vuln = TRAP_VULNERABLE_SECONDS;
+      pop(b, u, "VULNERABLE", "skill");
+      if (u.roarEnd !== undefined) pop(b, u, "ROAR!", "skill");
+    }
     u.flash = Math.max(0, u.flash - dt);
     u.cast = Math.max(0, u.cast - dt);
     u.enrageIn = Math.max(0, u.enrageIn - dt);
@@ -1009,16 +1041,7 @@ export function stepBattle(b: BattleState, dt: number): BattleState {
   stepZones(b);
   stepWebs(b, dt);
 
-  b.glowA -= dt;
-  if (b.glowA <= 0) {
-    b.glowA = 5;
-    if (b.cmdA === "lampyris") glow(b, "ally");
-  }
-  b.glowB -= dt;
-  if (b.glowB <= 0) {
-    b.glowB = 5;
-    if (b.cmdB === "lampyris") glow(b, "foe");
-  }
+  stepOracleEffects(b);
 
   const liveAlly: BUnit[] = [];
   const liveFoe: BUnit[] = [];
@@ -1079,7 +1102,7 @@ export function stepBattle(b: BattleState, dt: number): BattleState {
     for (let j = i + 1; j < live.length; j++) {
       const a = live[i];
       const c = live[j];
-      if (a.dead || c.dead || a.dive || c.dive || a.roarEnd !== undefined || c.roarEnd !== undefined || a.side !== c.side) continue;
+      if (a.dead || c.dead || a.dive || c.dive || a.stun > 0 || c.stun > 0 || a.roarEnd !== undefined || c.roarEnd !== undefined || a.side !== c.side) continue;
       let dx = c.x - a.x;
       let dy = c.y - a.y;
       let d = Math.hypot(dx, dy);
@@ -1100,7 +1123,7 @@ export function stepBattle(b: BattleState, dt: number): BattleState {
     }
   }
 
-  stepHoles(b, dt);
+  if (b.holes.length && b.t >= TRAP_STUN_SECONDS + 0.35) b.holes = [];
 
   // retire spent shells
   if (b.shots.some((sh) => b.t > sh.t0 + sh.dur + 0.2))

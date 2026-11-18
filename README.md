@@ -33,35 +33,41 @@ re-embeds them and checks that the UI copy still has every glyph it needs:
 python3 scripts/make-direct.py --reuse-fonts=Smart-Bugs-RUN-DIRECTLY.html
 ```
 
-## 🧬 v0.8 — Colony Bonds, fair initiative, sound, career record
+## v0.9 — Commander skills
 
-### Colony Bonds (role synergies)
+Bonds no longer affect either side's combat stats. Bug roles still identify
+specimens in the Field Guide and determine World Worm's same-role recruit.
 
-Every bug already had a role that did nothing mechanically. Now fielding **2** bugs of
-one role activates its bond and **4** activates the stronger tier. Counting is per
-fielded bug, not per species (two Stag Beetles are two Frontline bugs), and a bond only
-strengthens bugs of its own role.
+| Commander | Passive | Active skill |
+|---|---|---|
+| Ancient Scavanger | Three losses in a row schedule 25G and two 1★ copies of the strongest owned bug at the end of the following round, once per match. | Each pair of consecutive wins earns an uncapped use of Incomes. Pick any owned bug for base cost + 1G. The bug stays; using it in round R makes it ready again in R+2. |
+| Hyber Lantern | A fallen ally sends a white soul to its nearest living teammate to heal 10% of max HP. | Mark a deployed ally in prep or battle. At 50 HP or less it heals 15% immediately, again at +1.5s and +3s, then 30% at +6s. The final ray strikes the surrounding 3×3 tiles for 75% of the marked bug's ATK before incoming damage modifiers. |
+| World Worm | The two strongest enemies take 100 damage each at battle start and are stunned for 3s, then Vulnerable for 10s. | Every three completed rounds grants one Eat and spit use (up to five stored). Consume a bench bug for two 1★ recruits: one of the same role and one random. |
 
-| Bond | Role | 2 fielded | 4 fielded |
-|---|---|---|---|
-| Shield Wall | Frontline (Stag Beetle, Spider) | +12% max HP | +25% max HP |
-| Battery | Artillery (Bombardier) | +15% ATK | +30% ATK |
-| Ambush | Assassin (Mantis, Dragonfly) | attack delay −10% | attack delay −20% |
+Strength is ordered by stars, max HP, ATK, then oldest recruit. Skill recruits
+can moult immediately, even with a full bench. Overflow waits in reserve and
+lands as soon as there's room. Treasure still uses its normal claim button.
+Rival Oracles pick their strongest deployed bug at battle start; treasure guards
+have no commander. Players can target via the 3D drawer, the bench where valid,
+or the keyboard-accessible target list.
 
-- Bonds go through `battleStats()` in `src/game/engine.ts`, the same single source the
-  commander bonus uses, so the inspector still shows exactly what a fielded bug brings
-  to the fight. "Damage = ATK, exactly" is unchanged: bonds move stats, never a hit.
-- `createBattle()` counts both lines with the same `bondLevels()`, so rival colonies
-  earn bonds from their own line-ups. Treasure guards stay neutral (fixed stats, no bond).
-- The strip under the command deck shows your three bonds (pips, live bonus) and the
-  active bonds of the line you are about to face. Definitions live in `src/game/bonds.ts`.
-- Attack delay is resolved on the engine's 0.1s tick, so Ambush shortens a Mantis's
-  swing from 11 ticks to 10 (tier I) or 9 (tier II).
+Run the commander-specific checks against Vite:
+
+```bash
+node scripts/commander-rules-smoke.mjs
+BASE_URL=http://127.0.0.1:5173 CHROMIUM_PATH=/path/to/chromium node scripts/commander-browser-smoke.mjs
+BASE_URL=http://127.0.0.1:5173 CHROMIUM_PATH=/path/to/chromium node scripts/commander-fx-smoke.mjs
+```
+
+`SHOTS=dir` saves the browser captures. The FX harness shows the actual battle
+state and WebGL effects, not a mock-up of the animations.
+
+## v0.8 — Fair initiative, sound, career record
 
 ### Fair initiative
 
 Units used to act in array order, so the ally line always moved and struck first inside
-a tick. Measured over mirror matches (identical line-ups on both sides, no bonds), the
+a tick. Measured over mirror matches (identical line-ups on both sides), the
 ally side won between 42% and 81% depending on the line-up instead of 50%. Strictly
 alternating the order did not fix it (a 3-Mantis mirror went to 0%), because the tick
 on which two lines meet has a fixed parity. Initiative is now a coin flip per tick;
@@ -91,19 +97,16 @@ counted. It shows on the main menu and the final standings, and Settings can era
   define it, instead of throwing.
 
 ```bash
-node scripts/bonds-smoke.mjs   # bonds, neutral guards, mirror-match fairness, career, translations
+node scripts/v08-regression-smoke.mjs   # mirror-match fairness and career record
 
 # Browser check (needs a Chromium executable and playwright-core, like the other visual scripts):
 npm run build && npx vite preview --port 4173 &
 CHROMIUM_PATH=/path/to/chromium node scripts/v08-browser-smoke.mjs
 ```
 
-The browser check drives the real build with key presses: it recruits five Stag Beetles
-and asserts the line produces exactly Shield Wall I, fights a live battle and confirms it
-was voiced, flips the sound switch, checks the bonds strip fits at 1280, 390 and 360px
-(the last in Bahasa Indonesia), then loses a whole match to prove the career record is
-written once and shown on the final standings and the main menu. `SHOTS=dir` keeps
-screenshots of every stage.
+The browser check drives the real build, fights a live battle and confirms it
+was voiced, flips the sound switch, and finishes a match to prove the career
+record is written once. `SHOTS=dir` keeps screenshots.
 
 ## 📊 Damage Shower — the in-battle damage chart
 
@@ -123,7 +126,9 @@ single `damage()` function, which credits `src.dealt`, `tgt.taken` and `src.kill
 | Enraged poison ticks | the Spider that applied the poison (`poisonFrom`) |
 | After Web 3×3 snare | the web's owner; the victim if that owner is gone |
 | Airstrike field ticks | the Dragonfly that called it (`zone.srcUid`) |
-| Dig Hole / vuln hits | the attacker of the hit that follows |
+| Trap holes (opening bites) | the Worm side's strongest opening unit |
+| Hits against Vulnerable bugs | the bug that landed the hit, with the multiplier applied |
+| Final wave impact | the Oracle's marked bug |
 
 `damageLedger(battle)` returns both lines already sorted, with 0..1 `share` values —
 plain, JSON-safe data that survives the 4 Hz HUD snapshot.
@@ -202,7 +207,7 @@ displayed ATK (e.g. 3★ Dragonfly shows 235 ATK → every basic hit pops **235*
 Skills deal exactly their stated multiplier × ATK (Stag Pincer Lock 2.1× → 109 → **229**).
 Only two openly-labelled modifiers exist:
 
-- **Vulnerable** (Worm hole): ×1.5 damage taken — shown as `VULN ×1.5` in the HUD.
+- **Vulnerable** (after a Worm trap releases): ×1.5 damage taken — shown as `VULN ×1.5` in the HUD.
 - **Slipstream** (Dragonfly passive): takes ×0.2 from non-projectile attacks.
 
 The stat you see in prep (including the Matriarch's +18% HP / +8% ATK) is the exact

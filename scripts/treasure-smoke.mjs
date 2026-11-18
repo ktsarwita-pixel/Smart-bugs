@@ -6,11 +6,13 @@ const ally = [{ uid: 999999, bugId:'stag', star:1, slot:3, zone:'board' }];
 for (const round of [0,3]) {
   assert.equal(treasureRound(round), round + 1);
   const b = createTreasureBattle(ally, 'worm', round);
+  assert.equal(b.cmdB, null, 'guards have no commander');
+  assert.equal(b.holes.length, 2, 'the player still opens two traps against guards');
   const guards = b.units.filter(u => u.side === 'foe');
   assert.deepEqual(guards.map(u => [u.bugId,u.star]), round === 0 ? [['stag',1],['stag',1]] : [['bomb',1],['dragonfly',2],['bomb',1]]);
   for (const u of guards) {
     const s = statsFor(u.bugId,u.star), mult = round === 0 ? 1.15 : 1.10;
-    assert.equal(u.hp, Math.round(s.hp*mult)); assert.equal(u.atk, Math.round(s.atk*mult)); assert.equal(u.def, Math.round(s.def*mult)); assert.equal(u.treasureGuard,true);
+    assert.equal(u.maxHp, Math.round(s.hp*mult)); assert.equal(u.hp, u.maxHp - (b.holes.some(h => h.targetUid === u.uid) ? 100 : 0)); assert.equal(u.atk, Math.round(s.atk*mult)); assert.equal(u.def, Math.round(s.def*mult)); assert.equal(u.treasureGuard,true);
   }
   const m = { ...createMatch(), round };
   assert.equal(getRoundFixtures(m).length, m.colonies.length);

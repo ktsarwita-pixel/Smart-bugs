@@ -125,6 +125,12 @@ try {
     await page.goto(`${base}/?advenced`);
     await page.evaluate(() => sessionStorage.setItem('smartbugs.admin.unlocked', '1'));
     await page.reload();
+    // Freeze only the pre-roll so the natural first fight can't decide an
+    // outcome before the FORCE button in the report fixture is pressed.
+    await page.evaluate(() => {
+      const timer = window.setTimeout.bind(window);
+      window.setTimeout = (fn, delay, ...args) => timer(fn, delay === 640 ? 60000 : delay, ...args);
+    });
     await page.getByRole('button', { name: 'PLAY MATCH' }).tap();
     await page.getByRole('button', { name: 'BEGIN ROUND 1' }).first().tap();
     await page.locator('.shop-grid button:not([disabled])').first().tap();

@@ -201,9 +201,13 @@ export function CodexModal({ open, onClose }: Props) {
                     {c.latin} — {t(c.title)}
                   </div>
                   <div className="label mt-2 inline-block bg-[#1F7A5A] px-1.5 py-0.5 text-[8px] text-[#FFF3DC]">
-                    {t("PERK")} · {t(c.perk)}
+                    {t("PASSIVE")} · {t(c.perk)}
                   </div>
                   <p className="mt-1.5 text-[12px] leading-snug text-[#241B14]">{t(c.desc)}</p>
+                  <div className="label mt-2 inline-block bg-[#24384A] px-1.5 py-0.5 text-[8px] text-[#FFF3DC]">
+                    {t("ACTIVE SKILL")} · {t(c.skill.name)}
+                  </div>
+                  <p className="mt-1.5 text-[12px] leading-snug text-[#241B14]">{t(c.skill.desc)}</p>
                 </div>
               </div>
             ))}
@@ -239,7 +243,7 @@ export function CodexModal({ open, onClose }: Props) {
                 {
                   n: "06",
                   t: "CHOOSE YOUR COMMANDER",
-                  d: fill(t("{cmds}. The Worm digs once at the start of each battle, not on a repeating cooldown. Each commander and its current passive are listed in the Commanders tab."), { cmds: COMMANDERS.map((c) => `${t(c.name)}: ${t(c.perk)}`).join(". ") }),
+                  d: "Find each passive and active skill in the Commanders tab. When your skill is ready, tap its button, then tap an eligible bug or pick it from the target list. Tap the skill again to cancel.",
                 },
                 {
                   n: "07",
@@ -250,11 +254,6 @@ export function CodexModal({ open, onClose }: Props) {
                   n: "08",
                   t: "THE BATTLE DESK",
                   d: "The HUD keeps you oriented: the round counter shows alive-colony pips, a chunky timer counts down the pre-roll, and ROUND + FIGHT flare when a battle starts. Placement: ONE tap on a bench bug deploys it to a smart row; tap a field bug then a tile to move it; when your line is full, tapping a field bug arms SWAP mode — tap a bench bug to trade them. Press the inspector ('i') on any specimen to study its stats. PATCH NOTES on the title screen lists every update so far.",
-                },
-                {
-                  n: "09",
-                  t: "COLONY BONDS",
-                  d: "Every bug has a role. Field 2 bugs of the same role to activate its bond and 4 for the stronger tier — each fielded bug counts, so two Stag Beetles are two Frontline bugs. Shield Wall (Frontline): +12% / +25% max HP. Battery (Artillery): +15% / +30% ATK. Ambush (Assassin): 10% / 20% shorter attack delay. A bond only strengthens bugs of its own role, rival colonies earn bonds the same way, and the strip above the board shows both lines.",
                 },
               ].map((item) => (
                 <div key={item.n} className="border border-[#3B322A] bg-[#1C1611] p-3">

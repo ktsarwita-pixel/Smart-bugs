@@ -389,107 +389,38 @@ export function animateInsectRig(
         p.legsBX = -Math.sin(t * 3.1 + uid) * 0.05;
       }
     } else if (id === "matriarch") {
-      // Royal levitation — the whole body rides a slow hover, crown bobbing apart
-      const lev = Math.sin(t * 1.9 + uid) * 0.045;
-      p.rootY = lev + 0.05;
-      p.crownY = Math.sin(t * 2.7 + uid) * 0.018 + 0.02;
-      p.torsoS = 1 + Math.sin(t * 2.2 + uid) * 0.045;   // brood pulse
-      p.headY = Math.sin(t * 0.7 + uid) * 0.16;
-      p.laZ = Math.sin(t * 1.3 + uid) * 0.07;
-      p.raZ = -Math.sin(t * 1.3 + uid) * 0.07;
-      if (cp > 0) {
-        const hymn = Math.sin(cp * Math.PI);
-        p.crownY += hymn * 0.1;
-        p.torsoS += hymn * 0.07;
-      }
+      // The queen raises her diadem while the heavy plated mantle breathes.
+      const bow = Math.sin(t * 1.25 + uid);
+      p.headX = bow * 0.04;
+      p.headY = Math.sin(t * 0.72 + uid) * 0.075;
+      p.torsoS = 1 + bow * 0.025;
+      p.rootY = 0.012 + bow * 0.011;
     } else if (id === "worm") {
-      // A low armored grub: peristaltic body pulse, the shovel head lifting
-      // and dropping as it bulldozes, hooked mandibles snipping in exact
-      // mirror, flank setae rippling.
-      const snip = Math.sin(t * 2.6 + uid);
-      p.torsoY = Math.sin(t * 1.15 + uid) * 0.04;
-      p.torsoZ = Math.sin(t * 0.8 + uid * 1.3) * 0.03;
-      p.torsoX = Math.sin(t * 1.3 + uid) * 0.03;
-      p.torsoS = 1 + Math.sin(t * 1.9 + uid) * 0.05; // peristalsis
-      p.rootY = Math.sin(t * 1.5 + uid) * 0.015 + 0.008;
-      // +0.02 bias keeps the shovel chin above the floor at the low end
-      // (the old symmetric +-0.1 dug the front face ~0.2 voxel deep)
-      p.headX = 0.02 + Math.sin(t * 1.2 + uid) * 0.06; // bulldozing lift
-      p.headY = Math.sin(t * 0.9 + uid) * 0.05;
-      // Mandibles snip by flaring OUTWARD from authored rest (positive laZ /
-      // negative raZ = outward). Zero rest offset is load-bearing: the hook
-      // chains sit face-adjacent to the dome flank, so ANY inward phase
-      // grinds them (the old snip drove a tip 0.32 vox through it).
-      p.laZ = Math.max(0, snip) * 0.2;
-      p.raZ = -Math.max(0, snip) * 0.2;
-      // a worm has no walking legs — its flank setae only ripple, never swing
-      p.legsAX = Math.sin(t * 3.1 + uid) * 0.05;
-      p.legsBX = -Math.sin(t * 3.1 + uid) * 0.05;
-      p.legsAY = 0;
-      p.legsBY = 0;
-      if (cp > 0) {
-        const rear = Math.sin(cp * Math.PI);
-        // worm: the seam cells are face-adjacent — ANY rear pitch slides the
-        // dome rim onto ring0 (0.6 vox). The hiss reads through the jaw gape
-        // + whole-model lurch instead, both seam-safe.
-        p.headX = id === "worm" ? 0 : rear * 0.26; // rears to strike
-        p.rootPosZ = -rear * 0.05; // whole-model lurch (torsoPosZ slid the
-        // body forward under the stationary head, ramming ring0 into the dome)
-        // gape OUTWARD from authored rest (positive laZ = left hook out;
-        // any negative/inward base ground the chain into the dome flank)
-        p.laZ = rear * 0.45;
-        p.raZ = -rear * 0.45;
-      } else if (ap > 0.01) {
-        // rear up, then chomp the shovel down
-        const prog = 1 - ap;
-        const wind = Math.min(1, prog / 0.35);
-        const slam = prog > 0.35 ? Math.exp(-(prog - 0.35) * 6) : 0;
-        // worm: even the capped pitch slides the dome rim onto ring0's
-        // corner (0.6 vox) — the grub chomps with jaws + lunge only
-        p.headX = id === "worm" ? 0 : wind * 0.18 + slam * 0.06;
-        p.rootPosZ = -wind * 0.04 + slam * (id === "worm" ? 0.13 : 0.09); // whole-model lunge
-        // gape out, then the chomp closes back TO rest — never past it
-        // (the hooks have zero inward clearance against the dome flank)
-        p.laZ = wind * 0.45 * (1 - slam);
-        p.raZ = -wind * 0.45 * (1 - slam);
-        p.rootY = wind * 0.02 - slam * 0.015;
-      }
-        } else {
-      // lampyris — wing covers part and flutter, lantern swells
-      const flutter = cp > 0 || ap > 0.1;
-      if (flutter) {
-        const beat = Math.sin(t * 36) * 0.22;
-        p.laY = -0.68 + beat;
-        p.raY = 0.68 - beat;
-        p.laZ = beat * 0.5;
-        p.raZ = -beat * 0.5;
-        p.rootY = 0.05 + Math.abs(Math.sin(t * 18)) * 0.02;
-      } else {
-        const breatheWing = Math.sin(t * 2.3 + uid) * 0.1;
-        p.laY = -0.16 + breatheWing;
-        p.raY = 0.16 - breatheWing;
-        p.rootY = Math.sin(t * 1.7 + uid) * 0.022 + 0.02;
-      }
-      p.torsoS = 1 + Math.sin(t * 3.1 + uid) * 0.055;    // lantern swelling
+      // The neck stays anchored; the ridged body sweeps behind the maw.
+      const pulse = Math.sin(t * 2.1 + uid);
+      p.torsoS = 1 + pulse * 0.04;
+      p.torsoY = Math.cos(t * 1.45 + uid) * 0.07;
+      p.headX = 0.025 + pulse * 0.045;
+      p.rootY = 0.01 + pulse * 0.008;
+      p.rootPosZ = -Math.sin(cp * Math.PI) * 0.06;
+    } else {
+      // The Oracle's etched fans fan open in the lamplight.
+      const fan = Math.sin(t * 2.2 + uid);
+      p.laY = -0.14 - fan * 0.09;
+      p.raY = 0.14 + fan * 0.09;
+      p.laZ = -0.15 + fan * 0.06;
+      p.raZ = 0.15 - fan * 0.06;
+      p.rootY = 0.037 + Math.sin(t * 1.65 + uid) * 0.024;
+      p.headY = Math.sin(t * 0.71 + uid) * 0.09;
     }
 
     /* ── stun overrides the head with a dizzy roll ── */
     if (stun > 0) {
       const dizzy = Math.sin(t * 8.5);
       if (id === "worm") {
-        // the dome sits in a sealed neck socket — yaw-swinging it 0.38 rad
-        // ground the rim across ring0's surface (visible noclip). A stunned
-        // grub wobbles as a whole and the head stays inside the seal.
         p.headY = dizzy * 0.05;
-        p.headZ = 0;
-        // no torso roll here: with the idle head bob it closed the diagonal
-        // gap between the jaw chains and ring0's neck corner (0.08 vox)
-        p.torsoZ = 0;
-        p.rootY = Math.cos(t * 6) * 0.012;
-        // stunned mandibles buzz OUTWARD from authored rest — same rule as
-        // the idle snip: the hook chains have zero inward clearance
-        p.laZ = Math.max(0, Math.sin(t * 22)) * 0.2;
-        p.raZ = -Math.max(0, Math.sin(t * 22)) * 0.2;
+        p.torsoY = 0;
+        p.rootY = 0.006 + Math.cos(t * 6) * 0.004;
       } else {
         p.headY = dizzy * 0.38;
         p.headZ = Math.cos(t * 8.5) * 0.22;

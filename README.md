@@ -255,8 +255,9 @@ it shipped. The original and advanced/test URLs always get the same build.
 release. The `?advenced` spelling (intentional) hands off to `/preview/`, which
 shows the ADVANCED TEST BUILD banner without changing the game or layouts.
 `bash smartbugs-build.sh` builds once, prints a bundle fingerprint, and
-packages the game at `/`, `/preview/`, `/advanced` and `/advenced`. Only `/`
-gets an extra query router. `npm run test:publish` checks that the game bytes
+packages the same bundle at `/`, `/preview/`, `/advanced` and `/advenced`. The
+last two paths open the in-app balance tables while `DEV_BUILD` is enabled.
+Only `/` gets an extra query router. `npm run test:publish` checks that the game bytes
 are otherwise identical, and `npm run test:ui-default` checks the banner rules.
 
 The Vercel project does not deploy on Git pushes. For a file-based production

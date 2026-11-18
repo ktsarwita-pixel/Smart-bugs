@@ -155,7 +155,7 @@ const ID: Record<string, string> = {
   "SYSTEM": "SISTEM",
   "BUG": "KUTU",
   "COST": "HARGA",
-  "HP green · ATK red · DEF blue. Stats include the chosen commander perk.": "HP hijau · ATK merah · DEF biru. Statistik termasuk perk panglima yang dipilih.",
+  "Base stats: HP in green, ATK in red, DEF in blue.": "Statistik dasar: HP berwarna hijau, ATK merah, DEF biru.",
   "Foe power multiplies the round curve; lean weights the shop it buys from.": "Kekuatan musuh melipatgandakan kurva ronde; kecondongan memengaruhi toko yang dibelinya.",
   "version": "versi",
   "built": "dibangun",

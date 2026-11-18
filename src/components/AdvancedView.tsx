@@ -103,7 +103,7 @@ export function AdvancedView({ onExit }: { onExit: () => void }) {
               </table>
             </div>
             <p className="mt-2 text-[9.5px] leading-snug text-[#6B5F52]">
-              {t("HP green · ATK red · DEF blue. Stats include the chosen commander perk.")}
+              {t("Base stats: HP in green, ATK in red, DEF in blue.")}
             </p>
           </section>
         )}

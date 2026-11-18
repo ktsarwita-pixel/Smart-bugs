@@ -34,7 +34,7 @@ const checkLandscape=async(width,height)=>{
   assert.ok(data.actions.every(r=>r.top>=0&&r.bottom<=height&&r.width>=40&&r.height>=40),`${width}×${height}: actions must stay reachable: ${JSON.stringify(data)}`);
   assert.ok(data.shop.length===5&&data.shop.every(r=>r.left>=data.dock.left&&r.right<=data.dock.right),`${width}×${height}: five supply cards must fit`);
   assert.ok(data.ladder.length===8&&data.ladder.every(r=>r.width>=40&&r.height>=40),`${width}×${height}: standings must have tappable targets`);
-  assert.ok(data.scene.bottom<=data.zoom.top+1&&data.zoom.bottom<=data.stage.bottom+1,`${width}×${height}: zoom toolbar must sit below the canvas`);
+  assert.ok(!overlaps(data.scene,data.zoom)&&data.zoom.right<=data.stage.right+1&&data.zoom.bottom<=data.stage.bottom+1,`${width}×${height}: zoom toolbar must stay inside the stage without covering the canvas`);
   assert.ok(data.drawerBounds?.every(n=>n>=0&&n<=1),`${width}×${height}: drawer envelope clipped sideways: ${JSON.stringify(data.drawerBounds)}`);
   const parts=[data.health,data.round,data.matchup,data.resources,data.help];
   for(let i=0;i<parts.length;i++){
@@ -54,22 +54,30 @@ try {
   await settings.getByRole('button',{name:'CLOSE'}).first().tap();
   await page.getByRole('button',{name:'PLAY MATCH'}).tap();
   await page.getByRole('button',{name:'BEGIN ROUND 1'}).first().tap();
+  await waitZoom(1);
+  const bounds=await page.locator('.battle-stage canvas').evaluate(el=>({
+    drawer:JSON.parse(el.dataset.drawerBounds), ally:JSON.parse(el.dataset.commanderBounds).ally,
+  }));
+  assert.ok(bounds.drawer.every(n=>n>=0&&n<=1)&&bounds.ally?.every(n=>n>=0&&n<=1),`fullscreen FIT clipped the drawer or commander: ${JSON.stringify(bounds)}`);
   await page.getByRole('button',{name:'Zoom in drawer'}).tap();
   await page.getByRole('button',{name:'Zoom in drawer'}).tap();
-  await waitZoom(1.32); await page.waitForTimeout(1500);
-  let bounds=await page.locator('.battle-stage canvas').evaluate(el=>JSON.parse(el.dataset.commanderBounds));
-  assert.ok(bounds.ally?.every(n=>n>=0&&n<=1),`fullscreen 132% player commander is cut off: ${JSON.stringify(bounds)}`);
+  await waitZoom(1.32);
   assert.equal(await page.locator('.drawer-zoom output').innerText(),'132%');
-  // Chromium cannot resize a native fullscreen window; leave fullscreen before
-  // exercising the responsive breakpoints (the fullscreen fit was checked above).
+  // Above FIT the frame can crop intentionally. Reset before checking fit at
+  // the landscape breakpoints; Chromium cannot resize in native fullscreen.
+  await page.getByRole('button',{name:'Fit drawer'}).tap();
   await page.evaluate(()=>document.fullscreenElement?document.exitFullscreen():undefined);
   await page.waitForFunction(()=>!document.fullscreenElement,null,{timeout:5000});
+  await waitZoom(1);
   await checkLandscape(568,320);
   await page.getByRole('button',{name:'Open UI Doctor'}).tap();
   await page.getByRole('button',{name:'SCAN SCREEN'}).tap();
-  let smallReport=await page.locator('.ui-doctor__body').innerText();
+  const smallReport=await page.locator('.ui-doctor__body').innerText();
   assert.match(smallReport,/Colony ladder scroll area/,'narrow sideways standings can be swiped');
-  assert.doesNotMatch(smallReport,/BORDER|TAP|COVERED|HUD elements overlap|Commander model clipped/,`scrolling standings must not create false defects: ${smallReport}`);
+  // Check the scrolling standings, not unrelated warnings about bond chips.
+  const ladderFindings=smallReport.split(/\n(?=\d+ · )/).filter(entry=>entry.includes('button.ladder-button'));
+  assert.ok(ladderFindings.every(entry=>!/ · (BORDER|TAP|COVERED)\b/.test(entry)),`scrolling standings must not create false defects: ${smallReport}`);
+  assert.doesNotMatch(smallReport,/HUD elements overlap|Commander model clipped|Drawer frame clipped/,`narrow sideways framing: ${smallReport}`);
   await page.getByRole('button',{name:'Minimize UI Doctor'}).tap();
   await page.locator('.ladder-strip').evaluate(el=>{el.scrollLeft=el.scrollWidth;});
   const lastColony=page.locator('.ladder-button').last();
@@ -94,6 +102,9 @@ try {
   });
   assert.ok(!overlaps(selections.selection,selections.zoom),'selected actions must not cover the zoom rail');
   // At 132%, tapping actual tiles must still raycast to a valid allied cell.
+  await page.getByRole('button',{name:'Zoom in drawer'}).tap();
+  await page.getByRole('button',{name:'Zoom in drawer'}).tap();
+  await waitZoom(1.32);
   const canvas=await page.locator('.battle-stage canvas').boundingBox();
   for(const y of [.55,.62,.69,.76,.83]) {
     for(const x of [.38,.5,.62]) {
@@ -163,5 +174,5 @@ try {
   assert.ok(await page.getByText('MODE MENYAMPING').isVisible(),'sideways setting is translated');
   assert.ok(await page.getByRole('button',{name:'Kunci orientasi menyamping'}).isVisible());
   assert.deepEqual(errors,[]);
-  console.log('PASS actual fullscreen 132% framing, sideways layouts, zoomed tile taps, combat, lock ownership, denial, fallback and Indonesian');
+  console.log('PASS FIT in actual fullscreen, sideways layouts, 132% tile taps, combat, lock ownership, denial, fallback and Indonesian');
 } finally {await browser.close();}

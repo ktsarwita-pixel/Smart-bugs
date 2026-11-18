@@ -292,9 +292,9 @@ try {
   assert.match(await page.locator('.round-track__caption').innerText(), /PERIODE 1 · RONDE 1\/4/);
 
   await page.goto(base + '/');
-  assert.equal(await page.locator('.advanced-ui').count(), 0, 'advanced UI must be opt-in');
+  assert.equal(await page.locator('.advanced-ui').count(), 1, 'the refreshed interface is also used on the main URL');
   assert.deepEqual(errors, []);
-  console.log('PASS menu, commander, responsive health/map/resource geometry, shop, combat, result, localization and opt-in isolation');
+  console.log('PASS menu, commander, responsive health/map/resource geometry, shop, combat, result, localization and main-route UI');
 } finally {
   await browser.close();
 }

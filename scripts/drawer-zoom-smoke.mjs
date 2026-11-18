@@ -23,7 +23,7 @@ const layout=async (width,height,selected=false)=>{
   });
   assert.ok(result.scrollWidth<=width,`${width}×${height}: horizontal overflow`);
   assert.ok(result.group.left>=result.stage.left&&result.group.right<=result.stage.right&&result.group.top>=result.stage.top&&result.group.bottom<=result.stage.bottom,`${width}×${height}: zoom controls outside stage: ${JSON.stringify(result)}`);
-  assert.ok(result.scene.bottom<=result.group.top+1,`${width}×${height}: zoom toolbar must sit below the canvas, not over it: ${JSON.stringify(result)}`);
+  assert.ok(!overlaps(result.scene,result.group),`${width}×${height}: zoom toolbar must not cover the canvas: ${JSON.stringify(result)}`);
   assert.ok(result.buttons.every(b=>b.width>=40&&b.height>=40&&b.left>=0&&b.right<=width&&b.top>=0&&b.bottom<=height),`${width}×${height}: zoom controls unreachable: ${JSON.stringify(result)}`);
   if(selected&&result.selected) assert.ok(!overlaps(result.group,result.selected),`${width}×${height}: zoom covers selected-unit actions: ${JSON.stringify(result)}`);
 };

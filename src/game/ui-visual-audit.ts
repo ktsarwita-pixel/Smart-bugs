@@ -295,8 +295,6 @@ export function auditVisuals(scope: ParentNode, tf: DoctorTf = plainTf): VisualA
         if (!Array.isArray(value) || value.length !== 4 || value.some(v => typeof v !== "number" || !Number.isFinite(v))) continue;
         checked++;
         const [left, top, right, bottom] = value as number[];
-        // The board may grow past the frame, but commanders must remain
-        // visible at every zoom level, including during camera transitions.
         if (!magnified && (left < -.01 || top < -.01 || right > 1.01 || bottom > 1.01)) {
           add("VISUAL", "warning", tf("Commander model clipped"), tf("The {side} commander's projected 3D artwork extends beyond the battlefield edge.", { side: tf(side) }), canvas);
         }

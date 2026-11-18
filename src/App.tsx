@@ -255,7 +255,7 @@ export default function App() {
   // Screen changes should not inherit the previous screen's scroll offset.
   // On short phones that could leave the new board above the viewport.
   useEffect(() => {
-    if (phase === "title" || phase === "cmd" || phase === "prep") {
+    if (phase === "title" || phase === "cmd" || phase === "prep" || phase === "battle") {
       window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     }
   }, [phase]);
@@ -1885,15 +1885,12 @@ export default function App() {
   const focusedColony = ladderRows.find((row) => row.key === ladderFocus);
 
   return (
-    <div className={`${advancedGame ? "advanced-ui " : ""}battle-shell cabinet-bg safe-t w-full`}>
-      <div className="game-grid mx-auto max-w-[1440px]">
+    <div className={`${advancedGame ? "advanced-ui " : ""}battle-shell cabinet-bg safe-t w-full`} data-combat={inCombat ? "true" : undefined}>
+      <div className="game-grid">
         {/* ── LEFT / TOP STAGE: Header + Standings + 3D Drawer ── */}
         <div className="battle-main flex min-h-0 flex-1 flex-col lg:border lg:border-[#3B322A] lg:bg-[#130E0A]">
-          {/* ── FIELD LAB COMMAND DECK (v3): one continuous command slab ──
-              Single-row vitals · VS · resources separated by hairlines instead
-              of boxed chips, and a one-line colony ladder rail. On phones the
-              whole deck is ~70px — every pixel the old wrapped chip grid
-              wasted now goes to the 3D stage. */}
+          {/* ── COMMAND DECK: vitals, matchup, resources and standings ──
+              The deck responds to its own width, including beside the dock. */}
           <div className="deck shrink-0" data-scouting={scouting && !inCombat ? "1" : undefined}>
             <div className="deck-row" data-ui-boundary data-long-period={advancedGame && period.length >= 6 ? "1" : undefined}>
               <div className="deck-cluster deck-vitals">
@@ -2294,9 +2291,9 @@ export default function App() {
 
           {inCombat && battleSnap ? (
             /* ── BATTLE TELEMETRY DOCK ────────────────────────── */
-            <div className="combat-dock dock-in flex flex-1 flex-col justify-between p-2.5 sm:p-3">
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+            <div className="combat-dock dock-in flex flex-1 flex-col">
+              <div className="combat-toolbar shrink-0 px-2.5 py-2 sm:px-3">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="label text-[8px] text-[#56DCA8]">{t("COMBAT TELEMETRY")}</span>
                   {armedHoles > 0 && (
                     <span
@@ -2326,18 +2323,20 @@ export default function App() {
                     </span>
                   )}
                   <span
-                    className="border border-[#4A3828] bg-[#100C09] px-1.5 py-1.5 font-pixel text-[10px] tabular-nums text-[#F0A93B]"
+                    className="ml-auto border border-[#4A3828] bg-[#100C09] px-1.5 py-1 font-pixel text-[10px] tabular-nums text-[#F0A93B]"
                     title={t("Battle timer — the round calls a draw past 40s")}
                   >
                     {Math.max(0, 40 - Math.floor(battleSnap.t))}s
                   </span>
-                  {/* Segmented battle speed — all options visible, one tap */}
+                </div>
+                {/* Speed and settings stay in view while the telemetry scrolls. */}
+                <div className="mt-1 flex items-stretch gap-1.5">
                   <div
-                    className="flex items-stretch border border-[#4A3828] bg-[#120D09]"
+                    className="flex max-w-[224px] flex-1 items-stretch border border-[#4A3828] bg-[#120D09]"
                     role="group"
                     aria-label={t("Battle speed")}
                   >
-                    <span className="grid place-items-center border-r border-[#4A3828] px-1.5 text-[#9C8F7E]">
+                    <span className="hidden place-items-center border-r border-[#4A3828] px-1.5 text-[#9C8F7E] min-[320px]:grid">
                       <IconSpeed size={11} />
                     </span>
                     {([1, 2, 3] as const).map((sv, i) => (
@@ -2346,7 +2345,7 @@ export default function App() {
                         onClick={() => setSpeed(sv)}
                         aria-pressed={speed === sv}
                         title={tf("Battle speed set to {v}×.", { v: sv })}
-                        className={`label min-h-[40px] px-4 text-[8px] ${
+                        className={`label min-h-[40px] min-w-10 flex-1 px-1 text-[8px] ${
                           i < 2 ? "border-r border-[#4A3828]" : ""
                         } ${
                           speed === sv
@@ -2366,160 +2365,164 @@ export default function App() {
                   >
                     <IconSettings size={16} />
                   </button>
-                  {adminButton("h-11 w-11 px-0")}
+                  {adminButton("h-11 w-11 shrink-0 px-0 [&>span]:hidden")}
                 </div>
+              </div>
+              <div className="combat-scroll flex flex-1 flex-col justify-between px-2.5 pb-2.5 sm:px-3 sm:pb-3"
+                role="region" aria-label={t("COMBAT TELEMETRY")} tabIndex={0}>
+                <div>
+                  {/* ── LINE POWER: total HP tug-of-war + combined ATK (ΣATK) ── */}
+                  <div className="mt-2">
+                    <div className="flex items-end justify-between gap-2 font-mono text-[9px]">
+                      <span className="text-[#56DCA8]">
+                        {t("YOUR LINE")} · {allyLiveHp} HP · <span className="text-[#BDF8FF]">ΣATK {allyTeamAtk}</span>
+                      </span>
+                      <span className="text-[#F05A36]">
+                        <span className="text-[#FFB1A0]">ΣATK {foeTeamAtk}</span> · {foeLiveHp} HP · {treasure ? t("TREASURE GUARDS") : foe.short}
+                      </span>
+                    </div>
+                    <div className="relative mt-1 flex h-3 w-full overflow-hidden border border-[#3B322A] bg-[#962B16]">
+                      <div
+                        className="h-full bg-gradient-to-r from-[#15543d] to-[#1F7A5A]"
+                        style={{ width: `${allyShare}%`, transition: "width 180ms steps(5)" }}
+                      />
+                      <span className="vital-notches" aria-hidden="true" />
+                    </div>
+                  </div>
 
-                {/* ── LINE POWER: total HP tug-of-war + combined ATK (ΣATK) ── */}
-                <div className="mt-2">
-                  <div className="flex items-end justify-between gap-2 font-mono text-[9px]">
-                    <span className="text-[#56DCA8]">
-                      {t("YOUR LINE")} · {allyLiveHp} HP · <span className="text-[#BDF8FF]">ΣATK {allyTeamAtk}</span>
-                    </span>
-                    <span className="text-[#F05A36]">
-                      <span className="text-[#FFB1A0]">ΣATK {foeTeamAtk}</span> · {foeLiveHp} HP · {treasure ? t("TREASURE GUARDS") : foe.short}
-                    </span>
-                  </div>
-                  <div className="relative mt-1 flex h-3 w-full overflow-hidden border border-[#3B322A] bg-[#962B16]">
-                    <div
-                      className="h-full bg-gradient-to-r from-[#15543d] to-[#1F7A5A]"
-                      style={{ width: `${allyShare}%`, transition: "width 180ms steps(5)" }}
-                    />
-                    <span className="vital-notches" aria-hidden="true" />
-                  </div>
-                </div>
-
-                {/* ── AIRSTRIKE FORECAST: the live math behind the dragonfly ult
-                    (full panels need room — phones get the ULT/AIR badges on
-                    the unit cards below instead) ── */}
-                {allyDragonfly3 && (
-                  <div className="forecast mt-2 hidden min-[560px]:block" role="status">
-                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                      <span className="label flex items-center gap-1.5 text-[7.5px] text-[#75D9E8]">
-                        <IconSpeed size={11} /> {t("AIRSTRIKE FORECAST — YOURS")}
-                      </span>
-                      <span className="font-pixel text-[9px] text-[#BDF8FF]">
-                        {allyDragonfly3.dive && !allyDragonfly3.dive.landed
-                          ? t("AIRBORNE")
-                          : allyDragonfly3.energy >= allyDragonfly3.maxEnergy
-                            ? t("ULT READY")
-                            : `ENERGY ${Math.floor(allyDragonfly3.energy)}/${allyDragonfly3.maxEnergy}`}
-                      </span>
-                    </div>
-                    <div className="mt-1 font-mono text-[10px] leading-snug text-[#C9E8D8]">
-                      ΣATK <b className="text-[#FFF3DC]">{allyTeamAtk}</b> × {AIRSTRIKE_TEAM_ATK_MULT} ={" "}
-                      <b className="text-[#FFF3DC]">{airstrikeTickDamage(allyTeamAtk) * 2}</b> {t("total")} ·{" "}
-                      <b className="text-[#BDF8FF]">{airstrikeTickDamage(allyTeamAtk)}{t("/tick")}</b> × 2 {t("ticks")}
-                      <span className="hidden text-[#8C7E6E] min-[560px]:inline">{t("— falls as allies die")}</span>
-                    </div>
-                  </div>
-                )}
-                {foeDragonfly3 && (
-                  <div className="forecast mt-2 hidden min-[560px]:block" role="status" style={{ borderColor: "rgba(240,90,54,.6)", background: "#1B0B07" }}>
-                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                      <span className="label flex items-center gap-1.5 text-[7.5px] text-[#F05A36]">
-                        <IconSpeed size={11} /> {t("ENEMY AIRSTRIKE WARNING")}
-                      </span>
-                      <span className="font-pixel text-[9px] text-[#FFB1A0]">
-                        {foeDragonfly3.dive && !foeDragonfly3.dive.landed
-                          ? t("AIRBORNE — INCOMING")
-                          : foeDragonfly3.energy >= foeDragonfly3.maxEnergy
-                            ? t("ULT READY")
-                            : `ENERGY ${Math.floor(foeDragonfly3.energy)}/${foeDragonfly3.maxEnergy}`}
-                      </span>
-                    </div>
-                    <div className="mt-1 font-mono text-[10px] leading-snug text-[#E8C9C0]">
-                      {t("Their ΣATK")} <b>{foeTeamAtk}</b> → <b>{airstrikeTickDamage(foeTeamAtk)}{t("/tick")}</b> × 2.{" "}
-                      <span className="hidden text-[#9C8F7E] min-[560px]:inline">{t("Thin their line to weaken it.")}</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* ── LINE vs LINE: phones get fixed-height swipe strips (never crushes the stage, even at 6v6); desktop keeps 2-column stacks ── */}
-                <div className="mt-2 flex flex-col gap-1.5 border-t border-[#2D231B] pt-2 lg:grid lg:grid-cols-2 lg:gap-2">
-                  {([("ally"), ("foe")] as const).map((side) => (
-                    <div key={side} className="min-w-0">
-                      <div className={`label mb-1 text-[6.5px] ${side === "foe" ? "text-right text-[#F05A36]" : "text-[#56DCA8]"}`}>
-                        {side === "ally" ? t("YOUR LINE") : treasure ? t("TREASURE GUARDS") : foe.short}
+                  {/* ── AIRSTRIKE FORECAST: the live math behind the dragonfly ult
+                      (full panels need room — phones get the ULT/AIR badges on
+                      the unit cards below instead) ── */}
+                  {allyDragonfly3 && (
+                    <div className="forecast mt-2 hidden min-[560px]:block" role="status">
+                      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                        <span className="label flex items-center gap-1.5 text-[7.5px] text-[#75D9E8]">
+                          <IconSpeed size={11} /> {t("AIRSTRIKE FORECAST — YOURS")}
+                        </span>
+                        <span className="font-pixel text-[9px] text-[#BDF8FF]">
+                          {allyDragonfly3.dive && !allyDragonfly3.dive.landed
+                            ? t("AIRBORNE")
+                            : allyDragonfly3.energy >= allyDragonfly3.maxEnergy
+                              ? t("ULT READY")
+                              : `ENERGY ${Math.floor(allyDragonfly3.energy)}/${allyDragonfly3.maxEnergy}`}
+                        </span>
                       </div>
-                      <div className="unit-strip">
-                      {battleSnap.units
-                        .filter((u) => u.side === side)
-                        .map((u) => {
-                          const hpPct = Math.max(0, Math.min(100, (u.hp / Math.max(1, u.maxHp)) * 100));
-                          const energyPct = Math.max(0, Math.min(100, (u.energy / Math.max(1, u.maxEnergy)) * 100));
-                          const ultReady =
-                            !u.dead && u.energy >= u.maxEnergy && u.star >= (BUGS[u.bugId].skillMinStar ?? 1);
-                          const airborne = !!u.dive && !u.dive.landed;
-                          return (
-                            <div
-                              key={u.uid}
-                              className={`unit-card ${ultReady ? "ult-ready" : ""}`}
-                              data-side={side}
-                              data-dead={u.dead ? 1 : 0}
-                              title={tf("{name} {star}-star — ATK {atk} · HP {hp}/{max}", { name: t(BUGS[u.bugId].name), star: u.star, atk: u.atk, hp: Math.max(0, u.hp), max: u.maxHp })}
-                            >
-                              <SpecimenIcon id={u.bugId} size={28} star={u.star} dim={u.dead} badge="none" />
-                              <div className="min-w-0 flex-1">
-                                <div className={`flex items-center gap-1.5 ${side === "foe" ? "flex-row-reverse" : ""}`}>
-                                  <span className="label truncate text-[7px] text-[#EDE2CB]">{BUGS[u.bugId].short}</span>
-                                  <StarRating star={u.star} size={8} />
-                                  {u.dead ? (
-                                    <span className="font-pixel text-[7px] text-[#F05A36]">KO</span>
-                                  ) : airborne ? (
-                                    <span className="font-pixel text-[7px] text-[#75D9E8]">AIR</span>
-                                  ) : ultReady ? (
-                                    <span className="font-pixel text-[7px] text-[#75D9E8]">ULT</span>
-                                  ) : null}
-                                </div>
-                                <div className={`flex gap-2 font-mono text-[9px] font-semibold tabular-nums ${side === "foe" ? "flex-row-reverse" : ""}`}>
-                                  <span style={{ color: side === "ally" ? "#56DCA8" : "#F05A36" }}>
-                                    {Math.max(0, u.hp)}<span className="text-[#6B5F52]">/{u.maxHp}</span>
-                                  </span>
-                                  <span className="hidden text-[#F0A93B] min-[480px]:inline">ATK {u.atk}</span>
-                                </div>
-                                <div className="bar-shell mt-0.5">
-                                  <i style={{ width: `${hpPct}%`, background: side === "ally" ? "#56DCA8" : "#F05A36" }} />
-                                </div>
-                                <div className="bar-shell energy mt-0.5" title={`Energy ${Math.floor(u.energy)}/${u.maxEnergy}`}>
-                                  <i style={{ width: `${energyPct}%`, background: ultReady ? "#BDF8FF" : "#C9812A" }} />
+                      <div className="mt-1 font-mono text-[10px] leading-snug text-[#C9E8D8]">
+                        ΣATK <b className="text-[#FFF3DC]">{allyTeamAtk}</b> × {AIRSTRIKE_TEAM_ATK_MULT} ={" "}
+                        <b className="text-[#FFF3DC]">{airstrikeTickDamage(allyTeamAtk) * 2}</b> {t("total")} ·{" "}
+                        <b className="text-[#BDF8FF]">{airstrikeTickDamage(allyTeamAtk)}{t("/tick")}</b> × 2 {t("ticks")}
+                        <span className="hidden text-[#8C7E6E] min-[560px]:inline">{t("— falls as allies die")}</span>
+                      </div>
+                    </div>
+                  )}
+                  {foeDragonfly3 && (
+                    <div className="forecast mt-2 hidden min-[560px]:block" role="status" style={{ borderColor: "rgba(240,90,54,.6)", background: "#1B0B07" }}>
+                      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                        <span className="label flex items-center gap-1.5 text-[7.5px] text-[#F05A36]">
+                          <IconSpeed size={11} /> {t("ENEMY AIRSTRIKE WARNING")}
+                        </span>
+                        <span className="font-pixel text-[9px] text-[#FFB1A0]">
+                          {foeDragonfly3.dive && !foeDragonfly3.dive.landed
+                            ? t("AIRBORNE — INCOMING")
+                            : foeDragonfly3.energy >= foeDragonfly3.maxEnergy
+                              ? t("ULT READY")
+                              : `ENERGY ${Math.floor(foeDragonfly3.energy)}/${foeDragonfly3.maxEnergy}`}
+                        </span>
+                      </div>
+                      <div className="mt-1 font-mono text-[10px] leading-snug text-[#E8C9C0]">
+                        {t("Their ΣATK")} <b>{foeTeamAtk}</b> → <b>{airstrikeTickDamage(foeTeamAtk)}{t("/tick")}</b> × 2.{" "}
+                        <span className="hidden text-[#9C8F7E] min-[560px]:inline">{t("Thin their line to weaken it.")}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── LINE vs LINE: phones get fixed-height swipe strips (never crushes the stage, even at 6v6); desktop keeps 2-column stacks ── */}
+                  <div className="mt-2 flex flex-col gap-1.5 border-t border-[#2D231B] pt-2 lg:grid lg:grid-cols-2 lg:gap-2">
+                    {([("ally"), ("foe")] as const).map((side) => (
+                      <div key={side} className="min-w-0">
+                        <div className={`label mb-1 text-[6.5px] ${side === "foe" ? "text-right text-[#F05A36]" : "text-[#56DCA8]"}`}>
+                          {side === "ally" ? t("YOUR LINE") : treasure ? t("TREASURE GUARDS") : foe.short}
+                        </div>
+                        <div className="unit-strip">
+                        {battleSnap.units
+                          .filter((u) => u.side === side)
+                          .map((u) => {
+                            const hpPct = Math.max(0, Math.min(100, (u.hp / Math.max(1, u.maxHp)) * 100));
+                            const energyPct = Math.max(0, Math.min(100, (u.energy / Math.max(1, u.maxEnergy)) * 100));
+                            const ultReady =
+                              !u.dead && u.energy >= u.maxEnergy && u.star >= (BUGS[u.bugId].skillMinStar ?? 1);
+                            const airborne = !!u.dive && !u.dive.landed;
+                            return (
+                              <div
+                                key={u.uid}
+                                className={`unit-card ${ultReady ? "ult-ready" : ""}`}
+                                data-side={side}
+                                data-dead={u.dead ? 1 : 0}
+                                title={tf("{name} {star}-star — ATK {atk} · HP {hp}/{max}", { name: t(BUGS[u.bugId].name), star: u.star, atk: u.atk, hp: Math.max(0, u.hp), max: u.maxHp })}
+                              >
+                                <SpecimenIcon id={u.bugId} size={28} star={u.star} dim={u.dead} badge="none" />
+                                <div className="min-w-0 flex-1">
+                                  <div className={`flex items-center gap-1.5 ${side === "foe" ? "flex-row-reverse" : ""}`}>
+                                    <span className="label truncate text-[7px] text-[#EDE2CB]">{BUGS[u.bugId].short}</span>
+                                    <StarRating star={u.star} size={8} />
+                                    {u.dead ? (
+                                      <span className="font-pixel text-[7px] text-[#F05A36]">KO</span>
+                                    ) : airborne ? (
+                                      <span className="font-pixel text-[7px] text-[#75D9E8]">AIR</span>
+                                    ) : ultReady ? (
+                                      <span className="font-pixel text-[7px] text-[#75D9E8]">ULT</span>
+                                    ) : null}
+                                  </div>
+                                  <div className={`flex gap-2 font-mono text-[9px] font-semibold tabular-nums ${side === "foe" ? "flex-row-reverse" : ""}`}>
+                                    <span style={{ color: side === "ally" ? "#56DCA8" : "#F05A36" }}>
+                                      {Math.max(0, u.hp)}<span className="text-[#6B5F52]">/{u.maxHp}</span>
+                                    </span>
+                                    <span className="hidden text-[#F0A93B] min-[480px]:inline">ATK {u.atk}</span>
+                                  </div>
+                                  <div className="bar-shell mt-0.5">
+                                    <i style={{ width: `${hpPct}%`, background: side === "ally" ? "#56DCA8" : "#F05A36" }} />
+                                  </div>
+                                  <div className="bar-shell energy mt-0.5" title={`Energy ${Math.floor(u.energy)}/${u.maxEnergy}`}>
+                                    <i style={{ width: `${energyPct}%`, background: ultReady ? "#BDF8FF" : "#C9812A" }} />
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+
+                  {/* ── DAMAGE SHOWER: what each bug actually dealt this battle ── */}
+                  <DamageShower snap={battleSnap} />
                 </div>
 
-                {/* ── DAMAGE SHOWER: what each bug actually dealt this battle ── */}
-                <DamageShower snap={battleSnap} />
-              </div>
-
-              <div className="mt-2 hidden border-t border-[#2D231B] pt-1.5 min-[720px]:block">
-                <div className="label mb-1 text-[7px] text-[#8C7E6E]">{t("ENGAGEMENT RECORD")}</div>
-                {log.length === 0 ? (
-                  <div className="latin text-[11.5px] text-[#6B5F52]">
-                    {t("First clash of the cabinet — no record yet.")}
-                  </div>
-                ) : (
-                  <ul className="space-y-0.5">
-                    {log.slice(0, 3).map((line, i) => (
-                      <li
-                        key={`${i}-${line}`}
-                        className="flex items-center gap-1.5 truncate font-mono text-[9.5px]"
-                        style={{ color: i === 0 ? "#B3A594" : "#6B5F52" }}
-                      >
-                        {line.startsWith("WON") || line.startsWith("MENANG") ? (
-                          <IconTrendUp size={9} className="shrink-0 text-[#56DCA8]" />
-                        ) : (
-                          <IconTrendDown size={9} className="shrink-0 text-[#F05A36]" />
-                        )}
-                        <span className="truncate">{line}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <div className="mt-2 hidden border-t border-[#2D231B] pt-1.5 min-[720px]:block">
+                  <div className="label mb-1 text-[7px] text-[#8C7E6E]">{t("ENGAGEMENT RECORD")}</div>
+                  {log.length === 0 ? (
+                    <div className="latin text-[11.5px] text-[#6B5F52]">
+                      {t("First clash of the cabinet — no record yet.")}
+                    </div>
+                  ) : (
+                    <ul className="space-y-0.5">
+                      {log.slice(0, 3).map((line, i) => (
+                        <li
+                          key={`${i}-${line}`}
+                          className="flex items-center gap-1.5 truncate font-mono text-[9.5px]"
+                          style={{ color: i === 0 ? "#B3A594" : "#6B5F52" }}
+                        >
+                          {line.startsWith("WON") || line.startsWith("MENANG") ? (
+                            <IconTrendUp size={9} className="shrink-0 text-[#56DCA8]" />
+                          ) : (
+                            <IconTrendDown size={9} className="shrink-0 text-[#F05A36]" />
+                          )}
+                          <span className="truncate">{line}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
             </div>
           ) : (

@@ -218,10 +218,12 @@ proper names (Vespa Syndicate, Latin species names) stay as-is in both languages
 
 ## 📱 Mobile battle layout
 
-On phones the battle dock can never crush the 3D stage: unit cards become
-fixed-height **horizontal swipe strips** (`BARIS ANDA` / foe rows), the dock is
-capped (~52dvh), the VS plaque & colony ladder hide during combat, and the stage
-keeps a large share of the screen even at 6v6.
+The battlefield gets the extra room first. In portrait combat, unit cards
+swipe horizontally and the telemetry details scroll in their own dock, with
+speed and Settings always reachable above them. Short phones can still scroll
+the page during setup to reach the full bench and shop. When the stage is wide
+enough, the zoom controls move to a separate side rail to give the board more
+height; **FIT** keeps the drawer and commander plinths in frame.
 
 ## 🚀 Publish it on the web (free, ~2 minutes)
 
@@ -239,8 +241,10 @@ For development you can also just run `npm run dev` / `npm run build` as above.
 
 ### Publishing: one build, every door
 
-**Policy: every update published to the advanced/test server is published to the
-original server in the same build.** No release ever lands on only one of them.
+**Release policy:** Publish every completed, tested Smart Bugs update to
+`smart-bugs.vercel.app`. A local preview or Git push is not a release. Verify
+that Vercel has promoted the tested commit to the live domain before calling
+it shipped. The original and advanced/test URLs always get the same build.
 
 `smart-bugs.vercel.app` and `smart-bugs.vercel.app/?advenced` serve the same
 release. The `?advenced` spelling (intentional) hands off to `/preview/`, which
@@ -271,10 +275,12 @@ With a Chromium executable installed, start the Vite server and run:
 ```bash
 npm run dev
 CHROMIUM_PATH=/path/to/chromium npm run test:mobile
+CHROMIUM_PATH=/path/to/chromium npm run test:gameplay-size
 ```
 
-The test exercises mobile and tablet viewports, board scrolling, shop and bench taps,
-phase transitions, battle speed controls, horizontal overflow, and unused screen space.
+The mobile test exercises board scrolling, shop and bench taps, and phase transitions.
+The gameplay-size test measures the projected 3D drawer in portrait, landscape, and
+wide windows, and checks that scrolling battle telemetry leaves the controls in place.
 Set `BASE_URL` if the development server is not on port 5173. The targeted
 visual regressions can also be run against the development server:
 

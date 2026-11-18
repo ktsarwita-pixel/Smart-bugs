@@ -1,4 +1,4 @@
-/** Verify actual projected 3D commander geometry stays in the stage at every zoom. */
+/** Verify actual projected 3D commander geometry stays in frame at FIT and below. */
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright-core';
 
@@ -40,17 +40,16 @@ try {
     for (const [width,height] of [[280,180],[384,180],[812,225],[390,560],[1280,640]]) {
       await page.setViewportSize({width,height});
       await page.waitForFunction(([w,h])=>{const c=document.querySelector('canvas');return c&&c.clientWidth===w&&c.clientHeight===h;},[width,height],{timeout:10000,polling:100});
-      for(const level of [1,1.15,1.32]) {
-        await zoom(level);
-        await checkBounds(`${commander} ${width}×${height} ${Math.round(level*100)}%`);
-      }
-      // Mouse parallax must not push the near model out of the frame either.
+      // Zoom above 100% is intentionally cropped; check FIT in every aspect.
+      await zoom(1);
+      await checkBounds(`${commander} ${width}×${height} FIT`);
+      // Mouse parallax must not push the near model out of the fitted frame.
       await page.mouse.move(width-2,height-2);
       await page.waitForTimeout(1000);
-      await checkBounds(`${commander} ${width}×${height} 132% with parallax`);
+      await checkBounds(`${commander} ${width}×${height} FIT with parallax`);
       await page.mouse.move(0,0);
       await page.waitForTimeout(700);
-      await checkBounds(`${commander} ${width}×${height} 132% opposite parallax`);
+      await checkBounds(`${commander} ${width}×${height} FIT opposite parallax`);
       await page.mouse.move(width+5,height+5);
       console.log(`PASS ${commander} commander framing and parallax at ${width}×${height}`);
     }

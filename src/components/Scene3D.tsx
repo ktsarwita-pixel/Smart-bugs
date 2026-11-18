@@ -245,10 +245,10 @@ export function Scene3D({
     scene.fog = new THREE.FogExp2(0x0b0806, showcase ? 0.032 : 0.022);
     const camera = new THREE.PerspectiveCamera(showcase ? 34 : 35, 1, 0.1, 80);
 
-    // The advanced board includes commander plinths beyond both short ends.
-    // Aim slightly toward the near plinth so the player's totem is not cut
-    // off at the bottom of a compact stage.
-    const target = new THREE.Vector3(showcase ? 0 : 3.5, showcase ? 0.24 : advancedEffects ? 0.3 : 0.08, showcase ? 0.15 : advancedEffects ? 3.0 : 3.05);
+    const frameCenter = new THREE.Vector3(showcase ? 0 : 3.5, showcase ? 0.24 : advancedEffects ? 0.3 : 0.08, showcase ? 0.15 : advancedEffects ? 3.0 : 3.05);
+    // The battlefield fit centers the drawer's projected envelope. Keep the
+    // frame origin separate so resizing never accumulates an aim offset.
+    const target = frameCenter.clone();
 
     let W = hostEl.clientWidth || 360;
     let H = hostEl.clientHeight || 320;
@@ -2083,45 +2083,43 @@ export function Scene3D({
       ? Math.min(MAX_DRAWER_ZOOM, Math.max(0.74, P.current.drawerZoom || 1))
       : 1;
 
-    // Conservative world-space envelope. X spans the outer brass caps; Z
-    // spans both commander banners; Y covers the tallest commander sculpt.
-    // Keeping this static avoids a feedback loop where an animated commander
-    // changes the fit, which changes the projection, which changes the fit.
+    // Fit the cabinet and the narrow commander stands separately. One large
+    // box would reserve room for empty space next to both plinths. Keep the
+    // bounds static so animated sculpts don't make the camera breathe.
     const fitPoints: THREE.Vector3[] = [];
-    if (showcase) {
-      for (const x of [-2.4, 2.4]) for (const y of [-0.3, 2.2]) for (const z of [-2.4, 2.4]) fitPoints.push(new THREE.Vector3(x, y, z));
-    } else {
-      const minX = -0.62, maxX = COLS + 0.62;
-      const minZ = advancedEffects ? -1.62 : -0.62;
-      const maxZ = advancedEffects ? ROWS + 1.62 : ROWS + 0.62;
-      for (const x of [minX, maxX]) for (const y of [-0.22, 0.5]) for (const z of [minZ, maxZ]) fitPoints.push(new THREE.Vector3(x, y, z));
-      if (advancedEffects) {
-        for (const x of [COLS / 2 - 0.9, COLS / 2 + 0.9]) for (const y of [0, 1.45]) for (const z of [-1.62, ROWS + 1.62]) fitPoints.push(new THREE.Vector3(x, y, z));
+    function addFitBox(xRange: number[], yRange: number[], zRange: number[]) {
+      for (const x of xRange) for (const y of yRange) for (const z of zRange) {
+        fitPoints.push(new THREE.Vector3(x, y, z));
       }
     }
-    const fitRight = new THREE.Vector3();
-    const fitUp = new THREE.Vector3();
-    const fitDir = new THREE.Vector3();
-    const fitRel = new THREE.Vector3();
-    function solveFitDistance(elevation: number, aspect: number) {
-      const tanV = Math.tan((camera.fov * Math.PI) / 360);
-      const tanH = tanV * aspect;
-      // Leave a little breathing room for parallax, shake and pixel rounding.
-      const safeX = showcase ? 0.9 : 0.96;
-      const safeY = showcase ? 0.88 : 0.94;
-      const az = 0;
-      fitDir.set(Math.sin(az) * Math.cos(elevation), Math.sin(elevation), Math.cos(az) * Math.cos(elevation));
-      fitRight.set(Math.cos(az), 0, -Math.sin(az));
-      fitUp.crossVectors(fitDir, fitRight).normalize();
-      let distance = 1;
-      for (const point of fitPoints) {
-        fitRel.copy(point).sub(target);
-        const along = fitRel.dot(fitDir);
-        const x = Math.abs(fitRel.dot(fitRight)) / (safeX * tanH);
-        const y = Math.abs(fitRel.dot(fitUp)) / (safeY * tanV);
-        distance = Math.max(distance, along + x, along + y);
+    if (!showcase) {
+      addFitBox([-0.42, COLS + 0.42], [-0.46, -0.04], [-1.15, ROWS + 1.15]); // cabinet bed
+      addFitBox([-0.58, COLS + 0.58], [-0.04, 0.53], [-0.58, ROWS + 0.58]); // tiles, rails and caps
+      for (const z of [-0.95, ROWS + 0.95]) {
+        addFitBox([COLS / 2 - 0.9, COLS / 2 + 0.9], [0.28, 1.5], [z - 0.67, z + 0.67]);
       }
-      return distance;
+    }
+    const fitUp = new THREE.Vector3(0, Math.cos(elev), -Math.sin(elev));
+    const fitDir = new THREE.Vector3(0, Math.sin(elev), Math.cos(elev));
+    const fitRel = new THREE.Vector3();
+    function solveFitDistance(aspect: number) {
+      // Leave a little breathing room for parallax, shake and pixel rounding.
+      const tanV = Math.tan((camera.fov * Math.PI) / 360);
+      const safeV = 0.94 * tanV, safeH = 0.96 * tanV * aspect;
+      let horizontal = 1;
+      let top = -Infinity, bottom = Infinity;
+      for (const point of fitPoints) {
+        fitRel.copy(point).sub(frameCenter);
+        const depth = fitRel.dot(fitDir);
+        const y = fitRel.dot(fitUp);
+        horizontal = Math.max(horizontal, depth + Math.abs(fitRel.x) / safeH);
+        // At distance d, this corner allows an aim offset between
+        // y - safeV * (d - depth) and y + safeV * (d - depth).
+        top = Math.max(top, y + safeV * depth);
+        bottom = Math.min(bottom, y - safeV * depth);
+      }
+      target.copy(frameCenter).addScaledVector(fitUp, (top + bottom) / 2);
+      return Math.max(horizontal, (top - bottom) / (2 * safeV));
     }
 
     let camElev = elev;
@@ -2149,7 +2147,7 @@ export function Scene3D({
       } else {
         // Elevation never changes, so one solve covers every zoom step: the
         // live distance is this reference divided by the zoom (see tick()).
-        camDistTarget = solveFitDistance(elev, camera.aspect);
+        camDistTarget = solveFitDistance(camera.aspect);
       }
       const zoom = cameraZoom();
       if (!cameraInitialized || resized) {

@@ -41,7 +41,7 @@ specimens in the Field Guide and determine World Worm's same-role recruit.
 | Commander | Passive | Active skill |
 |---|---|---|
 | Ancient Scavanger | Three losses in a row schedule 25G and two 1★ copies of the strongest owned bug at the end of the following round, once per match. | Each pair of consecutive wins earns an uncapped use of Incomes. Pick any owned bug for base cost + 1G. The bug stays; using it in round R makes it ready again in R+2. |
-| Hyber Lantern | A fallen ally sends a white soul to its nearest living teammate to heal 10% of max HP. | Mark a deployed ally in prep or battle. At 50 HP or less it heals 15% immediately, again at +1.5s and +3s, then 30% at +6s. The final ray strikes the surrounding 3×3 tiles for 75% of the marked bug's ATK before incoming damage modifiers. |
+| Hyber Lantern | A fallen ally sends a white soul to its nearest living teammate to heal 10% of max HP. | Mark a deployed ally in prep or battle. At 50% of its max HP or less it heals 15% of max HP immediately, again at +1.5s and +3s, then 30% at +6s. The final ray strikes the surrounding 3×3 tiles for 75% of the marked bug's ATK before incoming damage modifiers. |
 | World Worm | The two strongest enemies take 100 damage each at battle start and are stunned for 3s, then Vulnerable for 10s. | Every three completed rounds grants one Eat and spit use (up to five stored). Consume a bench bug for two 1★ recruits: one of the same role and one random. |
 
 Strength is ordered by stars, max HP, ATK, then oldest recruit. Skill recruits
@@ -55,8 +55,8 @@ Pressure present unlocks a brass-and-jade vault in the report. Incomes appraises
 a chosen specimen, then runs a single engraved token to the Gold counter. World
 Worm's bench seam and shallow traps share the pixels of its portrait; the new
 specimens resolve directly in their real bench slots. Last Spark carries a fine
-opal trail. At 50 HP or less, Oracle heals on the triggering tick (0s) and lights
-its full ray from above immediately. The following pulses keep their original
+opal trail. At 50% of max HP or less, Oracle heals on the triggering tick (0s)
+and lights its full ray from above immediately. The following pulses keep their original
 cadence and the last still leaves a green 3×3 impact. Reduced Motion keeps the
 cues readable without most movement; Potato trims trails and extra particles.
 

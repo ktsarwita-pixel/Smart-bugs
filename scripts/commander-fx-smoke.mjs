@@ -20,10 +20,10 @@ const step = (n) => page.evaluate(n => window.commanderFxHarness.step(n), n);
 const cast = (side = 'ally') => page.evaluate(side => {
   const f = window.commanderFxHarness;
   const t = f.battle.t;
-  f.cast(side);
+  const before = f.cast(side);
   const wave = f.battle.waves[side];
   const target = f.battle.units.find(u => u.uid === wave.uid);
-  return {t, pulseAt: wave.lastPulseAt, pulses: wave.pulses, gained: target.hp - 50, want: Math.round(target.maxHp * .15)};
+  return {t, pulseAt: wave.lastPulseAt, pulses: wave.pulses, gained: target.hp - before, want: Math.round(target.maxHp * .15)};
 }, side);
 function checkAxis({top, hit, middle, sourceNdcY, leadY}, name) {
   assert.ok(top[1] - hit[1] > 2.5, `${name}: ray must start well above the target`);
@@ -57,17 +57,18 @@ try {
 
   const first = await page.evaluate(() => {
     const f = window.commanderFxHarness;
-    f.crossThreshold(); // observe this very tick, without stepping again
+    const before = f.crossThreshold(); // observe this very tick, without stepping again
     const wave = f.battle.waves.ally;
     const target = f.battle.units.find(u => u.uid === wave.uid);
     return {t: f.battle.t, pulseAt: wave.lastPulseAt, pulses: wave.pulses,
-      uid: target.uid, hp: target.hp, maxHp: target.maxHp, threshold: 101 - Number(f.battle.pops.at(-2).text)};
+      uid: target.uid, hp: target.hp, maxHp: target.maxHp, threshold: before - Number(f.battle.pops.at(-2).text)};
   });
   const gain = Math.round(first.maxHp * .15);
-  assert.equal(first.threshold, 50);
+  assert.equal(first.threshold / first.maxHp, .5, 'the crossing hit leaves exactly 50% HP');
+  assert.ok(first.threshold > 50, 'the percentage threshold is not a flat 50 HP');
   assert.equal(first.pulseAt, first.t);
   assert.equal(first.pulses, 1);
-  assert.equal(first.hp, 50 + gain);
+  assert.equal(first.hp, first.threshold + gain);
   await rendered('rays',1);
   const instant = (await read()).rayAxes[0];
   checkAxis(instant, '0s ally');
@@ -112,7 +113,7 @@ try {
   for (const side of ['ally', 'foe']) {
     const first = await cast(side);
     assert.equal(first.pulses, 1);
-    assert.equal(first.pulseAt, first.t, 'marking a living ally already at 50 heals in the mark call');
+    assert.equal(first.pulseAt, first.t, 'marking a living ally already at 50% heals in the mark call');
     assert.equal(first.gained, first.want);
   }
   await rendered('rays',2);

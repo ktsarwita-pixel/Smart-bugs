@@ -17,16 +17,20 @@ Object.assign(window, {
     step: (count: number) => { for (let i = 0; i < count; i++) stepBattle(battle, 0.1); },
     cast: (side: 'ally' | 'foe' = 'ally') => {
       const receiver = side === 'ally' ? mark : attacker;
-      receiver.hp = 50;
+      const before = Math.floor(receiver.maxHp / 2);
+      receiver.hp = before;
       markOracleTarget(battle, side, receiver.uid);
+      return before;
     },
     crossThreshold: () => {
       // Wounded after the opening trap. A stag's 34 ATK is 51 on Vulnerable.
-      mark.hp = 101;
+      const before = mark.maxHp / 2 + 51;
+      mark.hp = before;
       markOracleTarget(battle, 'ally', mark.uid);
       Object.assign(attacker, {x: mark.x - .3, y: mark.y - .8, cd: 0});
       stepBattle(battle, .1);
       attacker.cd = 100;
+      return before;
     },
     fall: () => {
       // Generate a real KO, which should emit a soul toward the marked ally.

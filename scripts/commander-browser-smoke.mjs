@@ -22,9 +22,15 @@ await page.addInitScript(() => {
   localStorage.setItem('smartbugs.settings',JSON.stringify({rev:2, lang:'en', motion:'full', resolution:'low'}));
   localStorage.setItem('smartbugs.speed','1');
   // Keep forced-outcome rounds in their built-in pre-roll until the admin
-  // action. The live targeting case below uses the normal combat clock.
+  // action or retarget before the first heal can spend the mark. Then let
+  // the Oracle case finish with the normal combat clock.
   const timer = window.setTimeout.bind(window);
-  window.setTimeout = (fn, delay, ...args) => timer(fn, window.__holdPreRoll && delay === 640 ? 60000 : delay, ...args);
+  window.setTimeout = (fn, delay, ...args) => {
+    if (!window.__holdPreRoll || delay !== 640) return timer(fn, delay, ...args);
+    const id = timer(fn, 60000, ...args);
+    window.__releasePreRoll = () => { window.clearTimeout(id); fn(...args); };
+    return id;
+  };
 });
 const errors = []; page.on('pageerror', error => errors.push(error.message));
 const shots = process.env.SHOTS;
@@ -60,7 +66,7 @@ async function start(name, query = '?doctor=1', beforePlay) {
   if (dist && query.includes('advenced')) await page.waitForURL(url => url.pathname === '/preview/');
   await button('PLAY MATCH').waitFor();
   assert.equal(await page.locator('.advanced-banner').count(),Number(query.includes('advenced')));
-  await page.evaluate(hold => { window.__holdPreRoll = hold; }, name !== 'Hyber Lantern');
+  await page.evaluate(() => { window.__holdPreRoll = true; });
   if (beforePlay) await beforePlay();
   await button('PLAY MATCH').tap();
   await button(name).tap();
@@ -227,9 +233,9 @@ try {
   assert.equal(opts.length,2,'Oracle marks deployed bugs only');
   const stagUid = await picker.locator('option:not([disabled])').first().getAttribute('value');
   await picker.selectOption(stagUid);
-  await statusMatches(/Marked: .*STAG/);
+  await statusMatches(/Marked: .*STAG · ≤50% HP/);
   await engage();
-  await statusMatches(/Marked: .*STAG/);
+  await statusMatches(/Marked: .*STAG · ≤50% HP/);
   await skill.tap();
   const other = await picker.locator(`option:not([disabled]):not([value="${stagUid}"])`).getAttribute('value');
   const target = page.locator(`[data-unit-id="${other}"][data-skill-point]`);
@@ -242,13 +248,14 @@ try {
   });
   assert.ok(unitPoint.hitsCanvas, `target point must meet canvas: ${JSON.stringify(unitPoint)}`);
   await page.touchscreen.tap(unitPoint.x,unitPoint.y);
-  await statusMatches(/Marked: .*MANTIS/);
+  await statusMatches(/Marked: .*MANTIS · ≤50% HP/);
   await noBonds();
   await shot('oracle-mark-mobile');
   assert.equal(await picker.count(),0,'committing a mark closes the picker');
+  await page.evaluate(() => window.__releasePreRoll());
   await result.waitFor({timeout:65000});
   await next();
-  await statusMatches(/Once per battle · ≤50 HP/);
+  await statusMatches(/Once per battle · ≤50% HP/);
   assert.equal(await skill.getAttribute('aria-pressed'),'false','next round starts with a fresh mark and no targeting');
   assert.deepEqual(errors,[]);
   console.log('PASS Hyber Lantern prep picker, live allied 3D touch target and mark reset; EN catalog clean');

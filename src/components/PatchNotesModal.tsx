@@ -20,11 +20,11 @@ export const VERSIONS: VersionEntry[] = [
     items: [
       "Colony Bonds have been removed from battles and the Field Guide. Roles remain for World Worm's recruit skill.",
       "Ancient Scavanger earns Incomes from pairs of wins. Pressure present pays out after the round following three consecutive losses.",
-      "Hyber Lantern sends white souls from fallen allies. Mark one ally for four healing pulses at 50 HP or less; the last pulse sends green dust across a 3×3 area.",
+      "Hyber Lantern sends white souls from fallen allies. Mark one ally for four healing pulses. The first triggers at 50% of max HP or less; the last sends green dust across a 3×3 area.",
       "World Worm opens two toothed traps each battle. Use Eat and spit on a bench bug to recruit two more.",
       "All three commanders have new animated voxel models and updated portraits.",
       "Commander stands sit flush on the drawer. Ancient Scavanger gains a brass-and-jade vault and an appraisal sequence. World Worm's traps and bench effects use its portrait art and stay close to the target.",
-      "Hyber Lantern's first heal shows immediately when a marked ally reaches 50 HP or less. The 0s pulse lights a thin opal ray from above; later pulses keep their original timing.",
+      "Hyber Lantern's first heal shows immediately when a marked ally is at 50% of max HP or less. The 0s pulse lights a thin opal ray from above; later pulses keep their original timing.",
     ],
   },
   {

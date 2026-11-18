@@ -129,7 +129,7 @@ for (const [i, c] of COMMANDERS.entries()) {
   assert.equal(foe.taken,100 + SPIDER_ROAR_DAMAGE);
 }
 
-// Oracle: first hit crossing the absolute HP threshold, 1.5s/1.5s/3s, and a tile square.
+// Oracle: first hit crossing 50% of max HP, the same cadence, and a tile square.
 {
   const b = createBattle([unit('stag',0), unit('mantis',6)], [unit('stag',0),unit('dragonfly',1),unit('stag',2)],'lampyris','matriarch');
   isolate(b);
@@ -138,25 +138,31 @@ for (const [i, c] of COMMANDERS.entries()) {
   attacker.x = 3.1; attacker.y = 2.9;
   corner.x = 4.88; corner.y = 4.91; // diagonally inside the 3×3 tiles, outside any 1.5-radius circle
   outside.x = 5.01; outside.y = 3.21;
-  ally.hp = 51;
+  const halfHp = ally.maxHp / 2;
+  ally.hp = halfHp + 1;
   assert.equal(markOracleTarget(b,'ally',attacker.uid),false);
   assert.equal(markOracleTarget(b,'foe',attacker.uid),false);
   assert.equal(markOracleTarget(b,'ally',ally.uid),true);
   assert.equal(b.waves.ally.pulses,0);
   tick(b,1);
-  assert.equal(ally.hp,51);
-  ally.hp = 84; attacker.cd = 0;
-  tick(b,1); // exactly 50 after 34 ATK
+  assert.equal(ally.hp,halfHp + 1,'a mark waits while HP is above half');
+  ally.hp = halfHp + attacker.atk; attacker.cd = 0;
+  tick(b,1); // exactly half (150/300) after the 34 damage hit
   attacker.cd = 100;
   assert.equal(b.waves.ally.startAt,0.2);
   assert.equal(b.waves.ally.lastPulseAt,b.t);
-  assert.equal(ally.hp,95);
+  assert.equal(ally.hp,195,'150/300 HP heals by 45 in the hit tick');
   assert.equal(markOracleTarget(b,'ally',other.uid),false,'cannot switch once fired');
-  tick(b,14); assert.equal(ally.hp,95);
-  tick(b,1); assert.equal(ally.hp,140);
-  tick(b,15); assert.equal(ally.hp,185);
-  tick(b,29); assert.equal(ally.hp,185);
-  tick(b,1); assert.equal(ally.hp,275);
+  tick(b,14); assert.equal(ally.hp,195);
+  tick(b,1); assert.equal(ally.hp,240);
+  tick(b,14); assert.equal(ally.hp,240);
+  tick(b,1); assert.equal(ally.hp,285);
+  // Make room for the entire 30% final heal without bringing HP below half.
+  attacker.atk = 90; attacker.cd = 0;
+  tick(b,1);
+  attacker.cd = 100;
+  tick(b,28); assert.equal(ally.hp,195);
+  tick(b,1); assert.equal(ally.hp,285);
   assert.equal(b.waves.ally.pulses,4);
   assert.deepEqual([b.waves.ally.impact.x,b.waves.ally.impact.y],[3.5,3.5]);
   assert.equal(corner.taken,26,'round(34 × 1.5 / 2), ray is not reduced by Slipstream');
@@ -168,41 +174,50 @@ for (const [i, c] of COMMANDERS.entries()) {
   tick(b,35);
   assert.equal(ally.hp,20,'no fifth pulse or periodic glow');
 }
-// Marking an already wounded ally is synchronous, including at battle time zero.
-for (const [hp, time, side] of [[50,0,'ally'],[49,2.2,'ally'],[50,3.7,'foe']]) {
-  const b = createBattle([unit('stag',0)], [unit('stag',17)], 'lampyris', 'lampyris');
+// Already at/below half: synchronous on either side, at multiple max HP values.
+for (const [bug, star, offset, time, side] of [
+  ['stag',1,0,0,'ally'], ['stag',2,-1,2.2,'ally'], ['stag',3,0,3.7,'foe'], ['mantis',1,0,1,'ally'],
+]) {
+  const b = createBattle([unit(bug,0,star)], [unit(bug,17,star)], 'lampyris', 'lampyris');
   isolate(b);
   b.t = time;
   const target = b.units.find(u => u.side === side);
+  // A 205-max-HP Mantis qualifies at 102, not at 103 (don't round the ratio).
+  const halfHp = Math.floor(target.maxHp / 2);
+  target.hp = halfHp + 1;
+  assert.equal(markOracleTarget(b,side,target.uid),true);
+  assert.equal(b.waves[side].startAt,null,'above 50% stays dormant');
+  const hp = halfHp + offset;
   target.hp = hp;
+  const gain = Math.round(target.maxHp * .15);
   assert.equal(markOracleTarget(b,side,target.uid),true);
   assert.equal(b.waves[side].startAt,time);
   assert.equal(b.waves[side].lastPulseAt,time);
   assert.equal(b.waves[side].pulses,1);
-  assert.equal(target.hp,hp + 45,'0s pulse heals before another simulation step');
-  assert.ok(b.pops.some(p => p.healSource === 'oracle' && p.text === '+45'));
+  assert.equal(target.hp,hp + gain,'0s pulse heals before another simulation step');
+  assert.ok(b.pops.some(p => p.healSource === 'oracle' && p.text === `+${gain}`));
   tick(b,1);
-  assert.equal(target.hp,hp + 45,'tick does not repeat the instant pulse');
+  assert.equal(target.hp,hp + gain,'tick does not repeat the instant pulse');
 }
 {
   // The heal must resolve inside the first hit, not even at the end of its tick.
   const b = createBattle([unit('stag',3)], [unit('stag',17),unit('stag',16)], 'lampyris','matriarch');
   isolate(b);
   const [target, ...foes] = b.units;
-  target.hp = 70;
-  for (const [i,foe] of foes.entries()) Object.assign(foe,{x: target.x + (i ? 0.2 : -0.2), y: target.y - .22, atk:40, cd:0});
+  target.hp = 151;
+  for (const [i,foe] of foes.entries()) Object.assign(foe,{x: target.x + (i ? 0.2 : -0.2), y: target.y - .22, atk:80, cd:0});
   markOracleTarget(b,'ally',target.uid);
   tick(b,1);
-  assert.equal(target.hp,35,'instant +45 HP saves the ally from the second 40 damage in the same tick');
-  assert.deepEqual(b.pops.map(p=>p.text),['40','+45','40']);
+  assert.equal(target.hp,36,'instant +45 HP saves the ally from the second 80 damage in the same tick');
+  assert.deepEqual(b.pops.map(p=>p.text),['80','+45','80']);
 }
 {
   const c = createBattle([unit('stag',3)], [unit('stag',17)], 'lampyris','matriarch');
   isolate(c);
   const [v,a] = c.units;
-  v.hp = 51;
+  v.hp = 151;
   markOracleTarget(c,'ally',v.uid);
-  Object.assign(a,{x:v.x,y:v.y-.24,atk:51,cd:0});
+  Object.assign(a,{x:v.x,y:v.y-.24,atk:151,cd:0});
   tick(c,1);
   assert.ok(v.dead && v.hp===0,'Oracle is not a resurrection');
   assert.equal(c.waves.ally.pulses,0);
@@ -229,5 +244,10 @@ for (const [hp, time, side] of [[50,0,'ally'],[49,2.2,'ally'],[50,3.7,'foe']]) {
   const b = createBattle([unit('stag',0)], [unit('mantis',0),unit('bomb',1,2)], 'matriarch', 'lampyris', {autoOracle:['foe']});
   assert.equal(b.waves.foe.uid, b.units[2].uid, 'rival uses its actual Oracle skill');
   assert.equal(b.waves.ally,null);
+}
+{
+  const b = createBattle([unit('stag',0)], [unit('bomb',17)], 'worm', 'lampyris', {autoOracle:['foe']});
+  assert.equal(b.waves.foe.startAt,0,'90/190 HP after the opening trap qualifies at time zero');
+  assert.equal(b.units[1].hp,119,'90 HP + 29 from the first pulse');
 }
 console.log('commander-rules: PASS — base stats, timing and combat ledger, charge economy, rewards, and EN/ID skill copy');

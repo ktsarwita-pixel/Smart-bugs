@@ -80,7 +80,7 @@ export const SPIDER_ROAR_SECONDS = 1.5;
 export const SPIDER_ROAR_DAMAGE = 650;
 export const TRAP_STUN_SECONDS = 3;
 export const TRAP_VULNERABLE_SECONDS = 10;
-export const WAVE_HP_THRESHOLD = 50;
+const WAVE_HP_RATIO = 0.5;
 export const WAVE_BEATS = [0, 1.5, 3, 6] as const;
 const SPARK_TRAVEL_SECONDS = 0.45;
 export const SPARK_LANDING_SECONDS = 0.55;
@@ -743,7 +743,7 @@ export function markOracleTarget(b: BattleState, side: BattleSide, uid: number):
 
 function startOracleWave(b: BattleState, target: BUnit) {
   const wave = b.waves[target.side];
-  if (!wave || wave.uid !== target.uid || wave.startAt !== null || target.dead || target.hp <= 0 || target.hp > WAVE_HP_THRESHOLD) return;
+  if (!wave || wave.uid !== target.uid || wave.startAt !== null || target.dead || target.hp <= 0 || target.hp > target.maxHp * WAVE_HP_RATIO) return;
   // Beat zero restores HP inside the hit/mark that triggered it. Do not
   // queue it alongside future pulses or wait for travel from the sky.
   wave.startAt = b.t;

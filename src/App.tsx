@@ -491,8 +491,8 @@ export default function App() {
     ? oracleSpent && phase === "battle"
       ? combatMark && combatWave && combatWave.pulses < 4
         ? tf("Healing waves · {n}/4", { n: combatWave.pulses }) : t("Used this battle")
-      : activeMark ? tf("Marked: {name} · ≤50 HP", { name: t(BUGS[activeMark.bugId].short) })
-        : t(pickable.length ? "Once per battle · ≤50 HP" : "Deploy an ally first")
+      : activeMark ? tf("Marked: {name} · ≤50% HP", { name: t(BUGS[activeMark.bugId].short) })
+        : t(pickable.length ? "Once per battle · ≤50% HP" : "Deploy an ally first")
     : cmd === "worm"
       ? `${tf("{n}/{max} uses", { n: commanderProgress.charges, max: WORM_CAP })} · ${commanderProgress.charges === WORM_CAP
         ? t("Full") : tf("Next in {n} rd", { n: WORM_INTERVAL - round % WORM_INTERVAL })}`

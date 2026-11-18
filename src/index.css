@@ -537,6 +537,11 @@ label {
 .ov-pop.ov-heal {
   color: #56dca8;
 }
+.ov-pop.ov-commander-heal {
+  padding: 2px 3px; color: #dcf7e9; background: #152722e8;
+  border: 1px solid #67a395; border-left-color: #c0f6e1;
+  font: 700 9px/1 var(--font-mono); text-shadow: none;
+}
 .ov-pop.ov-skill {
   color: #f0a93b;
   font-size: 9px;
@@ -3379,123 +3384,121 @@ html, body, #root { max-width: 100%; overflow-x: clip; }
 }
 .advanced-ui .commander-current p.commander-current__skill { padding-top: 4px; border-top: 1px solid #b4a78975; }
 
-/* Skill vignettes are paint only: they never move the board, bench or HUD. */
+/* Field-instrument FX: small engravings, real anchors and purposeful motion. */
 .commander-cast { position: fixed; inset: 0; z-index: 36; overflow: hidden; pointer-events: none; }
-.commander-cast__origin { position: absolute; width: 0; height: 0; }
-.income-sigil, .belch-sigil {
-  position: absolute; inset: -18px auto auto -18px; width: 36px; height: 36px; border-radius: 50%;
-  border: 2px solid #ffe1a1; box-shadow: 0 0 0 3px #f69e4050, inset 0 0 10px #f6b64390;
-  animation: income-sigil 610ms ease-out both;
+.income-route { position: absolute; inset: 0; }
+.income-route__line {
+  stroke-dasharray: 100; stroke-dashoffset: 100; opacity: .58;
+  animation: assay-trace 1160ms 230ms linear both;
 }
-.income-coin {
-  position: absolute; left: -7px; top: -7px; width: 14px; height: 14px;
-  background: radial-gradient(circle at 40% 36%, #fff0a7 0 31%, #d48b31 34% 44%, #f8bb51 46% 64%, #965323 67%);
-  border-radius: 50%; border: 1px solid #ffe19b; box-shadow: 0 0 8px #f3bb5a99, 0 2px 1px #38230e;
-  animation: income-flight 820ms cubic-bezier(.22,.38,.42,1) calc(var(--i) * 42ms) both;
+.income-assay {
+  position: absolute; width: 42px; height: 42px; translate: -50% -50%;
+  filter: drop-shadow(0 1px 2px #21160c);
+  animation: assay-presence 890ms ease both;
+}
+.income-assay svg { width: 100%; height: 100%; overflow: visible; }
+.income-assay__caliper { animation: assay-close 680ms cubic-bezier(.26,.66,.33,1) both; }
+.income-assay__sweep { animation: assay-sweep 510ms 90ms ease-in-out both; }
+.income-carrier {
+  position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 14px; height: 14px;
+  offset-anchor: center; offset-rotate: 0deg;
+  filter: drop-shadow(0 1px 2px #241809);
+  animation: assay-transfer 790ms 290ms cubic-bezier(.38,.13,.54,.99) both;
+}
+.income-carrier svg { animation: assay-mint 780ms 295ms ease both; }
+.income-bank { position: absolute; width: 0; height: 0; }
+.income-bank__strike {
+  position: absolute; left: -26px; top: -12px; width: 52px; height: 24px;
+  border-block: 1px solid #e4bd7d; box-shadow: 0 2px 7px #b4773840;
+  animation: assay-strike 480ms 1020ms ease-out both;
 }
 .income-credit {
-  position: absolute; left: var(--dx); top: var(--dy);
-  color: #fff2b9; background: #332513; border: 1px solid #ffd17a; border-radius: 4px; padding: 2px 5px;
-  font: 700 11px/1 var(--font-mono); white-space: nowrap; box-shadow: 0 2px 8px #180f05aa;
-  animation: income-credit 560ms 520ms ease-out both;
+  position: absolute; left: 0; top: -17px; translate: -50% -100%; white-space: nowrap;
+  color: #fff1cb; background: #291f17; border: 1px solid #b88d4e; border-left: 2px solid #77b899;
+  padding: 3px 6px; font: 700 10px/1 var(--font-mono); box-shadow: 0 2px 6px #100c07ad;
+  animation: assay-credit 700ms 1010ms ease-out both;
 }
-@keyframes income-sigil {
-  0% { transform: scale(.63); opacity: .98; }
-  77% { opacity: .7; }
-  100% { transform: scale(1.52); opacity: 0; }
+@keyframes assay-presence { 0%, 100% { opacity: 0; } 13%, 65% { opacity: 1; } }
+@keyframes assay-close {
+  0% { transform: translateX(var(--separate)); }
+  37%, 83% { transform: none; }
+  100% { transform: translateX(calc(var(--separate) * .65)); }
 }
-@keyframes income-flight {
-  0% { transform: scale(.45); opacity: 0; }
-  14% { opacity: 1; }
-  30% { transform: translate(calc(var(--dx) * .17 + var(--spread)), calc(var(--dy) * .31 - 25px)) scaleX(.56) scaleY(1.1); }
-  72% { transform: translate(calc(var(--dx) * .93 + var(--spread) * .12), calc(var(--dy) * .94 - 7px)) scale(.89); opacity: 1; }
-  100% { transform: translate(var(--dx), var(--dy)) scale(.36); opacity: 0; }
+@keyframes assay-sweep {
+  0% { opacity: 0; transform: none; }
+  21%, 62% { opacity: .9; }
+  100% { opacity: 0; transform: translateY(17px); }
 }
-@keyframes income-credit {
-  0% { opacity: 0; transform: translate(-50%, -110%) scale(.86); }
-  20%, 72% { opacity: 1; }
-  100% { opacity: 0; transform: translate(-50%, -177%); }
+@keyframes assay-trace {
+  0% { stroke-dashoffset: 100; opacity: 0; }
+  12% { opacity: .59; }
+  73% { stroke-dashoffset: 0; opacity: .58; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
 }
-.chomp-frame {
-  position: absolute; left: -35px; top: -32px; width: 70px; height: 64px; overflow: visible;
-  filter: drop-shadow(0 2px 3px #2f101aae); animation: chomp-frame 425ms both;
+@keyframes assay-transfer {
+  0% { offset-distance: 0%; opacity: 0; }
+  14%, 87% { opacity: 1; }
+  100% { offset-distance: 100%; opacity: .16; }
 }
-.chomp-frame__upper, .chomp-frame__lower { transform-box: fill-box; animation: chomp-jaws 420ms cubic-bezier(.26,.82,.42,1) both; }
-.chomp-frame__upper { --bite: 10px; --apart: -8px; }
-.chomp-frame__lower { --bite: -10px; --apart: 8px; }
-.chomp-prey { position: absolute; left: -16px; top: -16px; animation: chomp-swallow 345ms ease-in both; }
-.belch-sigil {
-  background: radial-gradient(#f6dc9c88, #df7d5477 62%, #de725300 69%); border-color: #ffc7a6;
-  box-shadow: 0 0 8px #ff976755; animation: income-sigil 600ms 225ms ease-out both;
+@keyframes assay-mint { 0%, 100% { transform: scaleX(.62); } 44%, 72% { transform: scaleX(1); } }
+@keyframes assay-strike {
+  0% { opacity: .8; transform: scaleX(.79); }
+  100% { opacity: 0; transform: scaleX(1.11); }
 }
-.spit-recruit {
-  position: absolute; left: -15px; top: -19px; width: 30px;
-  display: grid; justify-items: center; gap: 0; filter: drop-shadow(0 2px 5px #1b151199);
-  --wing: -32px; --bounce: -26px;
-  animation: spit-wing 780ms 320ms cubic-bezier(.22,.69,.39,1) both;
+@keyframes assay-credit {
+  0% { opacity: 0; transform: translateY(3px); }
+  19%, 80% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
 }
-.spit-recruit[data-wing="1"] { --wing: 32px; --bounce: 27px; animation-delay: 385ms; }
-.spit-recruit b { color: #fff5cb; background: #2b251a; border: 1px solid #bd9b55; padding: 0 3px; font: 700 9px/1.15 var(--font-mono); }
-@keyframes chomp-frame {
-  0%, 100% { opacity: 0; }
-  20%, 77% { opacity: 1; }
+
+.worm-etch {
+  display: grid; place-items: center; position: absolute; inset: 2px; overflow: hidden;
+  pointer-events: none; isolation: isolate; color: #ba6569;
 }
-@keyframes chomp-jaws {
-  0%, 40% { transform: translateY(var(--apart)); }
-  61%, 78% { transform: translateY(var(--bite)); }
-  100% { transform: translateY(0); }
+.worm-etch__mouth {
+  position: absolute; width: min(30px, 100%); height: 23px; transform: translateY(2px);
+  filter: drop-shadow(0 1px 1px #22141b); animation: worm-seam 840ms ease both;
 }
-@keyframes chomp-swallow {
-  0%, 49% { opacity: 1; transform: scale(1); }
-  100% { opacity: 0; transform: scale(.19) rotate(-20deg); }
+.worm-etch__cut { opacity: .87; }
+.worm-etch__lip { animation: worm-clamp 550ms cubic-bezier(.48,.06,.3,1) both; }
+.worm-etch__shed { position: absolute; animation: worm-occlude 410ms cubic-bezier(.42,.02,.66,1) both; }
+.worm-arrival { display: grid; animation: worm-expose 590ms ease-out both; }
+@keyframes worm-seam { 0%, 100% { opacity: 0; } 20%, 51% { opacity: .93; } }
+@keyframes worm-clamp { 0%, 45% { transform: translateY(var(--part)); } 64%, 80% { transform: none; } 100% { transform: translateY(calc(var(--part) * .55)); } }
+@keyframes worm-occlude {
+  0%, 39% { opacity: 1; clip-path: inset(0); }
+  98%, 100% { opacity: 0; clip-path: inset(52% 0 48%); }
 }
-@keyframes spit-wing {
-  0% { opacity: 0; transform: scale(.34); }
-  14%, 78% { opacity: 1; }
-  37% { transform: translate(var(--bounce), -47px) scale(1.04); }
-  66% { transform: translate(var(--wing), -17px) scale(.93); }
-  80% { transform: translate(var(--wing), -23px) scale(1); }
-  100% { opacity: 0; transform: translate(var(--wing), -17px); }
+@keyframes worm-expose {
+  0% { opacity: .12; clip-path: inset(52% 0 48%); }
+  45% { opacity: .8; }
+  100% { opacity: 1; clip-path: inset(-4px); }
 }
-.pressure-relic { flex: 0 0 35px; width: 35px; line-height: 0; }
-.pressure-relic svg { width: 100%; overflow: visible; }
-.pressure-halo, .pressure-lid, .pressure-glint { transform-box: fill-box; transform-origin: center; }
-.pressure-halo, .pressure-glint { opacity: 0; }
-.pressure-result[data-gift="sealed"] .pressure-relic { animation: pressure-stamp 710ms cubic-bezier(.25,.78,.27,1) both; }
-.pressure-result[data-gift="open"] .pressure-halo { animation: income-sigil 680ms 150ms ease-out both; }
-.pressure-result[data-gift="open"] .pressure-glint { animation: pressure-glint 660ms 225ms ease-out both; }
-.pressure-result[data-gift="open"] .pressure-lid { transform: translateY(-4px); animation: pressure-lid 620ms 95ms cubic-bezier(.2,.83,.26,1) both; }
+
 .pressure-result__copy { flex: 1 1 auto; min-width: 0; }
+.pressure-vault { flex: 0 0 53px; width: 53px; height: 38px; overflow: visible; }
+.pressure-key { transform-box: fill-box; transform-origin: center; }
+.pressure-inlay { opacity: .85; }
+.pressure-result[data-gift="sealed"] .pressure-shutter { animation: vault-seal 910ms cubic-bezier(.2,.61,.28,1) both; }
+.pressure-result[data-gift="sealed"] .pressure-key { animation: vault-lock 850ms 180ms ease both; }
+.pressure-result[data-gift="open"] .pressure-shutter { transform: translateX(var(--slide)); animation: vault-unseal 1240ms cubic-bezier(.37,.16,.2,1) both; }
+.pressure-result[data-gift="open"] .pressure-key { transform: translateY(-8px) scale(.69); animation: vault-release 890ms ease-out both; }
+.pressure-result[data-gift="open"] .pressure-inlay { animation: vault-light 1100ms 335ms ease both; }
+.pressure-result[data-gift="open"] .pressure-payout { animation: vault-print 540ms 670ms ease-out both; }
 .pressure-specimens { display: flex; flex: none; gap: 2px; }
-.pressure-specimens > span { animation: pressure-pair 610ms 250ms cubic-bezier(.19,.71,.31,1) both; }
-.pressure-specimens > span + span { animation-delay: 315ms; }
-@keyframes pressure-stamp {
-  0% { opacity: .45; transform: translateY(-7px) scale(1.16) rotate(-8deg); }
-  60% { transform: scale(.94); }
-  100% { opacity: 1; transform: none; }
-}
-@keyframes pressure-lid {
-  0% { transform: none; }
-  38% { transform: translateY(-9px) rotate(-6deg); }
-  100% { transform: translateY(-4px); }
-}
-@keyframes pressure-glint {
-  0%, 100% { opacity: 0; }
-  27% { opacity: .92; transform: translateY(-7px) scale(1.25); }
-}
-@keyframes pressure-pair {
-  0% { opacity: .3; transform: translate(-7px, 4px) scale(.66); }
-  63% { transform: translateY(-3px) scale(1.07); }
-  100% { opacity: 1; transform: none; }
-}
-html[data-motion="reduced"] :is(.commander-cast *, .pressure-result *) { animation: none !important; }
-html[data-motion="reduced"] :is(.income-coin, .chomp-prey, .belch-sigil) { display: none; }
-html[data-motion="reduced"] .income-credit { transform: translate(-50%, -130%); }
-html[data-motion="reduced"] .spit-recruit { transform: translate(var(--wing), -12px); }
+.pressure-specimens > span { animation: vault-print 550ms 765ms cubic-bezier(.22,.7,.34,1) both; }
+.pressure-specimens > span + span { animation-delay: 875ms; }
+@keyframes vault-seal { 0% { transform: translateX(var(--slide)); } 79%, 100% { transform: none; } }
+@keyframes vault-lock { 0% { opacity: 0; transform: translateY(-8px) rotate(-32deg) scale(.69); } 76%, 100% { opacity: 1; transform: none; } }
+@keyframes vault-unseal { 0%, 28% { transform: none; } 100% { transform: translateX(var(--slide)); } }
+@keyframes vault-release { 0%, 15% { transform: none; } 50% { transform: translateY(-4px) rotate(25deg) scale(.9); } 100% { transform: translateY(-8px) scale(.69); } }
+@keyframes vault-light { 0% { opacity: .4; } 49% { opacity: 1; } 100% { opacity: .85; } }
+@keyframes vault-print { 0% { opacity: .25; transform: translateY(4px); } 100% { opacity: 1; transform: none; } }
+
+html[data-motion="reduced"] :is(.commander-cast *, .pressure-result *, .worm-arrival, .worm-etch *) { animation: none !important; }
+html[data-motion="reduced"] :is(.income-route, .income-carrier, .income-assay__sweep, .income-bank__strike, .worm-etch) { display: none; }
 @media (prefers-reduced-motion: reduce) {
-  :is(.commander-cast *, .pressure-result *) { animation: none !important; }
-  :is(.income-coin, .chomp-prey, .belch-sigil) { display: none; }
-  .income-credit { transform: translate(-50%, -130%); }
-  .spit-recruit { transform: translate(var(--wing), -12px); }
+  :is(.commander-cast *, .pressure-result *, .worm-arrival, .worm-etch *) { animation: none !important; }
+  :is(.income-route, .income-carrier, .income-assay__sweep, .income-bank__strike, .worm-etch) { display: none; }
 }
-html[data-potato="1"] .income-coin[data-extra="1"] { display: none; }
+html[data-potato="1"] .income-route { display: none; }

@@ -51,12 +51,14 @@ Rival Oracles pick their strongest deployed bug at battle start; treasure guards
 have no commander. Players can target via the 3D drawer, the bench where valid,
 or the keyboard-accessible target list.
 
-Pressure present stamps a sealed relic into the report and opens it on payout.
-Incomes sends coins to the Gold counter; Eat and spit chomps the bench bug and
-pops out two recruit portraits. Trap holes erupt from the tiles and clamp shut,
-and Last Spark lands with a healing halo. The Oracle ray winds down from above
-the marked bug and ends in the same green 3×3 impact. Reduced Motion keeps the
-cues readable without most movement; Potato trims extra particles and strands.
+Pressure present unlocks a brass-and-jade vault in the report. Incomes appraises
+a chosen specimen, then runs a single engraved token to the Gold counter. World
+Worm's bench seam and shallow traps share the pixels of its portrait; the new
+specimens resolve directly in their real bench slots. Last Spark carries a fine
+opal trail. At 50 HP or less, Oracle heals on the triggering tick (0s) and lights
+its full ray from above immediately. The following pulses keep their original
+cadence and the last still leaves a green 3×3 impact. Reduced Motion keeps the
+cues readable without most movement; Potato trims trails and extra particles.
 
 Run the commander-specific checks against Vite:
 

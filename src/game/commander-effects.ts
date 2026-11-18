@@ -1,53 +1,72 @@
 import * as THREE from "three";
-import { COLS, ROWS, SPARK_LANDING_SECONDS, TRAP_STUN_SECONDS, WAVE_BEATS, type BattleState } from "./engine";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { LANTERN_INK as opal, WORM_INK as chitin, WORM_MAW, WORM_MAW_COLS, WORM_MAW_ROWS } from "./commander-motifs";
+import { COLS, ROWS, SPARK_LANDING_SECONDS, TRAP_STUN_SECONDS, type BattleState } from "./engine";
 
 const SIDES = ["ally", "foe"] as const;
-const SEGMENTS = 30;
-const MIN_SKY_HEIGHT = 3.3;
-const SKY_NDC_Y = 1.04; // start just outside the top of the drawer
-const SPARKS = 24;
-const PUFFS = 18;
-const CLUMPS = 9;
 const TAU = 2 * Math.PI;
+const RAY_SEGMENTS = 32;
+const RAY_SECONDS = 0.9;
+const SKY_NDC_Y = 1.04;
+const SPARKS = 24;
+const THREADS = 7;
+const GRIT = 6;
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 const unit = (v: number) => clamp(v, 0, 1);
 const smooth = (v: number) => { const k = unit(v); return k * k * (3 - 2 * k); };
 
 type UnitAnchor = (uid: number, into: THREE.Vector3) => boolean;
 
-/** A top-to-bottom spiral in the horizontal plane: sin and cos never change
- * the vertical axis or drift either end toward a commander model. */
-function rayPoint(top: THREE.Vector3, hit: THREE.Vector3, u: number, phase: number, width: number, out: THREE.Vector3) {
-  const a = TAU * 1.85 * u + phase;
-  const spread = Math.sin(Math.PI * u) * width;
+/** The sine/cosine refraction stays centered on an axis straight down from the sky. */
+function rayPoint(top: THREE.Vector3, hit: THREE.Vector3, u: number, phase: number, radius: number, out: THREE.Vector3) {
+  const a = TAU * 2.15 * u + phase;
+  const taper = Math.sin(Math.PI * u) * radius;
   out.lerpVectors(top, hit, u);
-  out.x += Math.cos(a) * spread;
-  out.z += Math.sin(a) * spread;
+  out.x += Math.cos(a) * taper;
+  out.z += Math.sin(a) * taper;
 }
 
-/** Commander meshes are pooled and driven by simulation events, not by damage heuristics. */
+/** From the same stepped pixels as the bench SVG. Shallow ledges, not protruding cones. */
+function mawLip(half: number) {
+  const cellX = 0.051, cellZ = 0.071;
+  const parts = WORM_MAW.filter(p => p.ink !== "b" && Number(p.y >= WORM_MAW_ROWS / 2) === half).map(({ x, y, ink }) => {
+    const h = ink === "t" ? 0.018 : ink === "e" ? 0.032 : 0.038;
+    const geo = new THREE.BoxGeometry(cellX, h, cellZ).translate(
+      (x + 0.5 - WORM_MAW_COLS / 2) * cellX, h / 2, (y + 0.5 - WORM_MAW_ROWS / 2) * cellZ,
+    );
+    const c = new THREE.Color(chitin[ink]);
+    const rgb = new Float32Array(geo.getAttribute("position").count * 3);
+    for (let i = 0; i < rgb.length; i += 3) { rgb[i] = c.r; rgb[i + 1] = c.g; rgb[i + 2] = c.b; }
+    geo.setAttribute("color", new THREE.BufferAttribute(rgb, 3));
+    return geo;
+  });
+  const geo = mergeGeometries(parts);
+  for (const part of parts) part.dispose();
+  return geo;
+}
+
+/** Pooled commander visuals, driven by the actual battle events. */
 export function createCommanderEffects(scene: THREE.Scene, camera: THREE.PerspectiveCamera, glowTexture: THREE.Texture) {
   const group = new THREE.Group();
   group.name = "Commander effects";
   scene.add(group);
   const resources: { dispose(): void }[] = [];
   const track = <T extends { dispose(): void }>(x: T) => { resources.push(x); return x; };
-  const up = new THREE.Vector3(0, 1, 0);
   const dummy = new THREE.Object3D();
+  const up = new THREE.Vector3(0, 1, 0);
   const from = new THREE.Vector3(), to = new THREE.Vector3(), previous = new THREE.Vector3(), point = new THREE.Vector3();
   const diff = new THREE.Vector3(), direction = new THREE.Vector3();
   const viewProjection = new THREE.Matrix4();
   function skyAbove(hit: THREE.Vector3, out: THREE.Vector3) {
-    // A point can be high in world space but line up with a far-away bug in
-    // the isometric view. Lift the source past the top edge at any zoom so
-    // the ray visibly enters from the sky, not from someone else's model.
+    // Project past the top edge, even on a close zoom. A world-space source
+    // high above the target can otherwise read as the rival commander.
     camera.updateMatrixWorld();
     const e = viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse).elements;
     const clipY = e[1] * hit.x + e[5] * hit.y + e[9] * hit.z + e[13];
     const clipW = e[3] * hit.x + e[7] * hit.y + e[11] * hit.z + e[15];
     const rise = (SKY_NDC_Y * clipW - clipY) / (e[5] - SKY_NDC_Y * e[7]);
     out.copy(hit);
-    out.y += Math.max(MIN_SKY_HEIGHT, rise);
+    out.y += Math.max(3.3, rise);
   }
   const pool = (geo: THREE.BufferGeometry, material: THREE.Material, limit: number) => {
     const mesh = track(new THREE.InstancedMesh(geo, material, limit));
@@ -57,99 +76,81 @@ export function createCommanderEffects(scene: THREE.Scene, camera: THREE.Perspec
     group.add(mesh);
     return mesh;
   };
-  const ink = (color: number) => track(new THREE.MeshBasicMaterial({ color, toneMapped: false, transparent: true, depthWrite: false }));
-  const glow = (color: number) => track(new THREE.SpriteMaterial({ color, map: glowTexture, transparent: true, depthWrite: false, toneMapped: false, blending: THREE.AdditiveBlending }));
-  const ringGeo = track(new THREE.RingGeometry(0.85, 1, 40).rotateX(-Math.PI / 2));
+  const ink = (color: THREE.ColorRepresentation, opacity = 1) => track(new THREE.MeshBasicMaterial({ color, opacity, toneMapped: false, transparent: true, depthWrite: false }));
+  const glow = (color: THREE.ColorRepresentation) => track(new THREE.SpriteMaterial({ color, map: glowTexture, transparent: true, depthWrite: false, toneMapped: false, blending: THREE.AdditiveBlending }));
+  const ringGeo = track(new THREE.RingGeometry(0.93, 1, 12).rotateX(-Math.PI / 2));
   const patchGeo = track(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2));
-  const shard = track(new THREE.OctahedronGeometry(1));
+  const chipGeo = track(new THREE.BoxGeometry(0.041, 0.027, 0.036));
+  const flint = track(new THREE.OctahedronGeometry(1));
+  const filament = track(new THREE.CylinderGeometry(1, 1, 1, 5));
 
-  // Trap holes: raise the jaws, snap once, hold, then open and subside.
-  const pit = track(new THREE.CircleGeometry(0.43, 24).rotateX(-Math.PI / 2));
-  const rim = track(new THREE.TorusGeometry(0.40, 0.065, 6, 18).rotateX(Math.PI / 2));
-  const rock = track(new THREE.BoxGeometry(0.15, 0.09, 0.12));
-  const fang = track(new THREE.ConeGeometry(0.063, 0.20, 4));
-  const pitMat = track(new THREE.MeshBasicMaterial({ color: 0x170a16 }));
-  const rimMat = track(new THREE.MeshStandardMaterial({ color: 0x803e4c, roughness: 0.78 }));
-  const rockMat = track(new THREE.MeshStandardMaterial({ color: 0x806346, roughness: 0.96 }));
-  const teethMat = track(new THREE.MeshStandardMaterial({ color: 0xffdfb1, roughness: 0.45, emissive: 0x514127 }));
-  const debris = pool(rock, rockMat, 4 * CLUMPS);
+  // Trap holes: a dark seam parts, its serrated lips meet, then fold away.
+  const lipGeo = [track(mawLip(0)), track(mawLip(1))];
+  const lipMat = track(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.91, emissive: 0x13090e, emissiveIntensity: 0.45 }));
+  const soil = new THREE.Shape().moveTo(-0.28, -0.09).lineTo(-0.17, -0.242).lineTo(0.16, -0.242)
+    .lineTo(0.28, -0.09).lineTo(0.28, 0.15).lineTo(0.18, 0.243).lineTo(-0.17, 0.243).lineTo(-0.28, 0.15);
+  const bedGeo = track(new THREE.ShapeGeometry(soil).rotateX(-Math.PI / 2));
+  const bedMat = ink(chitin.b, 0.95);
+  const dust = pool(chipGeo, track(new THREE.MeshStandardMaterial({ color: chitin.d, roughness: 1 })), 4 * GRIT);
   const traps = Array.from({ length: 4 }, () => {
     const root = new THREE.Group();
     root.visible = false;
     group.add(root);
-    const floor = new THREE.Mesh(pit, pitMat);
-    floor.position.y = 0.035;
-    const gums = new THREE.Mesh(rim, rimMat);
-    gums.position.y = 0.085;
-    root.add(floor, gums);
-    const jaws = [new THREE.Group(), new THREE.Group()];
-    root.add(...jaws);
-    for (let i = 0; i < 12; i++) {
-      const a = (i + 0.5) / 12 * TAU;
-      const x = Math.cos(a), z = Math.sin(a);
-      const clod = new THREE.Mesh(rock, rockMat);
-      clod.position.set(0.44 * x, 0.045 + (i % 3) * 0.013, 0.44 * z);
-      clod.rotation.y = -a;
-      root.add(clod);
-      const tooth = new THREE.Mesh(fang, teethMat);
-      tooth.position.set(0.39 * x, 0.14, 0.39 * z);
-      tooth.quaternion.setFromUnitVectors(up, new THREE.Vector3(-x, 0.72 + (i % 2) * 0.26, -z).normalize());
-      jaws[x > 0 ? 1 : 0].add(tooth);
-    }
-    const ringMat = ink(0xffa777);
-    const ring = new THREE.Mesh(ringGeo, ringMat);
-    ring.position.y = 0.055;
-    root.add(ring);
-    return { root, jaws, gums, ring, ringMat };
+    const bed = new THREE.Mesh(bedGeo, bedMat);
+    const lips = lipGeo.map(geo => new THREE.Mesh(geo, lipMat));
+    const scoreMat = ink(chitin.r, 0.3);
+    const score = new THREE.Mesh(ringGeo, scoreMat);
+    score.position.y = 0.002;
+    score.scale.set(0.31, 1, 0.27);
+    root.add(bed, score, ...lips);
+    return { root, lips, scoreMat };
   });
-  const clumps = Array.from({ length: CLUMPS }, (_, i) => {
+  const gritOffsets = Array.from({ length: GRIT }, (_, i) => {
     const a = i * 2.39996;
-    return { x: Math.cos(a), z: Math.sin(a), height: 0.20 + (i % 4) * 0.1 };
+    return { x: Math.cos(a), z: Math.sin(a), height: 0.055 + (i % 3) * 0.025 };
   });
 
-  // A burst at the fallen ally, a white moving soul, and a cyan landing halo.
-  const soulMat = ink(0xffffff);
-  soulMat.opacity = 0.94;
-  const souls = pool(shard, soulMat, SPARKS * 3);
-  const wispsMat = ink(0xccf6ff);
-  wispsMat.opacity = 0.52;
-  const wisps = pool(shard, wispsMat, SPARKS * 2);
-  const imprintMat = ink(0xdcfaff);
-  imprintMat.opacity = 0.65;
-  const sendRings = pool(ringGeo, imprintMat, SPARKS);
-  const receiveMat = ink(0x95ebff);
-  receiveMat.opacity = 0.80;
-  receiveMat.blending = THREE.AdditiveBlending;
-  const receiveRings = pool(ringGeo, receiveMat, SPARKS);
+  // Last Spark: a sliver of the Lantern's opal, with a fine taper to show direction.
+  const souls = pool(flint, ink(opal.w, 0.92), SPARKS);
+  const threads = pool(filament, ink(opal.e, 0.63), SPARKS * THREADS);
+  const sendRings = pool(ringGeo, ink(opal.e, 0.46), SPARKS);
+  const receiveRings = pool(ringGeo, ink(opal.w, 0.76), SPARKS);
+  function sparkPoint(k: number, reduced: boolean, into: THREE.Vector3) {
+    into.lerpVectors(from, to, k);
+    if (!reduced) into.y += Math.sin(Math.PI * k) * 0.31;
+  }
 
-  // Twin sin/cos strands wind around a thin blue shaft dropped from the sky.
-  const beamGeo = track(new THREE.CylinderGeometry(1, 1, 1, 6));
+  // Each actual heal lights the whole narrow shaft immediately. A dimmer
+  // refraction and a travelling band follow it, not the other way around.
   const oracles = SIDES.map(() => {
-    const beamMat = ink(0xb5efff);
-    const beam = pool(beamGeo, beamMat, SEGMENTS * 2);
-    const shaftMat = ink(0x7edaff);
+    const beamMat = ink(opal.e);
+    const beam = pool(filament, beamMat, RAY_SEGMENTS * 2);
+    const shaftMat = ink(opal.w);
     shaftMat.blending = THREE.AdditiveBlending;
-    const shaft = new THREE.Mesh(beamGeo, shaftMat);
-    const flareMat = glow(0xa5eeff);
+    const shaft = new THREE.Mesh(filament, shaftMat);
+    const flareMat = glow(opal.e);
     const flare = new THREE.Sprite(flareMat);
-    const bandMat = glow(0xddfbff);
+    const bandMat = glow(opal.w);
     const band = new THREE.Sprite(bandMat);
-    const rippleMat = ink(0x89e5ff);
-    const ripple = new THREE.Mesh(ringGeo, rippleMat);
-    const patchMat = ink(0x90ee78);
+    const sealMat = ink(opal.e);
+    const seal = new THREE.Mesh(ringGeo, sealMat);
+    const patchMat = ink(0x84bd77);
     const patch = new THREE.Mesh(patchGeo, patchMat);
-    const cloudMat = track(new THREE.SpriteMaterial({ map: glowTexture, color: 0x8cfb78, transparent: true, depthWrite: false, toneMapped: false }));
+    const cornerMat = ink(0xa6d08f);
+    const cornerGeo = track(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2));
+    const corners = Array.from({ length: 8 }, () => new THREE.Mesh(cornerGeo, cornerMat));
+    const cloudMat = track(new THREE.SpriteMaterial({ map: glowTexture, color: 0x9acb89, transparent: true, depthWrite: false, toneMapped: false }));
     const cloud = new THREE.Group();
-    const puffs = Array.from({ length: PUFFS }, (_, i) => {
+    const puffs = Array.from({ length: 9 }, (_, i) => {
       const mote = new THREE.Sprite(cloudMat);
       cloud.add(mote);
-      const a = i * 2.39996;
-      return { mote, dx: Math.cos(a), dz: Math.sin(a), reach: 0.38 + (i % 5) * 0.2, lift: 0.12 + (i % 4) * 0.1 };
+      return { mote, dx: i % 3 - 1, dz: Math.floor(i / 3) - 1, drift: i % 2 ? -1 : 1 };
     });
-    shaft.visible = flare.visible = band.visible = ripple.visible = patch.visible = cloud.visible = false;
-    group.add(shaft, flare, band, ripple, patch, cloud);
-    return { beam, beamMat, shaft, shaftMat, flare, flareMat, band, bandMat,
-      ripple, rippleMat, patch, patchMat, cloud, cloudMat, puffs, top: new THREE.Vector3(), sample: new THREE.Vector3() };
+    shaft.visible = flare.visible = band.visible = seal.visible = patch.visible = cloud.visible = false;
+    corners.forEach(mesh => { mesh.visible = false; });
+    group.add(shaft, flare, band, seal, patch, cloud, ...corners);
+    return { beam, beamMat, shaft, shaftMat, flare, flareMat, band, bandMat, seal, sealMat, patch, patchMat, corners, cornerMat,
+      cloud, cloudMat, puffs, top: new THREE.Vector3(), sample: new THREE.Vector3(), bandProgress: 0, age: 0 };
   });
 
   const put = (mesh: THREE.InstancedMesh, index: number) => { dummy.updateMatrix(); mesh.setMatrixAt(index, dummy.matrix); };
@@ -157,185 +158,192 @@ export function createCommanderEffects(scene: THREE.Scene, camera: THREE.Perspec
     mesh.count = count;
     if (count) mesh.instanceMatrix.needsUpdate = true;
   };
-  const imprint = (mesh: THREE.InstancedMesh, index: number, x: number, z: number, r: number) => {
+  const imprint = (mesh: THREE.InstancedMesh, index: number, x: number, z: number, radius: number) => {
     dummy.rotation.set(0, 0, 0);
-    dummy.position.set(x, 0.054, z);
-    dummy.scale.setScalar(r);
+    dummy.position.set(x, 0.041, z);
+    dummy.scale.setScalar(radius);
+    put(mesh, index);
+  };
+  const segment = (mesh: THREE.InstancedMesh, index: number, a: THREE.Vector3, b: THREE.Vector3, width: number) => {
+    dummy.position.addVectors(a, b).multiplyScalar(0.5);
+    diff.subVectors(b, a);
+    const len = diff.length();
+    if (len > 0.001) dummy.quaternion.setFromUnitVectors(up, direction.copy(diff).multiplyScalar(1 / len));
+    dummy.scale.set(width, len + 0.005, width);
     put(mesh, index);
   };
 
   function update(battle: BattleState | null, time: number, openerTime: number, reduced: boolean, potato: boolean, anchor: UnitAnchor) {
-    let debrisCount = 0;
+    let dustCount = 0;
     for (let i = 0; i < traps.length; i++) {
-      const { root, jaws, gums, ring, ringMat } = traps[i];
+      const { root, lips, scoreMat } = traps[i];
       const hole = battle?.holes[i];
       root.visible = !!hole && time < TRAP_STUN_SECONDS + 0.35;
       if (!hole || !root.visible) continue;
-      // Board preroll may be frozen at t=0; the cosmetic entrance can still play.
+      // The seat opens in preroll, while release follows the actual stun.
       const age = Math.max(time, openerTime);
-      const rise = reduced ? 1 : smooth(age / 0.20);
-      const bite = reduced ? 0.76 : smooth((age - 0.15) / 0.13);
-      const release = smooth((time - TRAP_STUN_SECONDS + 0.23) / 0.27);
-      const sink = smooth((time - TRAP_STUN_SECONDS) / 0.35);
-      const grip = bite * (1 - release);
-      const rattleTime = Math.max(0, age - 0.25);
-      const rattle = reduced ? 0 : Math.sin(rattleTime * 33) * Math.exp(-rattleTime * 7);
-      root.position.set(hole.x, -0.24 * sink, hole.y);
-      root.scale.setScalar(0.79 + rise * 0.21);
-      gums.scale.y = 0.60 + rise * 0.40;
-      for (let j = 0; j < jaws.length; j++) {
+      const rise = reduced ? 1 : smooth((age - 0.04) / 0.27);
+      const snap = reduced ? 1 : smooth((age - 0.24) / 0.33);
+      const open = reduced ? 0 : smooth((time - TRAP_STUN_SECONDS + 0.22) / 0.28);
+      const fold = reduced ? 0 : smooth((time - TRAP_STUN_SECONDS) / 0.35);
+      const gap = 0.005 + 0.045 * (1 - snap * (1 - open));
+      const size = 0.86 + 0.14 * rise;
+      // The front edge peeks out from the specimen's shadow. Keep the whole
+      // cut within its tile, even when the jaws part.
+      const rimZ = hole.y + 0.16;
+      root.position.set(hole.x, 0.025 - 0.09 * fold, rimZ);
+      root.rotation.y = hole.owner === "foe" ? Math.PI : 0;
+      root.scale.set(size, 1, size);
+      scoreMat.opacity = (0.19 + 0.25 * snap) * (1 - 0.8 * fold);
+      for (let j = 0; j < lips.length; j++) {
         const sign = j === 0 ? -1 : 1;
-        jaws[j].position.set(sign * (0.13 - grip * 0.24), -0.18 + rise * 0.18 + grip * 0.086, 0);
-        jaws[j].rotation.z = sign * (grip * 0.20 + rattle * 0.055);
+        lips[j].position.set(0, -0.046 + rise * 0.052, gap * sign);
+        lips[j].rotation.x = -sign * (0.045 + open * 0.10);
       }
-      ring.visible = grip > 0.08;
-      ring.scale.setScalar(0.50 + (reduced ? 0 : Math.exp(-rattleTime * 8) * 0.17));
-      ringMat.opacity = 0.62 * grip;
-      if (reduced || age < 0.20 || age >= 0.65) continue;
-      const burst = unit((age - 0.20) / 0.45);
-      for (let j = 0; j < (potato ? 4 : CLUMPS); j++) {
-        const c = clumps[j];
-        const radius = 0.32 + burst * (0.23 + 0.055 * (j % 4));
-        dummy.position.set(hole.x + c.x * radius, 0.085 + Math.sin(Math.PI * burst) * c.height, hole.y + c.z * radius);
-        dummy.rotation.set(burst * 8 + i, j * 1.6, burst * 3);
-        dummy.scale.setScalar((1.1 - burst * 1.05) * (0.6 + j % 3 * 0.16));
-        put(debris, debrisCount++);
+      if (reduced || age < 0.21 || age >= 0.78) continue;
+      const dustAge = unit((age - 0.21) / 0.57);
+      for (let j = 0; j < (potato ? 2 : GRIT); j++) {
+        const c = gritOffsets[j];
+        const radius = 0.19 + dustAge * 0.145;
+        dummy.position.set(hole.x + c.x * radius, 0.037 + Math.sin(Math.PI * dustAge) * c.height, rimZ + c.z * radius);
+        dummy.rotation.set(dustAge * 1.8, i + j, dustAge * 0.7);
+        dummy.scale.setScalar((1 - dustAge) * (0.91 + j % 3 * 0.13));
+        put(dust, dustCount++);
       }
     }
-    commit(debris, debrisCount);
+    commit(dust, dustCount);
 
-    let soulCount = 0, wispCount = 0, sending = 0, receiving = 0;
+    let soulCount = 0, trailCount = 0, sending = 0, receiving = 0;
     for (const spark of battle?.sparks ?? []) {
       if (time < spark.startAt || !anchor(spark.targetUid, to)) continue;
       if (spark.landedAt !== undefined && time >= spark.landedAt) {
         const age = (time - spark.landedAt) / SPARK_LANDING_SECONDS;
-        if (age < 1 && receiving < SPARKS) imprint(receiveRings, receiving++, to.x, to.z, reduced ? 0.49 : 0.42 + smooth(age) * 0.39);
+        if (age < 1 && receiving < SPARKS) imprint(receiveRings, receiving++, to.x, to.z, reduced ? 0.48 : 0.39 + smooth(age) * 0.20);
         continue;
       }
-      if (time > spark.arrivesAt + 0.10) continue; // no fake landing if the battle ended mid-flight
+      if (time > spark.arrivesAt + 0.10 || soulCount >= SPARKS) continue;
       const k = unit((time - spark.startAt) / (spark.arrivesAt - spark.startAt));
-      if (k < 0.58 && sending < SPARKS) imprint(sendRings, sending++, spark.x, spark.y, reduced ? 0.32 : 0.12 + k * 0.68);
-      if (soulCount >= SPARKS * 3) continue;
-      from.set(spark.x, 0.26, spark.y);
-      for (let i = 0; i < (potato || reduced ? 1 : 3); i++) {
-        const p = Math.max(0, k - i * 0.15);
-        dummy.position.lerpVectors(from, to, p);
-        dummy.position.y += Math.sin(Math.PI * p) * (reduced ? 0.14 : 0.57);
-        dummy.rotation.set(reduced ? 0 : k * 3, reduced ? 0 : i + p * 4, 0);
-        dummy.scale.setScalar(0.113 - i * 0.026);
-        put(souls, soulCount++);
-      }
-      if (!reduced && !potato && wispCount + 2 <= SPARKS * 2) {
-        point.lerpVectors(from, to, k);
-        point.y += Math.sin(Math.PI * k) * 0.57;
-        for (const side of [-1, 1]) {
-          const flutter = Math.sin(k * TAU * 3);
-          dummy.position.set(point.x + side * (0.09 + flutter * 0.027), point.y + 0.035 * flutter, point.z);
-          dummy.rotation.set(0, 0, side * (0.48 + flutter * 0.40));
-          dummy.scale.set(0.09, 0.038, 0.065);
-          put(wisps, wispCount++);
-        }
+      if (!reduced && k < 0.69 && sending < SPARKS) imprint(sendRings, sending++, spark.x, spark.y, 0.21 + k * 0.34);
+      from.set(spark.x, 0.22, spark.y);
+      sparkPoint(k, reduced, dummy.position);
+      dummy.rotation.set(reduced ? 0 : 0.33, reduced ? 0 : k * 2.8, 0);
+      dummy.scale.set(0.052, 0.088, 0.052);
+      put(souls, soulCount++);
+      if (reduced) continue;
+      previous.copy(dummy.position);
+      const pieces = potato ? 3 : THREADS;
+      for (let i = 1; i <= pieces; i++) {
+        const trail = Math.max(0, k - i * 0.50 / pieces);
+        sparkPoint(trail, false, point);
+        segment(threads, trailCount++, previous, point, 0.025 * (1 - i / (pieces + 1)) + 0.004);
+        previous.copy(point);
+        if (trail === 0) break;
       }
     }
     commit(souls, soulCount);
-    commit(wisps, wispCount);
+    commit(threads, trailCount);
     commit(sendRings, sending);
     commit(receiveRings, receiving);
 
     for (let i = 0; i < SIDES.length; i++) {
       const fx = oracles[i], wave = battle?.waves[SIDES[i]];
       fx.beam.count = 0;
-      fx.shaft.visible = fx.flare.visible = fx.band.visible = fx.ripple.visible = fx.patch.visible = fx.cloud.visible = false;
-      if (!wave || wave.startAt === null || !wave.pulses) continue;
-      const since = time - wave.startAt;
-      if (since < 0) continue;
-      const beatAge = Math.max(0, since - WAVE_BEATS[wave.pulses - 1]);
-      const glowPulse = reduced ? 0.56 : Math.exp(-beatAge * 6.5);
-      if (since <= WAVE_BEATS[3] + 0.32 && anchor(wave.uid, to)) {
+      fx.shaft.visible = fx.flare.visible = fx.band.visible = fx.seal.visible = fx.patch.visible = fx.cloud.visible = false;
+      fx.corners.forEach(mesh => { mesh.visible = false; });
+      if (wave?.lastPulseAt === undefined) continue;
+      // Visual position interpolation may lag by a tick. The heal itself and
+      // its full initial light show in the same frame as the new HP value.
+      const age = fx.age = Math.max(0, time - wave.lastPulseAt);
+      if (age < RAY_SECONDS && anchor(wave.uid, to)) {
         skyAbove(to, from);
         fx.top.copy(from);
-        const phase = reduced ? 0 : -since * 11;
-        const n = potato ? 14 : SEGMENTS;
-        const strands = potato || reduced ? 1 : 2;
-        const reveal = reduced ? 1 : smooth(since / 0.27);
-        const widthScale = reduced ? 0.22 : 0.33 + glowPulse * 0.13;
-        rayPoint(from, to, 0.5, phase, widthScale, fx.sample);
-        const segments = Math.ceil(n * reveal);
+        const fade = 1 - smooth(age / RAY_SECONDS);
+        const hit = reduced ? 0.47 : Math.exp(-age * 6.6);
+        const phase = reduced ? 0 : -age * 9.5 - wave.pulses * 0.83;
+        const n = potato ? 18 : RAY_SEGMENTS;
+        const radius = reduced ? 0.115 : 0.155 + hit * 0.07;
+        rayPoint(from, to, 0.5, phase, radius, fx.sample);
         let count = 0;
-        for (let strand = 0; strand < strands; strand++) {
+        for (let strand = 0; strand < (potato || reduced ? 1 : 2); strand++) {
           previous.copy(from);
-          for (let j = 1; j <= segments; j++) {
-            const u = Math.min(j / n, reveal);
-            rayPoint(from, to, u, phase + Math.PI * strand, widthScale, point);
-            dummy.position.addVectors(previous, point).multiplyScalar(0.5);
-            diff.subVectors(point, previous);
-            dummy.quaternion.setFromUnitVectors(up, direction.copy(diff).normalize());
-            const width = (strand === 0 ? 0.027 : 0.019) + glowPulse * 0.012;
-            dummy.scale.set(width, diff.length() + 0.009, width);
-            put(fx.beam, count++);
+          for (let j = 1; j <= n; j++) {
+            const u = j / n;
+            rayPoint(from, to, u, phase + Math.PI * strand, radius * (strand ? .74 : 1), point);
+            segment(fx.beam, count++, previous, point, (strand ? 0.008 : 0.014) + hit * 0.005 * Math.sin(Math.PI * u));
             previous.copy(point);
           }
         }
         commit(fx.beam, count);
-        fx.beamMat.opacity = 0.70 + glowPulse * 0.28;
-        fx.shaft.visible = reveal > 0;
-        fx.flare.visible = reveal > 0.92;
-        fx.shaft.position.copy(from).lerp(to, reveal * 0.5);
-        fx.shaft.scale.set(0.044 + glowPulse * 0.031, (from.y - to.y) * reveal, 0.044 + glowPulse * 0.031);
-        fx.shaftMat.opacity = 0.24 + glowPulse * 0.31;
+        fx.beamMat.opacity = (0.39 + hit * 0.34) * fade;
+        fx.shaft.visible = fx.flare.visible = fx.seal.visible = true;
+        fx.shaft.position.copy(from).lerp(to, 0.5);
+        fx.shaft.scale.set(0.018 + hit * 0.012, from.y - to.y, 0.018 + hit * 0.012);
+        fx.shaftMat.opacity = (0.43 + hit * 0.44) * fade;
         fx.flare.position.copy(to);
-        fx.flare.scale.setScalar(0.25 + glowPulse * 0.37);
-        fx.flareMat.opacity = 0.41 + glowPulse * 0.36;
-        if (!reduced && !potato && beatAge < 0.36) {
-          const down = smooth(beatAge / 0.36);
+        fx.flare.scale.setScalar(0.25 + hit * 0.17);
+        fx.flareMat.opacity = (0.36 + hit * 0.26) * fade;
+        fx.seal.position.set(to.x, 0.05, to.z);
+        fx.seal.scale.setScalar(reduced ? 0.52 : 0.35 + smooth(age / 0.57) * 0.28);
+        fx.sealMat.opacity = 0.82 * fade;
+        fx.bandProgress = reduced ? 1 : smooth(age / 0.48);
+        if (!reduced && !potato && fx.bandProgress < 1) {
           fx.band.visible = true;
-          fx.band.position.copy(from).lerp(to, down);
-          fx.band.scale.set(0.41 - down * 0.12, 0.31, 1);
-          fx.bandMat.opacity = 0.76 * (1 - down);
-        }
-        if (reveal > 0.92 && beatAge < 0.52) {
-          fx.ripple.visible = true;
-          fx.ripple.position.set(to.x, 0.055, to.z);
-          fx.ripple.scale.setScalar(reduced ? 0.52 : 0.20 + smooth(beatAge / 0.52) * 0.57);
-          fx.rippleMat.opacity = reduced ? 0.78 : 0.82 * (1 - beatAge / 0.52);
+          fx.band.position.copy(from).lerp(to, fx.bandProgress);
+          fx.band.scale.set(0.30, 0.16 + hit * 0.09, 1);
+          fx.bandMat.opacity = 0.62 * (1 - fx.bandProgress * 0.6);
         }
       }
-      if (wave.impact) {
-        const { at, x, y } = wave.impact;
-        const age = Math.max(0, time - at);
-        if (age >= 0.95) continue;
-        const x1 = Math.max(0, x - 1.5), x2 = Math.min(COLS, x + 1.5);
-        const z1 = Math.max(0, y - 1.5), z2 = Math.min(ROWS, y + 1.5);
-        const fade = 1 - age / 0.95;
-        fx.patch.visible = true;
-        fx.patch.position.set((x1 + x2) / 2, 0.038, (z1 + z2) / 2);
-        fx.patch.scale.set(x2 - x1, 1, z2 - z1);
-        fx.patchMat.opacity = 0.27 * fade;
-        fx.cloud.visible = true;
-        fx.cloudMat.opacity = 0.68 * fade;
-        const spread = reduced ? 1 : 0.35 + 0.65 * Math.min(1, age / 0.42);
-        fx.puffs.forEach(({ mote, dx, dz, reach, lift }, p) => {
-          mote.visible = !potato || p % 2 === 0;
-          const width = 0.28 + reach * 0.32 + (reduced ? 0 : age * 0.38);
-          const pad = width / 2;
-          mote.position.set(clamp(x + dx * reach * spread, x1 + pad, x2 - pad), 0.16 + lift * spread,
-            clamp(y + dz * reach * spread, z1 + pad, z2 - pad));
-          mote.scale.set(width, width * 0.78, 1);
-        });
+      const impact = wave.impact;
+      if (!impact || age >= 1.10) continue;
+      const { x, y } = impact;
+      const x1 = Math.max(0, x - 1.5), x2 = Math.min(COLS, x + 1.5);
+      const z1 = Math.max(0, y - 1.5), z2 = Math.min(ROWS, y + 1.5);
+      const fade = 1 - smooth(age / 1.10);
+      fx.patch.visible = fx.cloud.visible = true;
+      fx.patch.position.set((x1 + x2) / 2, 0.022, (z1 + z2) / 2);
+      fx.patch.scale.set(x2 - x1, 1, z2 - z1);
+      fx.patchMat.opacity = 0.13 * fade;
+      // Inset corner marks describe the actual clipped tile footprint.
+      const len = reduced ? 0.32 : 0.16 + smooth(age / 0.42) * 0.18;
+      fx.cornerMat.opacity = 0.62 * fade;
+      for (let c = 0; c < 4; c++) {
+        const sx = c % 2 ? -1 : 1, sz = c >= 2 ? -1 : 1;
+        const px = sx > 0 ? x1 + 0.034 : x2 - 0.034, pz = sz > 0 ? z1 + 0.034 : z2 - 0.034;
+        const cross = fx.corners[c * 2], upright = fx.corners[c * 2 + 1];
+        cross.visible = upright.visible = true;
+        cross.position.set(px + sx * len / 2, 0.035, pz);
+        upright.position.set(px, 0.035, pz + sz * len / 2);
+        cross.scale.set(len, 1, 0.027);
+        upright.scale.set(0.027, 1, len);
+      }
+      fx.cloudMat.opacity = 0.49 * fade;
+      for (let p = 0; p < fx.puffs.length; p++) {
+        const { mote, dx, dz, drift } = fx.puffs[p];
+        const at = reduced ? 1 : smooth((age - Math.hypot(dx, dz) * 0.088) / 0.55);
+        const tx = x + dx, tz = y + dz;
+        mote.visible = tx > x1 && tx < x2 && tz > z1 && tz < z2 && (!potato || p % 2 === 0) && at > 0;
+        if (!mote.visible) continue;
+        const width = 0.36 + at * 0.27;
+        mote.position.set(tx + at * drift * 0.12, 0.10 + at * 0.21, tz + at * dx * 0.12);
+        mote.scale.set(width, width * 0.73, 1);
       }
     }
   }
 
+  const inspectBox = new THREE.Box3(), inspectSize = new THREE.Vector3();
   return {
     update,
     inspect: () => ({
-      traps: traps.filter(({ root }) => root.visible).length, debris: debris.count,
-      souls: souls.count, departureRings: sendRings.count, landingRings: receiveRings.count,
+      traps: traps.filter(({ root }) => root.visible).length, debris: dust.count,
+      trapMeasures: traps.flatMap(({ root, lips }) => root.visible ? [{
+        size: inspectBox.setFromObject(root).getSize(inspectSize).toArray(), gap: lips[1].position.z - lips[0].position.z,
+      }] : []),
+      souls: souls.count, threads: threads.count, departureRings: sendRings.count, landingRings: receiveRings.count,
       rays: oracles.filter(({ beam }) => beam.count > 0).length,
-      rayAxes: oracles.map(({ beam, top, flare, sample, shaft }) => beam.count ? {
+      rayAxes: oracles.map(({ beam, top, flare, sample, shaft, bandProgress, age }) => beam.count ? {
         top: top.toArray(), sourceNdcY: point.copy(top).project(camera).y,
         hit: flare.position.toArray(), middle: sample.toArray(), segments: beam.count,
-        leadY: shaft.position.y - shaft.scale.y / 2,
+        leadY: shaft.position.y - shaft.scale.y / 2, bandProgress, age,
       } : null),
       smoke: oracles.filter(({ cloud }) => cloud.visible).length,
     }),

@@ -17,7 +17,7 @@ import { UiDoctor } from "./components/UiDoctor";
 import { AdvancedView, DEV_BUILD } from "./components/AdvancedView";
 import { fill, useSettings } from "./i18n";
 import { CommanderSkillControl } from "./components/CommanderSkillControl";
-import { CommanderPrepVignette, PressurePresent, screenPoint, type PrepCast } from "./components/CommanderVignettes";
+import { IncomeAssay, PressurePresent, WormBenchCue, screenPoint, type PrepCast } from "./components/CommanderVignettes";
 import { eatAndSpit, freshCommander, incomeFrom, PRESSURE_GOLD, settleCommander, strongestOwned, WORM_CAP, WORM_INTERVAL } from "./game/commander";
 import { addRecruit, combine, deliverRecruits } from "./game/roster";
 import { CareerPanel } from "./components/CareerPanel";
@@ -288,7 +288,7 @@ export default function App() {
   const goldAnchor = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!prepCast) return;
-    const timer = window.setTimeout(() => setPrepCast(null), 1270);
+    const timer = window.setTimeout(() => setPrepCast(null), 1810);
     return () => window.clearTimeout(timer);
   }, [prepCast]);
   useEffect(() => {
@@ -428,13 +428,13 @@ export default function App() {
     setSkillTargeting(true);
   };
 
-  const castPoint = (target: PrepUnit, inset = 14) => {
+  const castPoint = (target: PrepUnit) => {
     const targetEl = document.querySelector(target.zone === "bench"
       ? `.bench-slot[data-unit-id="${target.uid}"]`
       : `.battle-stage .ov-unit[data-unit-id="${target.uid}"]`);
     const point = screenPoint(targetEl) ?? screenPoint(document.querySelector(".commander-control__skill"))
       ?? { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-    return { x: Math.max(inset, Math.min(window.innerWidth - inset, point.x)), y: point.y };
+    return { x: Math.max(18, Math.min(window.innerWidth - 18, point.x)), y: point.y };
   };
 
   const applySkillTarget = (uid: number) => {
@@ -458,8 +458,14 @@ export default function App() {
       if (target.zone !== "bench") return say("Pick a bench bug to eat", "warn");
       const fed = eatAndSpit(commanderProgress, target);
       if (!fed) return;
-      setPrepCast({ kind: "eat-spit", serial: ++castSerial.current, at: castPoint(target, 51), eaten: target.bugId, star: target.star, recruits: fed.rewards });
       const received = deliverRecruits(units.filter((u) => u.uid !== uid), [...commanderReserve, ...fed.rewards]);
+      const arrivals = new Map<number, { star: number; delay: number }>();
+      for (const recruit of received.out) {
+        if (recruit.zone === "bench" && !units.some((old) => old.uid === recruit.uid && old.star === recruit.star)) {
+          arrivals.set(recruit.uid, { star: recruit.star, delay: 340 + 110 * Math.min(arrivals.size, 3) });
+        }
+      }
+      setPrepCast({ kind: "eat-spit", serial: ++castSerial.current, slot: target.slot, eaten: target.bugId, arrivals });
       setUnits(received.out);
       setCommanderReserve(received.reserve);
       setCommanderProgress(fed.progress);
@@ -753,6 +759,7 @@ export default function App() {
     let acc = 0;
     let last = performance.now();
     let lastHudBucket = -1;
+    let lastOraclePulse = 0;
     // Battle audio rides the pop-up stream the engine already emits: each
     // new pop id is voiced once (the cue itself is rate-limited in sfx.ts).
     let lastPopId = 0;
@@ -776,8 +783,12 @@ export default function App() {
           }
         }
         const bucket = Math.floor(cur.t * 4);
-        if (cur.over || bucket !== lastHudBucket) {
+        const oraclePulse = cur.waves.ally?.pulses ?? 0;
+        // Pulse one lands in the triggering tick; bypass the normal HUD
+        // throttle so the status changes with the HP bar and the light.
+        if (cur.over || bucket !== lastHudBucket || oraclePulse !== lastOraclePulse) {
           lastHudBucket = bucket;
+          lastOraclePulse = oraclePulse;
           setBattleSnap({ ...cur, units: cur.units.map((u) => ({ ...u })) });
         }
       }
@@ -2650,6 +2661,9 @@ export default function App() {
                   {Array.from({ length: BENCH_SIZE }).map((_, i) => {
                     const u = benchUnits.find((b) => b.slot === i);
                     const isSel = !!u && selected === u.uid;
+                    const morsel = prepCast?.kind === "eat-spit" ? prepCast : null;
+                    const arrival = u && morsel?.arrivals.get(u.uid);
+                    const arriving = !!arrival && arrival.star === u.star;
                     return (
                       <div key={i} className="bench-item relative min-w-0">
                       <button
@@ -2676,7 +2690,10 @@ export default function App() {
                               className="absolute left-0 top-0 h-full w-[2px]"
                               style={{ background: BUGS[u.bugId].accent }}
                             />
-                            <SpecimenIcon id={u.bugId} size={33} star={u.star} selected={isSel} badge="none" />
+                            <span className={arriving ? "worm-arrival" : "contents"} data-skill-arrival={arriving || undefined}
+                              style={arriving ? { animationDelay: `${arrival.delay}ms` } : undefined}>
+                              <SpecimenIcon id={u.bugId} size={33} star={u.star} selected={isSel} badge="none" />
+                            </span>
                             <span className="pointer-events-none absolute left-0.5 top-0.5">
                               <RankBadge id={u.bugId} size={11} />
                             </span>
@@ -2685,6 +2702,7 @@ export default function App() {
                         ) : (
                           <span className="bench-slot__index">{i + 1}</span>
                         )}
+                        {morsel?.slot === i && <WormBenchCue key={morsel.serial} eaten={morsel.eaten} />}
                       </button>
                       </div>
                     );
@@ -2889,7 +2907,7 @@ export default function App() {
         </div>
       )}
 
-      {phase === "prep" && prepCast && <CommanderPrepVignette key={prepCast.serial} cast={prepCast} />}
+      {phase === "prep" && prepCast?.kind === "incomes" && <IncomeAssay key={prepCast.serial} cast={prepCast} />}
 
       {/* Toast Feedback */}
       {toast && (

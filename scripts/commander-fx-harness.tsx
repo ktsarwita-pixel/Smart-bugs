@@ -6,7 +6,7 @@ import {SettingsProvider} from '../src/i18n';
 import '../src/index.css';
 
 const unit = (uid: number, bugId: PrepUnit['bugId'], slot: number, star = 1): PrepUnit => ({uid, bugId, slot, star, zone: 'board'});
-const prep = [unit(1, 'stag', 3, 2), unit(2, 'mantis', 1)];
+const prep = [unit(1, 'stag', 4, 2), unit(2, 'mantis', 1)];
 const foes = [unit(3, 'stag', 17), unit(4, 'bomb', 16, 2), unit(5, 'dragonfly', 10)];
 const rival = new URLSearchParams(location.search).has('mirror') ? 'lampyris' : 'worm';
 const battle = createBattle(prep, foes, 'lampyris', rival);
@@ -19,6 +19,14 @@ Object.assign(window, {
       const receiver = side === 'ally' ? mark : attacker;
       receiver.hp = 50;
       markOracleTarget(battle, side, receiver.uid);
+    },
+    crossThreshold: () => {
+      // Wounded after the opening trap. A stag's 34 ATK is 51 on Vulnerable.
+      mark.hp = 101;
+      markOracleTarget(battle, 'ally', mark.uid);
+      Object.assign(attacker, {x: mark.x - .3, y: mark.y - .8, cd: 0});
+      stepBattle(battle, .1);
+      attacker.cd = 100;
     },
     fall: () => {
       // Generate a real KO, which should emit a soul toward the marked ally.

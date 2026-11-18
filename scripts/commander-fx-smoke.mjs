@@ -1,4 +1,4 @@
-/** Drive the rendered jaws, overhead spiral, Last Spark and final 3×3 impact. */
+/** Exercise the actual event-driven FX, including a ray at the zero-delay heal. */
 import assert from 'node:assert/strict';
 import {mkdirSync} from 'node:fs';
 import {chromium} from 'playwright-core';
@@ -14,67 +14,116 @@ const shot = async (name) => { if (shots) await page.screenshot({path:`${shots}/
 const rendered = (key, n) => page.waitForFunction(([key,n]) => {
   const raw = document.querySelector('canvas')?.dataset.commanderFx;
   return raw && JSON.parse(raw)[key] === n;
-}, [key,n], {timeout:10000});
+}, [key,n], {timeout:12000});
 const read = () => page.locator('canvas').evaluate(el => JSON.parse(el.dataset.commanderFx));
 const step = (n) => page.evaluate(n => window.commanderFxHarness.step(n), n);
-const cast = (side) => page.evaluate(side => window.commanderFxHarness.cast(side), side);
-function checkAxis({ top, hit, middle, sourceNdcY }, name) {
+const cast = (side = 'ally') => page.evaluate(side => {
+  const f = window.commanderFxHarness;
+  const t = f.battle.t;
+  f.cast(side);
+  const wave = f.battle.waves[side];
+  const target = f.battle.units.find(u => u.uid === wave.uid);
+  return {t, pulseAt: wave.lastPulseAt, pulses: wave.pulses, gained: target.hp - 50, want: Math.round(target.maxHp * .15)};
+}, side);
+function checkAxis({top, hit, middle, sourceNdcY, leadY}, name) {
   assert.ok(top[1] - hit[1] > 2.5, `${name}: ray must start well above the target`);
-  assert.ok(sourceNdcY > 1, `${name}: source must project above the battlefield, not onto a far-away bug`);
-  assert.deepEqual([top[0],top[2]],[hit[0],hit[2]], `${name}: sky origin must be directly over the target`);
+  assert.ok(sourceNdcY > 1, `${name}: source must project above the battlefield, not onto a rival`);
+  assert.deepEqual([top[0],top[2]],[hit[0],hit[2]], `${name}: sky origin must be directly above the target`);
   assert.ok(Math.abs(middle[1] - (top[1] + hit[1]) / 2) < .01);
-  assert.ok(Math.hypot(middle[0] - hit[0], middle[2] - hit[2]) > .15, `${name}: ray must curve, not just point straight down`);
+  assert.ok(Math.hypot(middle[0] - hit[0], middle[2] - hit[2]) > .08, `${name}: the filament curves around the axis`);
+  assert.ok(Math.abs(leadY - hit[1]) < .01, `${name}: full ray reaches the marked ally immediately`);
 }
 try {
   await page.goto(`${base}/scripts/commander-fx-harness.html?doctor=1`);
   await rendered('traps',2);
-  await step(4);
-  await shot('01-toothed-traps');
-  await step(36);
+  await step(6);
+  await page.waitForFunction(() => {
+    const fx = JSON.parse(document.querySelector('canvas').dataset.commanderFx);
+    return fx.trapMeasures.length === 2 && fx.trapMeasures.every(m => m.gap < .03);
+  });
+  for (const {size} of (await read()).trapMeasures) {
+    assert.ok(size[0] < .68 && size[2] < .68 && size[1] < .1, `jaws should stay low and use less than a tile: ${size}`);
+  }
+  if (shots) {
+    // Let the generic deployment rings clear; battle time remains fixed.
+    await page.waitForTimeout(950);
+    await shot('01-carved-traps');
+  }
+  await step(25);
+  await page.waitForFunction(() => JSON.parse(document.querySelector('canvas').dataset.commanderFx).trapMeasures.some(m => m.gap > .07));
+  await step(9);
   await rendered('traps',0);
-  await cast();
-  await rendered('rays',0); // the ray grows in from the top on its first beat
-  await step(1);
+  await rendered('rays',0);
+
+  const first = await page.evaluate(() => {
+    const f = window.commanderFxHarness;
+    f.crossThreshold(); // observe this very tick, without stepping again
+    const wave = f.battle.waves.ally;
+    const target = f.battle.units.find(u => u.uid === wave.uid);
+    return {t: f.battle.t, pulseAt: wave.lastPulseAt, pulses: wave.pulses,
+      uid: target.uid, hp: target.hp, maxHp: target.maxHp, threshold: 101 - Number(f.battle.pops.at(-2).text)};
+  });
+  const gain = Math.round(first.maxHp * .15);
+  assert.equal(first.threshold, 50);
+  assert.equal(first.pulseAt, first.t);
+  assert.equal(first.pulses, 1);
+  assert.equal(first.hp, 50 + gain);
   await rendered('rays',1);
-  const descent = (await read()).rayAxes[0];
-  checkAxis(descent, 'ally');
-  assert.ok(descent.leadY > descent.hit[1] + 1, 'the leading edge first travels from the sky');
+  const instant = (await read()).rayAxes[0];
+  checkAxis(instant, '0s ally');
+  assert.equal(instant.age, 0);
+  assert.equal(instant.bandProgress, 0, 'the moving band starts at the sky, after the heal is already visible');
+  assert.equal(await page.locator('[data-heal-source="oracle"]').innerText(), `+${gain} HP`);
+  assert.equal(await page.locator(`[data-unit-id="${first.uid}"] .ov-hp i`).evaluate(el => el.style.width),
+    `${Math.round(first.hp / first.maxHp * 100)}%`, 'the first rendered pulse already has the post-heal HP');
+  await shot('02-instant-opal');
   await step(3);
-  await page.waitForFunction(n => {
-    const axis = JSON.parse(document.querySelector('canvas').dataset.commanderFx).rayAxes[0];
-    return axis && axis.segments > n && Math.abs(axis.leadY - axis.hit[1]) < .02;
-  }, descent.segments);
-  const landed = (await read()).rayAxes[0];
-  assert.ok(Math.abs(landed.middle[0] - descent.middle[0]) > .02 && Math.abs(landed.middle[2] - descent.middle[2]) > .02, 'phase varies in both horizontal axes');
-  await shot('02-overhead-spiral');
+  await page.waitForFunction(() => JSON.parse(document.querySelector('canvas').dataset.commanderFx).rayAxes[0]?.bandProgress > .24);
+  const moved = (await read()).rayAxes[0];
+  assert.ok(Math.abs(moved.middle[0] - instant.middle[0]) > .01 && Math.abs(moved.middle[2] - instant.middle[2]) > .01,
+    'refraction changes phase in both horizontal axes');
+  await shot('03-opal-descent');
 
   await page.evaluate(() => { const f=window.commanderFxHarness; f.fall(); f.step(2); });
-  await rendered('souls',3);
+  await rendered('souls',1);
   await rendered('departureRings',1);
-  await shot('03-white-soul');
+  assert.ok((await read()).threads >= 2, 'Last Spark leaves a tapered thread');
+  await shot('04-soul-thread');
   await step(3);
   await rendered('souls',0);
   await rendered('landingRings',1);
-  await shot('04-last-spark-arrival');
-  await step(51);
+  await step(2);
+  await rendered('rays',0);
+  await shot('05-last-spark-arrival');
+  await step(4);
+  await rendered('rays',1);
+  assert.equal(await page.evaluate(() => window.commanderFxHarness.battle.waves.ally.pulses), 2);
+  await step(47);
   await rendered('landingRings',0);
   await rendered('smoke',1);
-  await shot('05-green-impact');
+  await shot('06-green-impact');
   assert.equal(await page.evaluate(() => window.commanderFxHarness.battle.waves.ally.pulses),4);
   await step(17);
   await rendered('smoke',0);
   await rendered('rays',0);
 
-  // In a duel, the rival's sky source is also above its own marked ally.
   await page.goto(`${base}/scripts/commander-fx-harness.html?doctor=1&mirror`);
   await rendered('rays',0);
-  await cast('ally'); await cast('foe'); await step(4);
+  for (const side of ['ally', 'foe']) {
+    const first = await cast(side);
+    assert.equal(first.pulses, 1);
+    assert.equal(first.pulseAt, first.t, 'marking a living ally already at 50 heals in the mark call');
+    assert.equal(first.gained, first.want);
+  }
   await rendered('rays',2);
   const [ally, foe] = (await read()).rayAxes;
   checkAxis(ally, 'mirror ally'); checkAxis(foe, 'mirror foe');
   assert.notEqual(ally.hit[2], foe.hit[2]);
+  await page.setViewportSize({width:390,height:510});
+  await page.waitForFunction(() => document.querySelector('canvas').clientWidth === 390);
+  const [portraitAlly, portraitFoe] = (await read()).rayAxes;
+  checkAxis(portraitAlly, 'portrait ally'); checkAxis(portraitFoe, 'portrait foe');
 
-  // Reduced Motion + Potato keep both skills readable with fewer FX instances.
   await page.emulateMedia({reducedMotion:'reduce'});
   await page.evaluate(() => localStorage.setItem('smartbugs.settings',JSON.stringify({rev:2, lang:'en', motion:'reduced', potato:true})));
   await page.goto(`${base}/scripts/commander-fx-harness.html?doctor=1`);
@@ -83,13 +132,14 @@ try {
   assert.equal(await page.locator('canvas').getAttribute('data-render-potato'),'1');
   await page.evaluate(() => { const f=window.commanderFxHarness; f.step(40); f.cast(); f.fall(); f.step(2); });
   await rendered('souls',1);
+  await rendered('threads',0);
   await rendered('rays',1);
   const quiet = (await read()).rayAxes[0];
   checkAxis(quiet, 'reduced/Potato ally');
-  assert.ok(quiet.segments < landed.segments, 'lower-budget mode omits the supplemental strand');
-  await shot('06-reduced-potato');
+  assert.ok(quiet.segments < instant.segments, 'lower-budget mode omits the supplemental strand');
+  await shot('07-reduced-potato');
   await step(60);
   await rendered('smoke',1);
   assert.deepEqual(errors,[]);
-  console.log('commander-fx: PASS — trap jaws, sky descent and both ray axes, souls and landing halo, 3×3 impact, reduced motion and Potato');
+  console.log('commander-fx: PASS — low-profile traps, instant sky ray and travelling band, soul thread, 3×3 impact, reduced motion and Potato');
 } finally { await browser.close(); }

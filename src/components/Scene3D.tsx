@@ -123,7 +123,7 @@ const SHOWCASE_ORDER = SPECIMEN_IDS;
 const OV_ID: Record<string, string> = {
   CLIMB: "NAIK", "LOCK ON": "MENGUNCI", DIVE: "MENUKIK", LANDED: "Mendarat",
   AIRSTRIKE: "SERBUAN UDARA", PINCER: "CAPITAN", RAKE: "TEBASAN", BURST: "LEDAKAN",
-  "LAST SPARK": "PERCIKAN TERAKHIR", "HEALING WAVES": "GELOMBANG PULIH", "WAVE IMPACT": "HANTAMAN GELOMBANG",
+  "LAST SPARK": "PERCIKAN TERAKHIR", "WAVE IMPACT": "HANTAMAN GELOMBANG",
   VULNERABLE: "RENTAN", "TRAP!": "JEBAKAN!", TOUCHDOWN: "Mendarat", "ROAR!": "RAUNGAN!", "IMPACT!": "HANTAM!",
 };
 const ovWord = (w: string): string =>
@@ -3841,14 +3841,15 @@ export function Scene3D({
           let elp = popEls.get(pop.id);
           if (!elp) {
             elp = document.createElement("div");
-            elp.className = `ov-pop ov-${pop.kind}${advancedEffects && pop.text === "ROAR!" ? " ov-pop--roar" : ""}`;
-            elp.textContent = ovWord(pop.text);
+            elp.className = `ov-pop ov-${pop.kind}${advancedEffects && pop.text === "ROAR!" ? " ov-pop--roar" : ""}${pop.healSource ? " ov-commander-heal" : ""}`;
+            if (pop.healSource) elp.dataset.healSource = pop.healSource;
+            elp.textContent = pop.healSource ? `${pop.text} HP` : ovWord(pop.text);
             ovEl.appendChild(elp);
             popEls.set(pop.id, elp);
             // chitin chips fly off every impact
             if (pop.kind === "skill") {
               // These effects already paint their own impact geometry.
-              if (pop.text !== "AIRSTRIKE" && pop.text !== "TOUCHDOWN" && pop.text !== "HEALING WAVES"
+              if (pop.text !== "AIRSTRIKE" && pop.text !== "TOUCHDOWN"
                 && pop.text !== "WAVE IMPACT" && pop.text !== "LAST SPARK" && pop.text !== "TRAP!"
                 && !(advancedEffects && pop.text === "ROAR!")) {
                 spawnRing(pop.x, pop.y + 0.25, 0xf0a93b);
@@ -3859,14 +3860,25 @@ export function Scene3D({
               spawnBurst(pop.x, 0.3, pop.y + 0.25, 0xf05a36, 14, 2.3);
               spawnBurst(pop.x, 0.4, pop.y + 0.25, 0xffe7a3, 6, 1.7);
             } else if (pop.kind === "heal") {
-              spawnBurst(pop.x, 0.26, pop.y + 0.25, 0x56dca8, 6, 0.9);
+              // The commander landing rings are the impact, not another
+              // spray of generic combat chips.
+              if (!pop.healSource) spawnBurst(pop.x, 0.26, pop.y + 0.25, 0x56dca8, 6, 0.9);
             } else {
               spawnBurst(pop.x, 0.36, pop.y + 0.25, 0xffe0a0, 4, 1.15);
             }
           }
-          proj.set(pop.x, 0.56 + (0.9 - pop.life) * 0.56, pop.y).project(camera);
-          const sx = (proj.x * 0.5 + 0.5) * W;
-          const sy = (-proj.y * 0.5 + 0.5) * H;
+          const float = pop.healSource ? (reduceChestMotion ? 0 : 0.23) : 0.56;
+          proj.set(pop.x, 0.56 + (0.9 - pop.life) * float, pop.y).project(camera);
+          let sx = (proj.x * 0.5 + 0.5) * W;
+          let sy = (-proj.y * 0.5 + 0.5) * H;
+          if (pop.healSource) {
+            // Damage, HP restore and the health bar may appear in the same
+            // frame. Give +HP its own lane beside the affected specimen.
+            sx = Math.max(27, Math.min(W - 27, sx + (sx > W * 0.58 ? -39 : 39)));
+            if (pop.healSource === "spark") sy += 12;
+          } else if (pop.text === "WAVE IMPACT") {
+            sy += 10; // the final impact and its +HP label can land together
+          }
           elp.style.transform = `translate3d(${sx.toFixed(1)}px,${sy.toFixed(1)}px,0) translate(-50%,-50%)`;
           elp.style.opacity = String(Math.max(0, Math.min(1, pop.life * 2.4)));
         }

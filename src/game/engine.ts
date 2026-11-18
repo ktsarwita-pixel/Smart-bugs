@@ -147,6 +147,7 @@ export interface Pop {
   text: string;
   life: number;
   kind: "dmg" | "heal" | "skill" | "ko";
+  healSource?: "oracle" | "spark";
 }
 
 /** A projectile in flight. Rendered from battle time, so it needs no state of its own. */
@@ -227,6 +228,8 @@ export interface OracleWave {
   uid: number;
   startAt: number | null;
   pulses: number;
+  /** Exact tick of the most recent pulse, independent of the ray animation. */
+  lastPulseAt?: number;
   /** Tile-centered footprint of the fourth pulse (also used by the renderer). */
   impact?: { x: number; y: number; at: number };
 }
@@ -498,8 +501,8 @@ function landWeb(b: BattleState, src: BUnit, x: number, y: number) {
 
 const dist = (a: BUnit, b: BUnit) => Math.hypot(a.x - b.x, a.y - b.y);
 
-function pop(b: BattleState, u: BUnit, text: string, kind: Pop["kind"]) {
-  b.pops.push({ id: b.nid++, x: u.x, y: u.y - 0.25, text, life: text === "ROAR!" ? 1.5 : kind === "skill" ? 1.1 : 0.85, kind });
+function pop(b: BattleState, u: BUnit, text: string, kind: Pop["kind"], healSource?: Pop["healSource"]) {
+  b.pops.push({ id: b.nid++, x: u.x, y: u.y - 0.25, text, life: text === "ROAR!" ? 1.5 : kind === "skill" ? 1.1 : 0.85, kind, healSource });
   if (b.pops.length > 30) b.pops.shift();
 }
 
@@ -549,12 +552,12 @@ function damage(b: BattleState, src: BUnit, tgt: BUnit, raw: number, projectile 
   }
 }
 
-function heal(b: BattleState, u: BUnit, amt: number) {
+function heal(b: BattleState, u: BUnit, amt: number, source: NonNullable<Pop["healSource"]>) {
   if (u.dead) return;
   const v = Math.round(Math.min(amt, u.maxHp - u.hp));
   if (v <= 0) return;
   u.hp += v;
-  pop(b, u, "+" + v, "heal");
+  pop(b, u, "+" + v, "heal", source);
 }
 
 function enemiesOf(b: BattleState, side: "ally" | "foe") {
@@ -732,7 +735,7 @@ function sendLastSpark(b: BattleState, fallen: BUnit) {
 export function markOracleTarget(b: BattleState, side: BattleSide, uid: number): boolean {
   if (b.over || commanderFor(b, side) !== "lampyris" || b.waves[side]?.startAt != null) return false;
   const target = b.units.find((u) => u.uid === uid && u.side === side && !u.dead);
-  if (!target) return false;
+  if (!target || target.hp <= 0) return false;
   b.waves[side] = { uid, startAt: null, pulses: 0 };
   startOracleWave(b, target);
   return true;
@@ -740,15 +743,17 @@ export function markOracleTarget(b: BattleState, side: BattleSide, uid: number):
 
 function startOracleWave(b: BattleState, target: BUnit) {
   const wave = b.waves[target.side];
-  if (!wave || wave.uid !== target.uid || wave.startAt !== null || target.dead || target.hp > WAVE_HP_THRESHOLD) return;
+  if (!wave || wave.uid !== target.uid || wave.startAt !== null || target.dead || target.hp <= 0 || target.hp > WAVE_HP_THRESHOLD) return;
+  // Beat zero restores HP inside the hit/mark that triggered it. Do not
+  // queue it alongside future pulses or wait for travel from the sky.
   wave.startAt = b.t;
-  pop(b, target, "HEALING WAVES", "skill");
   deliverWavePulse(b, target, wave);
 }
 
 function deliverWavePulse(b: BattleState, target: BUnit, wave: OracleWave) {
   const final = ++wave.pulses === WAVE_BEATS.length;
-  heal(b, target, target.maxHp * (final ? 0.30 : 0.15));
+  wave.lastPulseAt = b.t;
+  heal(b, target, target.maxHp * (final ? 0.30 : 0.15), "oracle");
   if (!final) return;
   const col = Math.floor(target.x), row = Math.floor(target.y);
   wave.impact = { x: col + 0.5, y: row + 0.5, at: b.t };
@@ -768,7 +773,7 @@ function stepOracleEffects(b: BattleState) {
       if (b.t + EPSILON < spark.arrivesAt) return true;
       const target = b.units.find((u) => u.uid === spark.targetUid && !u.dead);
       if (!target) return false;
-      heal(b, target, target.maxHp * 0.10);
+      heal(b, target, target.maxHp * 0.10, "spark");
       spark.landedAt = b.t;
       return true;
     });

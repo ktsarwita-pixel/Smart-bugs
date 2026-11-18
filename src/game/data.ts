@@ -384,7 +384,7 @@ export const COMMANDERS: CmdDef[] = [
     desc: "A fallen ally sends a white soul to its nearest living teammate, healing 10% of that teammate's max HP.",
     skill: {
       name: "Recurrent heals of waves",
-      desc: "Mark a deployed ally in prep or combat. Once per battle at ≤50 HP, a ray heals 15% max HP now, at +1.5s and at +3s. At +6s it heals 30% and hits enemies in 3×3 tiles for the marked ally's ATK × 1.5 ÷ 2.",
+      desc: "Mark a deployed ally in prep or combat. Once per battle, at 50 HP or less, restore 15% max HP instantly (0s), then again at +1.5s and +3s. At +6s, restore 30% and hit enemies in the surrounding 3×3 tiles for the marked ally's ATK × 1.5 ÷ 2.",
     },
     pal: {
       a: "#8E8EB4", k: "#24273F", K: "#37395B", g: "#E9B978",

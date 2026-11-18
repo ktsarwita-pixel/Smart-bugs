@@ -149,6 +149,7 @@ for (const [i, c] of COMMANDERS.entries()) {
   tick(b,1); // exactly 50 after 34 ATK
   attacker.cd = 100;
   assert.equal(b.waves.ally.startAt,0.2);
+  assert.equal(b.waves.ally.lastPulseAt,b.t);
   assert.equal(ally.hp,95);
   assert.equal(markOracleTarget(b,'ally',other.uid),false,'cannot switch once fired');
   tick(b,14); assert.equal(ally.hp,95);
@@ -166,6 +167,45 @@ for (const [i, c] of COMMANDERS.entries()) {
   ally.hp = 20;
   tick(b,35);
   assert.equal(ally.hp,20,'no fifth pulse or periodic glow');
+}
+// Marking an already wounded ally is synchronous, including at battle time zero.
+for (const [hp, time, side] of [[50,0,'ally'],[49,2.2,'ally'],[50,3.7,'foe']]) {
+  const b = createBattle([unit('stag',0)], [unit('stag',17)], 'lampyris', 'lampyris');
+  isolate(b);
+  b.t = time;
+  const target = b.units.find(u => u.side === side);
+  target.hp = hp;
+  assert.equal(markOracleTarget(b,side,target.uid),true);
+  assert.equal(b.waves[side].startAt,time);
+  assert.equal(b.waves[side].lastPulseAt,time);
+  assert.equal(b.waves[side].pulses,1);
+  assert.equal(target.hp,hp + 45,'0s pulse heals before another simulation step');
+  assert.ok(b.pops.some(p => p.healSource === 'oracle' && p.text === '+45'));
+  tick(b,1);
+  assert.equal(target.hp,hp + 45,'tick does not repeat the instant pulse');
+}
+{
+  // The heal must resolve inside the first hit, not even at the end of its tick.
+  const b = createBattle([unit('stag',3)], [unit('stag',17),unit('stag',16)], 'lampyris','matriarch');
+  isolate(b);
+  const [target, ...foes] = b.units;
+  target.hp = 70;
+  for (const [i,foe] of foes.entries()) Object.assign(foe,{x: target.x + (i ? 0.2 : -0.2), y: target.y - .22, atk:40, cd:0});
+  markOracleTarget(b,'ally',target.uid);
+  tick(b,1);
+  assert.equal(target.hp,35,'instant +45 HP saves the ally from the second 40 damage in the same tick');
+  assert.deepEqual(b.pops.map(p=>p.text),['40','+45','40']);
+}
+{
+  const c = createBattle([unit('stag',3)], [unit('stag',17)], 'lampyris','matriarch');
+  isolate(c);
+  const [v,a] = c.units;
+  v.hp = 51;
+  markOracleTarget(c,'ally',v.uid);
+  Object.assign(a,{x:v.x,y:v.y-.24,atk:51,cd:0});
+  tick(c,1);
+  assert.ok(v.dead && v.hp===0,'Oracle is not a resurrection');
+  assert.equal(c.waves.ally.pulses,0);
 }
 {
   const b = createBattle([unit('stag',3),unit('spider',1),unit('mantis',6)],[unit('stag',17)],'lampyris','matriarch');

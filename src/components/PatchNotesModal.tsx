@@ -23,7 +23,8 @@ export const VERSIONS: VersionEntry[] = [
       "Hyber Lantern sends white souls from fallen allies. Mark one ally for four healing pulses at 50 HP or less; the last pulse sends green dust across a 3×3 area.",
       "World Worm opens two toothed traps each battle. Use Eat and spit on a bench bug to recruit two more.",
       "All three commanders have new animated voxel models and updated portraits.",
-      "All six commander abilities have distinct animations. Hyber Lantern’s healing ray spirals down from directly above the marked bug, and the commander stands now sit on the drawer.",
+      "Commander stands sit flush on the drawer. Ancient Scavanger gains a brass-and-jade vault and an appraisal sequence. World Worm's traps and bench effects use its portrait art and stay close to the target.",
+      "Hyber Lantern's first heal shows immediately when a marked ally reaches 50 HP or less. The 0s pulse lights a thin opal ray from above; later pulses keep their original timing.",
     ],
   },
   {

@@ -77,6 +77,7 @@ const ID: Record<string, string> = {
   "Hyber Lantern sends white souls from fallen allies. Mark one ally for four healing pulses at 50 HP or less; the last pulse sends green dust across a 3×3 area.": "Hyber Lantern mengirim arwah putih dari sekutu yang gugur. Tandai satu sekutu untuk empat pemulihan saat HP 50 atau kurang; gelombang terakhir menyebar debu hijau di area 3×3.",
   "World Worm opens two toothed traps each battle. Use Eat and spit on a bench bug to recruit two more.": "World Worm membuka dua jebakan bergigi tiap pertempuran. Gunakan Makan dan Muntahkan pada serangga cadangan untuk merekrut dua serangga.",
   "All three commanders have new animated voxel models and updated portraits.": "Ketiga komandan punya model voxel animasi baru dan potret yang diperbarui.",
+  "All six commander abilities have distinct animations. Hyber Lantern’s healing ray spirals down from directly above the marked bug, and the commander stands now sit on the drawer.": "Keenam kemampuan komandan punya animasi masing-masing. Sinar pemulihan Hyber Lantern berpilin turun tepat di atas serangga yang ditandai, dan dudukan komandan kini menapak di laci.",
   // ── v0.8: career record ─────────────────────────────────────
   "CAREER": "KARIER",
   "CAREER RECORD": "CATATAN KARIER",

@@ -180,7 +180,10 @@ for (const [i, c] of COMMANDERS.entries()) {
   tick(b,4); assert.equal(near.hp,near.maxHp - 110);
   tick(b,1); assert.equal(near.hp,near.maxHp - 110 + Math.round(near.maxHp * 0.1));
   assert.equal(far.hp,far.maxHp - 90);
-  assert.equal(b.sparks.length,0);
+  assert.equal(b.sparks[0].landedAt, b.t, 'landing halo starts when the heal is applied');
+  tick(b,6);
+  assert.equal(near.hp,near.maxHp - 110 + Math.round(near.maxHp * 0.1),'halo never re-applies the heal');
+  assert.equal(b.sparks.length,0,'the visual cue is retired');
 }
 {
   const b = createBattle([unit('stag',0)], [unit('mantis',0),unit('bomb',1,2)], 'matriarch', 'lampyris', {autoOracle:['foe']});

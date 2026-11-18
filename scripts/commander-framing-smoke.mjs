@@ -1,4 +1,4 @@
-/** Verify actual projected 3D commander geometry stays in frame at FIT and below. */
+/** Check the mounted 3D boxes, local seating, FIT/zoom framing and treasure visibility. */
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright-core';
 
@@ -7,15 +7,25 @@ const page=await browser.newPage({viewport:{width:384,height:180},isMobile:true,
 await page.emulateMedia({reducedMotion:'reduce'});
 const base=process.env.BASE_URL||'http://127.0.0.1:5173';
 const errors=[];page.on('pageerror',error=>errors.push(error.message));
-const checkBounds=async(label)=>{
-  const result=await page.locator('canvas').evaluate(el=>JSON.parse(el.dataset.commanderBounds));
-  for (const side of ['ally','foe']) {
+const checkBounds=async(label,treasure=false)=>{
+  const {bounds:result,mounts,drawer}=await page.locator('canvas').evaluate(el=>({
+    bounds: JSON.parse(el.dataset.commanderBounds),
+    mounts: JSON.parse(el.dataset.commanderMounts),
+    drawer: JSON.parse(el.dataset.drawerBounds),
+  }));
+  const sides=treasure?['ally']:['ally','foe'];
+  assert.deepEqual(Object.keys(result),sides,`${label}: only visible boxes should be projected`);
+  assert.deepEqual(Object.keys(mounts),sides);
+  for (const side of sides) {
     const b=result[side];
     assert.ok(b?.length===4 && b.every(n=>n>=0&&n<=1),`${label}: ${side} clipped: ${JSON.stringify(result)}`);
     assert.ok(Math.abs((b[0]+b[2])/2-.5)<.1,`${label}: ${side} not centered: ${JSON.stringify(result)}`);
     assert.ok(b[2]>b[0]&&b[3]>b[1],`${label}: ${side} has no projected geometry`);
+    const {base,deck,feet,centered}=mounts[side];
+    assert.ok(Math.abs(base - (-.04)) < .01,`${label}: ${side} box must be on the case floor, not floating`);
+    assert.ok(feet >= deck && feet - deck < .03,`${label}: ${side} model is not seated on the cap: ${JSON.stringify(mounts[side])}`);
+    assert.ok(Math.abs(centered) < .06,`${label}: ${side} model is not centered on the box`);
   }
-  const drawer=await page.locator('canvas').evaluate(el=>JSON.parse(el.dataset.drawerBounds||'null'));
   assert.ok(drawer?.length===4&&drawer.every(n=>n>=0&&n<=1),`${label}: drawer envelope clipped: ${JSON.stringify(drawer)}`);
 };
 const zoom=async(value)=>{
@@ -57,6 +67,18 @@ try {
       await zoom(level);
       await checkBounds(`${commander} ${Math.round(level*100)}%`);
     }
+    await zoom(1.32); // close zoom can intentionally crop the drawer, not shift the boxes in world space
+    await zoom(1);
+    await checkBounds(`${commander} after close zoom`);
+    await page.evaluate(() => window.roarHarness.treasure(true));
+    await page.waitForFunction(() => {
+      const data=document.querySelector('canvas')?.dataset.commanderMounts;
+      return data && !JSON.parse(data).foe;
+    });
+    await checkBounds(`${commander} treasure with no rival box`,true);
+    await page.evaluate(() => window.roarHarness.treasure(false));
+    await page.waitForFunction(() => JSON.parse(document.querySelector('canvas')?.dataset.commanderMounts || '{}').foe);
+    await checkBounds(`${commander} rival returns after treasure`);
   }
   assert.deepEqual(errors,[]);
 } finally {await browser.close();}

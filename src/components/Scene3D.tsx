@@ -4,7 +4,7 @@ import { createChestGeometry } from "../game/treasure-voxel";
 import { createCommanderEffects } from "../game/commander-effects";
 import { createDetailedChest } from "../game/chest-model";
 import { BUGS, COMMANDERS, SPECIMEN_IDS, type BugId, type CmdId } from "../game/data";
-import { COLS, ROWS, SPIDER_ROAR_SECONDS, boardXY, type BattleSide, type BattleState, type BUnit, type Zone, type PrepUnit } from "../game/engine";
+import { COLS, ROWS, SPIDER_ROAR_SECONDS, boardXY, type BattleState, type BUnit, type Zone, type PrepUnit } from "../game/engine";
 import { GRAND_WEB_GROW_SECONDS, grandWebGrowth, visualGrandImpactReady, setGrandWebScale } from "../game/web-growth";
 import { buildVoxelModel, dotTexture, warmVoxelCache, V, type VoxModel } from "../game/voxel";
 import { animateInsectRig } from "../game/animate";
@@ -111,6 +111,9 @@ interface UnitObj {
 const ALLY_ROW_MIN = 3;
 /** Units hover just above the tiles — coplanar feet caused depth fighting. */
 const UNIT_GROUND = 0.02;
+const CABINET_BED_TOP = -0.04;
+const STAND_OUTSET = 0.825;
+const STAND_DECK = 0.494; // local to the cabinet bed
 const SHOWCASE_ORDER = SPECIMEN_IDS;
 
 
@@ -373,37 +376,18 @@ export function Scene3D({
       lanternMat: THREE.MeshBasicMaterial | null;
     } = { pips: null, pipMat: null, lanternMat: null };
 
-    const totemState: {
-      allyId: string;
-      foeId: string;
-      allyModel: VoxModel | null;
-      foeModel: VoxModel | null;
-      allyHolder: THREE.Group | null;
-      foeHolder: THREE.Group | null;
-      allyBanner: THREE.MeshBasicMaterial | null;
-      foeBanner: THREE.MeshBasicMaterial | null;
-      allyRing: THREE.MeshBasicMaterial | null;
-      foeRing: THREE.MeshBasicMaterial | null;
-      allySpawn: number;
-      foeSpawn: number;
-      allyLift: number;
-      foeLift: number;
-    } = {
-      allyId: "",
-      foeId: "",
-      allyModel: null,
-      foeModel: null,
-      allyHolder: null,
-      foeHolder: null,
-      allyBanner: null,
-      foeBanner: null,
-      allyRing: null,
-      foeRing: null,
-      allySpawn: 1,
-      foeSpawn: 1,
-      allyLift: 0,
-      foeLift: 0,
+    type Stand = {
+      root: THREE.Group;
+      holder: THREE.Group;
+      wood: THREE.Mesh<THREE.BoxGeometry>;
+      cap: THREE.Mesh<THREE.BoxGeometry>;
+      ring: THREE.MeshBasicMaterial;
+      accent: THREE.MeshBasicMaterial;
+      id: CmdId | null;
+      model: VoxModel | null;
+      entry: number;
     };
+    const stands: { ally?: Stand; foe?: Stand } = {};
 
     let turntable: THREE.Group | null = null;
     const showcaseItems: { id: string; model: VoxModel; holder: THREE.Group; baseAngle: number }[] = [];
@@ -422,7 +406,7 @@ export function Scene3D({
         track(new THREE.BoxGeometry(COLS + 0.84, 0.42, ROWS + 2.3)),
         track(new THREE.MeshStandardMaterial({ color: 0x1a120d, roughness: 0.86, metalness: 0.08 }))
       );
-      caseBase.position.set(3.5, -0.25, 3);
+      caseBase.position.set(COLS / 2, CABINET_BED_TOP - 0.21, ROWS / 2);
       caseBase.receiveShadow = true;
       scene.add(caseBase);
 
@@ -571,51 +555,49 @@ export function Scene3D({
         scene.add(corner);
       }
 
-      // Commander plinths — centre of each short end of the table, both
-      // war-lords visible at once: YOUR commander on your edge, the rival
-      // commander facing you across the board.
-      const mkPlinth = (z: number) => {
-        const g = new THREE.Group();
-        const plinth = new THREE.Mesh(track(new THREE.BoxGeometry(0.92, 0.26, 0.92)), woodMat);
-        plinth.position.y = 0.13;
-        plinth.receiveShadow = true;
-        g.add(plinth);
-        const cap = new THREE.Mesh(track(new THREE.CylinderGeometry(0.3, 0.36, 0.14, 8)), brassMat);
-        cap.position.y = 0.33;
-        cap.castShadow = true;
-        g.add(cap);
-        const ringGeo = track(new THREE.RingGeometry(0.2, 0.32, 24));
-        ringGeo.rotateX(-Math.PI / 2);
-        const ringMat = track(new THREE.MeshBasicMaterial({ color: 0xf0a93b, transparent: true, opacity: 0.55, depthWrite: false }));
-        const ring = new THREE.Mesh(ringGeo, ringMat);
-        ring.position.y = 0.405;
-        g.add(ring);
-        const bannerGeo = track(new THREE.PlaneGeometry(0.88, 0.4));
-        const bannerMat = track(new THREE.MeshBasicMaterial({ color: 0xf0a93b, transparent: true, opacity: 0.92, side: THREE.DoubleSide }));
-        const banner = new THREE.Mesh(bannerGeo, bannerMat);
-        banner.position.set(0, 0.56, z > 0 ? 0.5 : -0.5);
-        banner.rotation.x = z > 0 ? 0.12 : -0.12;
-        g.add(banner);
-        g.position.set(COLS / 2, 0.28, z);
-        scene.add(g);
-        return { ring, bannerMat };
+      // Seat the decorated boxes on the end shelves, not on the rails or
+      // above the cabinet. One transform owns the cap, badge and sculpt;
+      // a treasure round removes the entire rival stand, not just its bug.
+      const standWood = track(new THREE.BoxGeometry(1.1, 0.43, 0.64));
+      const standBrace = track(new THREE.BoxGeometry(1.19, 0.06, 0.87));
+      const standCap = track(new THREE.BoxGeometry(1.07, 0.038, 0.80));
+      const plaqueBack = track(new THREE.BoxGeometry(0.53, 0.115, 0.024));
+      const plaqueInset = track(new THREE.BoxGeometry(0.37, 0.044, 0.015));
+      const stud = track(new THREE.BoxGeometry(0.032, 0.034, 0.014));
+      const standRing = track(new THREE.RingGeometry(0.29, 0.32, 32).rotateX(-Math.PI / 2));
+      const mkStand = (z: number): Stand => {
+        const root = new THREE.Group();
+        root.position.set(COLS / 2, CABINET_BED_TOP, z);
+        const wood = new THREE.Mesh(standWood, woodMat);
+        wood.position.y = 0.209;
+        wood.castShadow = wood.receiveShadow = true;
+        const brace = new THREE.Mesh(standBrace, brassMat);
+        brace.position.y = 0.447;
+        brace.castShadow = true;
+        const cap = new THREE.Mesh(standCap, trimMat);
+        cap.position.y = STAND_DECK - standCap.parameters.height / 2;
+        cap.receiveShadow = true;
+        const plate = new THREE.Mesh(plaqueBack, brassMat);
+        plate.position.set(0, 0.267, 0.325);
+        const accent = track(new THREE.MeshBasicMaterial({ color: 0xf0a93b, toneMapped: false }));
+        const band = new THREE.Mesh(plaqueInset, accent);
+        band.position.set(0, 0.267, 0.340);
+        for (const x of [-0.224, 0.224]) {
+          const pin = new THREE.Mesh(stud, woodMat);
+          pin.position.set(x, 0.267, 0.340);
+          root.add(pin);
+        }
+        const ring = track(new THREE.MeshBasicMaterial({ color: 0xf0a93b, transparent: true, opacity: 0.54, depthWrite: false }));
+        const glint = new THREE.Mesh(standRing, ring);
+        glint.position.y = STAND_DECK + 0.005;
+        const holder = new THREE.Group();
+        holder.position.y = STAND_DECK + 0.012;
+        root.add(wood, brace, cap, plate, band, glint, holder);
+        scene.add(root);
+        return { root, holder, wood, cap, ring, accent, id: null, model: null, entry: 1 };
       };
-      const allyParts = mkPlinth(ROWS + 0.95);
-      const foeParts = mkPlinth(-0.95);
-      totemState.allyRing = allyParts.ring.material as THREE.MeshBasicMaterial;
-      totemState.foeRing = foeParts.ring.material as THREE.MeshBasicMaterial;
-      totemState.allyBanner = allyParts.bannerMat;
-      totemState.foeBanner = foeParts.bannerMat;
-
-      totemState.allyHolder = new THREE.Group();
-      totemState.allyHolder.position.set(COLS / 2, 0.44, ROWS + 0.95);
-      totemState.allyHolder.rotation.y = 0.08;
-      scene.add(totemState.allyHolder);
-
-      totemState.foeHolder = new THREE.Group();
-      totemState.foeHolder.position.set(COLS / 2, 0.44, -0.95);
-      totemState.foeHolder.rotation.y = Math.PI - 0.08;
-      scene.add(totemState.foeHolder);
+      stands.ally = mkStand(ROWS + STAND_OUTSET);
+      stands.foe = mkStand(-STAND_OUTSET);
 
       // Frontline Conduit & Sconces
       const conduit = new THREE.Mesh(
@@ -788,7 +770,7 @@ export function Scene3D({
 
     /* ── Fireflies ── */
     const dot = dotTexture();
-    const commanderFx = showcase ? null : createCommanderEffects(scene, dot);
+    const commanderFx = showcase ? null : createCommanderEffects(scene, camera, dot);
     const targetingRings = showcase ? null : track(new THREE.InstancedMesh(
       track(new THREE.RingGeometry(0.34, 0.45, 32).rotateX(-Math.PI / 2)),
       track(new THREE.MeshBasicMaterial({ color: 0xa5edff, toneMapped: false, transparent: true, opacity: 0.87, depthWrite: false })),
@@ -803,6 +785,7 @@ export function Scene3D({
     const ringMatrix = new THREE.Matrix4();
     const inspectCommanderFx = new URLSearchParams(window.location.search).get("doctor") === "1";
     let commanderAfterTime = 0;
+    let commanderOpenerStart = 0;
     const FN = isCompact ? 22 : 34;
     const fpos = new Float32Array(FN * 3);
     const fbase: [number, number, number][] = [];
@@ -2017,8 +2000,9 @@ export function Scene3D({
     if (!showcase) {
       addFitBox([-0.42, COLS + 0.42], [-0.46, -0.04], [-1.15, ROWS + 1.15]); // cabinet bed
       addFitBox([-0.58, COLS + 0.58], [-0.04, 0.53], [-0.58, ROWS + 0.58]); // tiles, rails and caps
-      for (const z of [-0.95, ROWS + 0.95]) {
-        addFitBox([COLS / 2 - 0.9, COLS / 2 + 0.9], [0.28, 1.5], [z - 0.67, z + 0.67]);
+      for (const z of [-STAND_OUTSET, ROWS + STAND_OUTSET]) {
+        // Leave room for the box, the whole sculpt, and the enter animation.
+        addFitBox([COLS / 2 - 0.72, COLS / 2 + 0.72], [CABINET_BED_TOP, CABINET_BED_TOP + STAND_DECK + 0.81], [z - 0.63, z + 0.63]);
       }
     }
     const fitUp = new THREE.Vector3(0, Math.cos(elev), -Math.sin(elev));
@@ -2091,49 +2075,43 @@ export function Scene3D({
     // Also catch device-DPR changes when moving a desktop window between screens.
     window.addEventListener("resize", frame);
 
-    /* ── Commander Totems ── */
+    /* ── Commander stands ── */
     const totemAuditBox = new THREE.Box3();
     const totemAuditPoint = new THREE.Vector3();
+    const restBounds = new THREE.Box3();
+    const restCenter = new THREE.Vector3();
     let totemAuditClock = 0;
-    // Per-commander pedestal tune: the holder baseline (y=0.44) was set for
-    // the tall insect commanders; the worm grub is half their height AND its
-    // sculpt rests ~0.056 above its own origin, so on the shared holder its
-    // body sat BELOW the brass cap top (0.68) — the grub visibly sank into
-    // the commander plinth with only its head dome peeking out. Short models
-    // get a lift that seats their feet on the cap plus a slightly larger
-    // totem scale so the silhouette still reads across the board.
-    const totemTune = (id: string) => (id === "worm" ? { scale: 0.95, lift: 0.18 } : { scale: 0.8, lift: 0 });
-    function syncTotems(cmdAId: string, cmdBId: string) {
-      if (showcase) return;
-      const cmdAccent = (id: string) => COMMANDERS.find((c) => c.id === id)?.accent ?? "#F0A93B";
-      if (totemState.allyId !== cmdAId && totemState.allyHolder) {
-        totemState.allyModel?.dispose();
-        totemState.allyHolder.clear();
-        const tune = totemTune(cmdAId);
-        const m = buildVoxelModel(cmdAId, 1);
-        m.group.scale.setScalar(tune.scale);
-        totemState.allyHolder.add(m.group);
-        totemState.allyModel = m;
-        totemState.allyId = cmdAId;
-        totemState.allyLift = tune.lift;
-        totemState.allySpawn = 0;
-        totemState.allyBanner?.color.set(cmdAccent(cmdAId));
-        totemState.allyRing?.color.set(cmdAccent(cmdAId));
+    function updateStand(stand: Stand | undefined, id: CmdId, foe: boolean, visible: boolean, dt: number, reduced: boolean) {
+      if (!stand) return;
+      stand.root.visible = visible;
+      if (!visible) return;
+      if (stand.id !== id || !stand.model) {
+        stand.model?.dispose();
+        stand.holder.clear();
+        const model = buildVoxelModel(id, 1);
+        model.group.scale.setScalar(id === "worm" ? 0.96 : 0.89);
+        restBounds.setFromObject(model.group).getCenter(restCenter);
+        // Translate the sculpt inside its animating mount. The rig owns its
+        // own bob and pivots, so it cannot overwrite the seating correction.
+        const seat = new THREE.Group();
+        seat.position.set(-restCenter.x, -restBounds.min.y, -restCenter.z);
+        seat.add(model.group);
+        stand.holder.add(seat);
+        stand.model = model;
+        stand.id = id;
+        stand.entry = 0;
+        const tint = COMMANDERS.find((c) => c.id === id)?.accent ?? "#F0A93B";
+        stand.ring.color.set(tint);
+        stand.accent.color.set(tint);
       }
-      if (totemState.foeId !== cmdBId && totemState.foeHolder) {
-        totemState.foeModel?.dispose();
-        totemState.foeHolder.clear();
-        const tune = totemTune(cmdBId);
-        const m = buildVoxelModel(cmdBId, 1);
-        m.group.scale.setScalar(tune.scale);
-        totemState.foeHolder.add(m.group);
-        totemState.foeModel = m;
-        totemState.foeId = cmdBId;
-        totemState.foeLift = tune.lift;
-        totemState.foeSpawn = 0;
-        totemState.foeBanner?.color.set(cmdAccent(cmdBId));
-        totemState.foeRing?.color.set(cmdAccent(cmdBId));
-      }
+      stand.entry = reduced ? 1 : Math.min(1, stand.entry + dt * 2.5);
+      const e = stand.entry - 1;
+      // Grow from the deck, not from a point submerged in the box.
+      stand.holder.scale.setScalar(Math.max(0.001, 1 + 2.28 * e ** 3 + 1.28 * e ** 2));
+      const idle = t + (foe ? 1.4 : 0);
+      stand.holder.rotation.y = (foe ? Math.PI - 0.08 : 0.08) + (reduced ? 0 : Math.sin(idle * 0.7) * 0.05);
+      stand.ring.opacity = reduced ? 0.48 : 0.46 + Math.sin(idle * 2.4) * 0.14;
+      if (!reduced) animateInsectRig(stand.model, id, idle, foe ? 1002 : 1001, false, 0, 0, 0, 0, 0, false, 0, dt);
     }
 
     /* ── Units & Rings ── */
@@ -3414,16 +3392,6 @@ export function Scene3D({
       return true;
     }
 
-    function oracleRayOrigin(side: BattleSide, into: THREE.Vector3) {
-      const holder = side === "ally" ? totemState.allyHolder : totemState.foeHolder;
-      if (holder) {
-        into.copy(holder.position);
-        into.y += 0.51;
-      } else {
-        into.set(COLS / 2, 1, side === "ally" ? ROWS : 0);
-      }
-    }
-
     function tick(now: number) {
       if (paused) return;
       raf = requestAnimationFrame(tick);
@@ -3569,6 +3537,7 @@ export function Scene3D({
       if (activeBattle !== clockBattle) {
         clockBattle = activeBattle;
         commanderAfterTime = 0;
+        commanderOpenerStart = t;
         visualBattleTime = activeBattle?.t ?? 0;
       } else if (activeBattle) {
         // Interpolate behind the fixed 100ms sim ticks. Never show touchdown
@@ -3646,26 +3615,8 @@ export function Scene3D({
       const liveBattle = p.battleRef?.current ?? p.battle;
       const battleOn = !!liveBattle && p.mode !== "prep";
 
-      syncTotems(p.cmdA, p.cmdB);
-      if (totemState.allyModel && totemState.allyHolder) {
-        animateInsectRig(totemState.allyModel, p.cmdA, t, 1001, false, 0, 0, 0, 0, 0, false, 0, dt, 0);
-        totemState.allySpawn = Math.min(1, totemState.allySpawn + dt * 1.7);
-        const asB = 1 + 2.70158 * Math.pow(totemState.allySpawn - 1, 3) + 1.70158 * Math.pow(totemState.allySpawn - 1, 2);
-        totemState.allyHolder.scale.setScalar(Math.max(0.001, asB));
-        totemState.allyHolder.position.y = 0.44 + totemState.allyLift + Math.sin(t * 2.1) * 0.014;
-        totemState.allyHolder.rotation.y = 0.08 + Math.sin(t * 0.7) * 0.05;
-        if (totemState.allyRing) totemState.allyRing.opacity = 0.4 + Math.sin(t * 2.4) * 0.18;
-      }
-      if (totemState.foeHolder) totemState.foeHolder.visible = !p.treasure;
-      if (totemState.foeModel && totemState.foeHolder) {
-        animateInsectRig(totemState.foeModel, p.cmdB, t + 1.2, 1002, false, 0, 0, 0, 0, 0, false, 0, dt, 0);
-        totemState.foeSpawn = Math.min(1, totemState.foeSpawn + dt * 1.7);
-        const fsB = 1 + 2.70158 * Math.pow(totemState.foeSpawn - 1, 3) + 1.70158 * Math.pow(totemState.foeSpawn - 1, 2);
-        totemState.foeHolder.scale.setScalar(Math.max(0.001, fsB));
-        totemState.foeHolder.position.y = 0.44 + totemState.foeLift + Math.sin(t * 2.1 + 1.5) * 0.014;
-        totemState.foeHolder.rotation.y = Math.PI - 0.08 + Math.sin(t * 0.7 + 1.5) * 0.05;
-        if (totemState.foeRing) totemState.foeRing.opacity = 0.4 + Math.sin(t * 2.4 + 1.5) * 0.18;
-      }
+      updateStand(stands.ally, p.cmdA, false, true, dt, reduceChestMotion);
+      updateStand(stands.foe, p.cmdB, true, !p.treasure, dt, reduceChestMotion);
 
       // Doctor samples projected, animated geometry only while enabled, not
       // on every frame. Normalized bounds let it spot real 3D clipping even
@@ -3677,11 +3628,19 @@ export function Scene3D({
           renderer.domElement.dataset.cameraMagnification = (camDistTarget / camDist).toFixed(3);
           camera.updateMatrixWorld();
           const bounds: Record<string, number[]> = {};
-          for (const [side, holder] of [["ally", totemState.allyHolder], ["foe", totemState.foeHolder]] as const) {
-            if (!holder || !holder.visible || !holder.children.length) continue;
-            holder.updateWorldMatrix(true, true);
-            totemAuditBox.setFromObject(holder);
-            if (totemAuditBox.isEmpty()) continue;
+          const mounts: Record<string, { deck: number; feet: number; base: number; centered: number }> = {};
+          for (const side of ["ally", "foe"] as const) {
+            const stand = stands[side];
+            if (!stand?.root.visible || !stand.model) continue;
+            stand.root.updateWorldMatrix(true, true);
+            totemAuditBox.setFromObject(stand.holder);
+            const feet = totemAuditBox.min.y;
+            stand.cap.getWorldPosition(totemAuditPoint);
+            const deck = totemAuditPoint.y + stand.cap.geometry.parameters.height / 2;
+            const centered = (totemAuditBox.min.x + totemAuditBox.max.x) / 2 - totemAuditPoint.x;
+            const base = stand.wood.getWorldPosition(totemAuditPoint).y - stand.wood.geometry.parameters.height / 2;
+            mounts[side] = { deck, feet, base, centered };
+            totemAuditBox.setFromObject(stand.root);
             let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
             for (const x of [totemAuditBox.min.x, totemAuditBox.max.x]) for (const y of [totemAuditBox.min.y, totemAuditBox.max.y]) for (const z of [totemAuditBox.min.z, totemAuditBox.max.z]) {
               totemAuditPoint.set(x, y, z).project(camera);
@@ -3691,6 +3650,7 @@ export function Scene3D({
             bounds[side] = [left, top, right, bottom].map(value => Number(value.toFixed(4)));
           }
           renderer.domElement.dataset.commanderBounds = JSON.stringify(bounds);
+          renderer.domElement.dataset.commanderMounts = JSON.stringify(mounts);
           let drawerLeft = Infinity, drawerTop = Infinity, drawerRight = -Infinity, drawerBottom = -Infinity;
           for (const point of fitPoints) {
             totemAuditPoint.copy(point).project(camera);
@@ -3701,6 +3661,7 @@ export function Scene3D({
           renderer.domElement.dataset.drawerBounds = JSON.stringify([drawerLeft, drawerTop, drawerRight, drawerBottom].map(value => Number(value.toFixed(4))));
         } else {
           delete renderer.domElement.dataset.commanderBounds;
+          delete renderer.domElement.dataset.commanderMounts;
           delete renderer.domElement.dataset.drawerBounds;
         }
       }
@@ -3864,7 +3825,7 @@ export function Scene3D({
       }
       if (commanderFx) {
         if (activeBattle?.over) commanderAfterTime += dt;
-        commanderFx.update(activeBattle, visualBattleTime + commanderAfterTime, reduceChestMotion, potatoOn, skillAnchor, oracleRayOrigin);
+        commanderFx.update(activeBattle, visualBattleTime + commanderAfterTime, t - commanderOpenerStart, reduceChestMotion, potatoOn, skillAnchor);
         if (inspectCommanderFx) {
           const info = JSON.stringify(commanderFx.inspect());
           if (renderer.domElement.dataset.commanderFx !== info) renderer.domElement.dataset.commanderFx = info;
@@ -3886,19 +3847,12 @@ export function Scene3D({
             popEls.set(pop.id, elp);
             // chitin chips fly off every impact
             if (pop.kind === "skill") {
-              // Airstrike's effect comes from the Dragonfly touching down,
-              // not an extra explosion travelling alongside the specimen.
+              // These effects already paint their own impact geometry.
               if (pop.text !== "AIRSTRIKE" && pop.text !== "TOUCHDOWN" && pop.text !== "HEALING WAVES"
-                && pop.text !== "WAVE IMPACT" && pop.text !== "LAST SPARK" && !(advancedEffects && pop.text === "ROAR!")) {
-                spawnRing(pop.x, pop.y + 0.25, pop.text === "TRAP!" ? 0xe8a0a8 : 0xf0a93b);
-                spawnBurst(
-                  pop.x,
-                  0.34,
-                  pop.y + 0.25,
-                  pop.text === "TRAP!" ? 0x9d755c : 0xffc252,
-                  9,
-                  1.5
-                );
+                && pop.text !== "WAVE IMPACT" && pop.text !== "LAST SPARK" && pop.text !== "TRAP!"
+                && !(advancedEffects && pop.text === "ROAR!")) {
+                spawnRing(pop.x, pop.y + 0.25, 0xf0a93b);
+                spawnBurst(pop.x, 0.34, pop.y + 0.25, 0xffc252, 9, 1.5);
               }
             } else if (pop.kind === "ko") {
               spawnRing(pop.x, pop.y + 0.25, 0xf05a36);
@@ -4008,8 +3962,8 @@ export function Scene3D({
       glintGeo.dispose(); glintMat.dispose(); glintTex.dispose();
       commanderFx?.dispose();
       zonePool.forEach((zp) => scene.remove(zp.root));
-      totemState.allyModel?.dispose();
-      totemState.foeModel?.dispose();
+      stands.ally?.model?.dispose();
+      stands.foe?.model?.dispose();
       sparks.dispose();
       for (const d of disposables) d.dispose();
       dot.dispose();

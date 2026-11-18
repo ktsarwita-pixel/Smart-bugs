@@ -83,6 +83,7 @@ export const TRAP_VULNERABLE_SECONDS = 10;
 export const WAVE_HP_THRESHOLD = 50;
 export const WAVE_BEATS = [0, 1.5, 3, 6] as const;
 const SPARK_TRAVEL_SECONDS = 0.45;
+export const SPARK_LANDING_SECONDS = 0.55;
 const EPSILON = 1e-9;
 export type BattleSide = "ally" | "foe";
 
@@ -218,6 +219,8 @@ export interface SoulSpark {
   targetUid: number;
   startAt: number;
   arrivesAt: number;
+  /** Travel is over; retain the cue briefly for the healing halo only. */
+  landedAt?: number;
 }
 
 export interface OracleWave {
@@ -761,10 +764,13 @@ function deliverWavePulse(b: BattleState, target: BUnit, wave: OracleWave) {
 function stepOracleEffects(b: BattleState) {
   if (b.sparks.length) {
     b.sparks = b.sparks.filter((spark) => {
+      if (spark.landedAt !== undefined) return b.t - spark.landedAt < SPARK_LANDING_SECONDS;
       if (b.t + EPSILON < spark.arrivesAt) return true;
-      const target = b.units.find((u) => u.uid === spark.targetUid);
-      if (target) heal(b, target, target.maxHp * 0.10);
-      return false;
+      const target = b.units.find((u) => u.uid === spark.targetUid && !u.dead);
+      if (!target) return false;
+      heal(b, target, target.maxHp * 0.10);
+      spark.landedAt = b.t;
+      return true;
     });
   }
   for (const wave of [b.waves.ally, b.waves.foe]) {

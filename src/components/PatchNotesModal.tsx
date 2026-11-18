@@ -23,6 +23,7 @@ export const VERSIONS: VersionEntry[] = [
       "Hyber Lantern sends white souls from fallen allies. Mark one ally for four healing pulses at 50 HP or less; the last pulse sends green dust across a 3×3 area.",
       "World Worm opens two toothed traps each battle. Use Eat and spit on a bench bug to recruit two more.",
       "All three commanders have new animated voxel models and updated portraits.",
+      "All six commander abilities have distinct animations. Hyber Lantern’s healing ray spirals down from directly above the marked bug, and the commander stands now sit on the drawer.",
     ],
   },
   {

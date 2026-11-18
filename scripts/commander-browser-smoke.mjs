@@ -8,10 +8,10 @@ const browser = await chromium.launch({executablePath:process.env.CHROMIUM_PATH,
   args:['--no-sandbox','--disable-dev-shm-usage','--single-process','--no-zygote','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
 const page = await browser.newPage({viewport:{width:390,height:844}, isMobile:true, hasTouch:true});
 page.setDefaultTimeout(12000);
-await page.emulateMedia({reducedMotion:'reduce'});
+await page.emulateMedia({reducedMotion:'no-preference'});
 await page.addInitScript(() => {
   sessionStorage.setItem('smartbugs.admin.unlocked','1');
-  localStorage.setItem('smartbugs.settings',JSON.stringify({rev:2, lang:'en', motion:'reduced', resolution:'low'}));
+  localStorage.setItem('smartbugs.settings',JSON.stringify({rev:2, lang:'en', motion:'full', resolution:'low'}));
   localStorage.setItem('smartbugs.speed','1');
   // Keep forced-outcome rounds in their built-in pre-roll until the admin
   // action. The live targeting case below uses the normal combat clock.
@@ -30,6 +30,13 @@ const picker = control.getByRole('combobox');
 const result = page.locator('.result-card');
 const bench = page.locator('.bench-slot[data-skill-target="true"]');
 const combat = page.locator('.combat-scroll');
+const pressure = result.locator('[data-skill-fx="pressure-present"]');
+const cast = (kind) => page.locator(`.commander-cast[data-skill-fx="${kind}"]`);
+const animation = (locator) => locator.evaluate(el => getComputedStyle(el).animationName);
+const point = (locator) => locator.evaluate(el => {
+  const { x,y,width,height } = el.getBoundingClientRect();
+  return [x + width / 2, y + height / 2];
+});
 const engage = async () => { await page.getByRole('button',{name:/Engage battle/}).tap(); await combat.waitFor(); };
 const next = async () => { await result.locator('.result-next').tap(); await page.locator('.prep-dock .commander-control').waitFor(); };
 const noBonds = async () => assert.equal(await page.locator('.bonds-bar, .bond-chip, .bond-mini').count(),0);
@@ -85,12 +92,23 @@ try {
   for (let i = 0; i < 3; i++) {
     await force(false);
     assert.equal(await result.getByText('Pressure present arrives after the next round.',{exact:true}).count(),i === 2 ? 1 : 0);
+    if (i === 2) {
+      assert.equal(await pressure.getAttribute('data-gift'),'sealed');
+      assert.equal(await animation(pressure.locator('.pressure-relic')),'pressure-stamp');
+    }
     await noBonds();
     await next();
   }
   await force(true);
-  assert.match(await result.locator('.pressure-result').innerText(),/Pressure present.*\+25G.*2 × Spider \(1★\)/s);
+  assert.match(await pressure.innerText(),/Pressure present.*\+25G.*2 × Spider \(1★\)/s);
+  assert.equal(await pressure.getAttribute('data-gift'),'open');
+  assert.equal(await animation(pressure.locator('.pressure-lid')),'pressure-lid');
+  assert.equal(await pressure.locator('.pressure-specimens .spec-icon').count(),2);
   await shot('queen-pressure');
+  await page.emulateMedia({reducedMotion:'reduce'});
+  assert.equal(await animation(pressure.locator('.pressure-lid')),'none','reduced motion keeps a static open relic');
+  assert.equal(await pressure.locator('.pressure-specimens .spec-icon').count(),2);
+  await page.emulateMedia({reducedMotion:'no-preference'});
   await next();
   assert.equal(await page.locator('.bench-slot').filter({has:page.locator('.spec-icon')}).count(),3,'two recruits and original bench Spider');
   await force(true);
@@ -99,7 +117,24 @@ try {
   await statusMatches(/Uses: 1 · Ready/);
   await skill.tap();
   const before = Number(await page.locator('.deck-resources .gold-flash').innerText());
+  await bench.first().scrollIntoViewIfNeeded();
+  const [x,y] = await point(bench.first());
+  const [bankX,bankY] = await point(page.locator('.deck-resources .gold-flash').locator('..'));
   await bench.first().tap();
+  const income = await cast('incomes').evaluate(el => {
+    const origin = el.querySelector('.commander-cast__origin');
+    return { pointer: getComputedStyle(el).pointerEvents, coins: el.querySelectorAll('.income-coin').length,
+      animation: getComputedStyle(el.querySelector('.income-coin')).animationName, credit: el.querySelector('.income-credit').textContent,
+      x: parseFloat(origin.style.left), y: parseFloat(origin.style.top),
+      dx: parseFloat(origin.style.getPropertyValue('--dx')), dy: parseFloat(origin.style.getPropertyValue('--dy')) };
+  });
+  assert.equal(income.pointer,'none');
+  assert.equal(income.coins,5);
+  assert.equal(income.animation,'income-flight');
+  assert.equal(income.credit,'+6G');
+  assert.ok(Math.hypot(income.x - x, income.y - y) < 8, 'the coins start at the tapped bench bug');
+  assert.ok(Math.hypot(income.x + income.dx - bankX, income.y + income.dy - bankY) < 8, 'the coins fly to the Gold counter');
+  await shot('queen-incomes');
   assert.equal(Number(await page.locator('.deck-resources .gold-flash').innerText()) - before,6);
   assert.equal(await page.locator('.bench-slot').filter({has:page.locator('.spec-icon')}).count(),3,'Incomes does not consume its target');
   assert.ok(await skill.isDisabled());
@@ -109,7 +144,7 @@ try {
   await force(true); await next();
   await statusMatches(/Uses: 1 · Ready/);
   assert.ok(await skill.isEnabled());
-  console.log('PASS Queen pressure at round four, payout, non-consuming 6G and two-round cooldown');
+  console.log('PASS Ancient Scavanger sealed and opening gift, coin flight for +6G and two-round cooldown');
 
   await start('World Worm','?advenced=1&doctor=1');
   await admin(['give stag 1','give bomb 2']);
@@ -130,10 +165,18 @@ try {
   assert.equal(await picker.count(),0,'Escape cancels targeting');
   await skill.tap();
   await bench.first().tap();
+  const spit = await cast('eat-spit').evaluate(el => ({
+    chomp: getComputedStyle(el.querySelector('.chomp-frame__upper')).animationName,
+    recruit: getComputedStyle(el.querySelector('.spit-recruit')).animationName,
+    portraits: el.querySelectorAll('.spit-recruit .spec-icon').length,
+  }));
+  assert.deepEqual(spit, {chomp:'chomp-jaws',recruit:'spit-wing',portraits:2});
+  await shot('worm-eat-spit');
   assert.equal(await page.locator('.bench-slot').filter({has:page.locator('.spec-icon')}).count(),2);
   await statusMatches(/0\/5 uses/);
-  console.log('PASS World Worm opening pair and a bench-only use below storage capacity');
+  console.log('PASS World Worm opening jaws, bench-only chomp and two recruit portraits');
 
+  await page.emulateMedia({reducedMotion:'reduce'});
   await start('Hyber Lantern');
   await admin(['give stag 1','give mantis 1','give bomb 2']);
   await page.locator('.bench-slot').nth(0).tap();

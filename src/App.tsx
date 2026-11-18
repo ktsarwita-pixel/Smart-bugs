@@ -17,6 +17,7 @@ import { UiDoctor } from "./components/UiDoctor";
 import { AdvancedView, DEV_BUILD } from "./components/AdvancedView";
 import { fill, useSettings } from "./i18n";
 import { CommanderSkillControl } from "./components/CommanderSkillControl";
+import { CommanderPrepVignette, PressurePresent, screenPoint, type PrepCast } from "./components/CommanderVignettes";
 import { eatAndSpit, freshCommander, incomeFrom, PRESSURE_GOLD, settleCommander, strongestOwned, WORM_CAP, WORM_INTERVAL } from "./game/commander";
 import { addRecruit, combine, deliverRecruits } from "./game/roster";
 import { CareerPanel } from "./components/CareerPanel";
@@ -282,6 +283,14 @@ export default function App() {
   const [commanderReserve, setCommanderReserve] = useState<BugId[]>([]);
   const [skillTargeting, setSkillTargeting] = useState(false);
   const [oraclePrepMark, setOraclePrepMark] = useState<number | null>(null);
+  const [prepCast, setPrepCast] = useState<PrepCast | null>(null);
+  const castSerial = useRef(0);
+  const goldAnchor = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!prepCast) return;
+    const timer = window.setTimeout(() => setPrepCast(null), 1270);
+    return () => window.clearTimeout(timer);
+  }, [prepCast]);
   useEffect(() => {
     if (phase !== "prep" || !commanderReserve.length) return;
     const received = deliverRecruits(units, commanderReserve);
@@ -419,6 +428,15 @@ export default function App() {
     setSkillTargeting(true);
   };
 
+  const castPoint = (target: PrepUnit, inset = 14) => {
+    const targetEl = document.querySelector(target.zone === "bench"
+      ? `.bench-slot[data-unit-id="${target.uid}"]`
+      : `.battle-stage .ov-unit[data-unit-id="${target.uid}"]`);
+    const point = screenPoint(targetEl) ?? screenPoint(document.querySelector(".commander-control__skill"))
+      ?? { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    return { x: Math.max(inset, Math.min(window.innerWidth - inset, point.x)), y: point.y };
+  };
+
   const applySkillTarget = (uid: number) => {
     if (!skillTargeting) return;
     if (phase === "battle" && cmd === "lampyris") {
@@ -440,6 +458,7 @@ export default function App() {
       if (target.zone !== "bench") return say("Pick a bench bug to eat", "warn");
       const fed = eatAndSpit(commanderProgress, target);
       if (!fed) return;
+      setPrepCast({ kind: "eat-spit", serial: ++castSerial.current, at: castPoint(target, 51), eaten: target.bugId, star: target.star, recruits: fed.rewards });
       const received = deliverRecruits(units.filter((u) => u.uid !== uid), [...commanderReserve, ...fed.rewards]);
       setUnits(received.out);
       setCommanderReserve(received.reserve);
@@ -449,6 +468,9 @@ export default function App() {
     } else if (cmd === "matriarch") {
       const income = incomeFrom(commanderProgress, round, target);
       if (!income) return;
+      const at = castPoint(target);
+      const bank = screenPoint(goldAnchor.current) ?? { x: at.x, y: Math.max(38, at.y - 48) };
+      setPrepCast({ kind: "incomes", serial: ++castSerial.current, at, bank, gold: income.gold });
       setCommanderProgress(income.progress);
       setGold((g) => g + income.gold);
       playSfx("sell");
@@ -706,6 +728,7 @@ export default function App() {
       ? createTreasureBattle(activeBoard, currentCommander.id, round)
       : createBattle(activeBoard, makeFoeTeam(foeIdx, round), currentCommander.id, BOTS[foeIdx].cmd, { autoOracle: ["foe"] });
     if (prepMark) markOracleTarget(initial, "ally", prepMark.uid);
+    setPrepCast(null);
     setSkillTargeting(false);
     // Pre-render pass 1: guarantee every sculpt in this exact matchup exists
     // BEFORE the scene draws its first frame of the fight.
@@ -911,6 +934,7 @@ export default function App() {
     setPendingRewards([]);
     setCommanderProgress(freshCommander());
     setCommanderReserve([]);
+    setPrepCast(null);
     setSkillTargeting(false);
     setOraclePrepMark(null);
     setShop(rollShop());
@@ -1998,7 +2022,7 @@ export default function App() {
 
               {/* Resources */}
               <div className="deck-cluster deck-resources">
-                <div className="deck-stat" title={tf("Gold — +{n} interest next round", { n: interestNext })}>
+                <div className="deck-stat" ref={goldAnchor} title={tf("Gold — +{n} interest next round", { n: interestNext })}>
                   <IconCoin size={14} />
                   <span key={goldFlash} className="gold-flash deck-num text-[#F0A93B]">{gold}</span>
                   <span className="deck-cap">{t("Gold")}<br />+{interestNext} {t("int.")}</span>
@@ -2635,6 +2659,7 @@ export default function App() {
                           else onBench(i);
                         }}
                         title={u ? skillTargeting ? skillPrompt : benchInspectMode ? tf("Inspect {name}", { name: t(BUGS[u.bugId].name) }) : tf("{name} — tap to deploy instantly", { name: t(BUGS[u.bugId].name) }) : t("Empty bench slot")}
+                        data-unit-id={u?.uid}
                         data-skill-target={!!u && skillTargeting && pickable.some((target) => target.uid === u.uid)}
                         className={`lift bench-slot relative grid h-11 w-full place-items-center border sm:h-12 ${
                           isSel ? "border-[#F0A93B] bg-[#241B14]" : "border-[#3B322A] bg-[#120D09]"
@@ -2864,6 +2889,8 @@ export default function App() {
         </div>
       )}
 
+      {phase === "prep" && prepCast && <CommanderPrepVignette key={prepCast.serial} cast={prepCast} />}
+
       {/* Toast Feedback */}
       {toast && (
         <div className="pointer-events-none fixed left-1/2 top-14 z-50 -translate-x-1/2">
@@ -2923,13 +2950,8 @@ export default function App() {
                 </div>
               </div>
             )}
-            {report.pressure ? (
-              <div className="pressure-result" role="status">
-                {report.pressure.bugId && <SpecimenIcon id={report.pressure.bugId} size={32} badge="none" />}
-                <div><strong>{t("Pressure present")}</strong><div>+{report.pressure.gold}G{report.pressure.bugId && ` · ${tf("2 × {name} (1★)", { name: t(BUGS[report.pressure.bugId].name) })}`}</div></div>
-              </div>
-            ) : hp > 0 && !match.winnerId && typeof commanderProgress.pressure === "object" && (
-              <p className="pressure-result" role="status">{t("Pressure present arrives after the next round.")}</p>
+            {(report.pressure || (hp > 0 && !match.winnerId && typeof commanderProgress.pressure === "object")) && (
+              <PressurePresent award={report.pressure} />
             )}
             <div className="result-health" aria-label={t("Colony HP")}>
               <div className="result-health__heading">

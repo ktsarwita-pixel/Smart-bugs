@@ -8,13 +8,18 @@ import '../src/index.css';
 const unit = (uid: number, bugId: PrepUnit['bugId'], slot: number, star = 1): PrepUnit => ({uid, bugId, slot, star, zone: 'board'});
 const prep = [unit(1, 'stag', 3, 2), unit(2, 'mantis', 1)];
 const foes = [unit(3, 'stag', 17), unit(4, 'bomb', 16, 2), unit(5, 'dragonfly', 10)];
-const battle = createBattle(prep, foes, 'lampyris', 'worm');
+const rival = new URLSearchParams(location.search).has('mirror') ? 'lampyris' : 'worm';
+const battle = createBattle(prep, foes, 'lampyris', rival);
 const [mark, sacrifice, attacker] = battle.units;
 for (const u of battle.units) { u.cd = 100; u.spd = 0; }
 Object.assign(window, {
   commanderFxHarness: {
     step: (count: number) => { for (let i = 0; i < count; i++) stepBattle(battle, 0.1); },
-    cast: () => { mark.hp = 50; markOracleTarget(battle, 'ally', mark.uid); },
+    cast: (side: 'ally' | 'foe' = 'ally') => {
+      const receiver = side === 'ally' ? mark : attacker;
+      receiver.hp = 50;
+      markOracleTarget(battle, side, receiver.uid);
+    },
     fall: () => {
       // Generate a real KO, which should emit a soul toward the marked ally.
       sacrifice.hp = 1;
@@ -28,5 +33,5 @@ Object.assign(window, {
   },
 });
 createRoot(document.getElementById('root')!).render(<SettingsProvider>
-  <Scene3D mode="battle" prep={prep} battle={battle} cmdA="lampyris" cmdB="worm" advancedEffects className="h-full w-full" />
+  <Scene3D mode="battle" prep={prep} battle={battle} cmdA="lampyris" cmdB={rival} advancedEffects className="h-full w-full" />
 </SettingsProvider>);

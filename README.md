@@ -51,12 +51,20 @@ Rival Oracles pick their strongest deployed bug at battle start; treasure guards
 have no commander. Players can target via the 3D drawer, the bench where valid,
 or the keyboard-accessible target list.
 
+Pressure present stamps a sealed relic into the report and opens it on payout.
+Incomes sends coins to the Gold counter; Eat and spit chomps the bench bug and
+pops out two recruit portraits. Trap holes erupt from the tiles and clamp shut,
+and Last Spark lands with a healing halo. The Oracle ray winds down from above
+the marked bug and ends in the same green 3×3 impact. Reduced Motion keeps the
+cues readable without most movement; Potato trims extra particles and strands.
+
 Run the commander-specific checks against Vite:
 
 ```bash
 node scripts/commander-rules-smoke.mjs
 BASE_URL=http://127.0.0.1:5173 CHROMIUM_PATH=/path/to/chromium node scripts/commander-browser-smoke.mjs
 BASE_URL=http://127.0.0.1:5173 CHROMIUM_PATH=/path/to/chromium node scripts/commander-fx-smoke.mjs
+BASE_URL=http://127.0.0.1:5173 CHROMIUM_PATH=/path/to/chromium node scripts/commander-framing-smoke.mjs
 ```
 
 `SHOTS=dir` saves the browser captures. The FX harness shows the actual battle

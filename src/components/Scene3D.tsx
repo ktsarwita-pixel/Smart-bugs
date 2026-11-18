@@ -3592,7 +3592,7 @@ export function Scene3D({
         delete renderer.domElement.dataset.chestFacingError;
         delete renderer.domElement.dataset.chestHingeGap;
       }
-      const shouldOpen = !!activeBattle && activeBattle.over === "ally";
+      const shouldOpen = chest.visible && activeBattle?.over === "ally";
       const reduceChestMotion = document.documentElement.dataset.motion === "reduced" || reducedMotionMedia.matches;
       chestOpen = shouldOpen ? (reduceChestMotion ? 1 : Math.min(1, chestOpen + dt * (advancedEffects ? 1 / 1.15 : 2.3))) : 0;
       updateChest(chestOpen, t, reduceChestMotion, potatoOn);

@@ -35,7 +35,7 @@ export function createChestGeometry(part: 'body' | 'lid', detailed = false): THR
   // readable planks, edge bands and rivets on *all* visible sides.  These
   // replace cells rather than laying coplanar decals over the wood.
   if (detailed && part === 'body') {
-    const walnut=0x81451f, light=0xb66c2e, grain=0x633117, brass=0xc48a32, glint=0xffd578;
+    const walnut=0x834327, light=0xb66b36, grain=0x562b21, brass=0xca903b, glint=0xffd578;
     for (const z of [0, 14]) {
       put(2,19,3,9,z,z,walnut);
       for (const y of [4,7]) put(2,19,y,y,z,z,grain);
@@ -51,6 +51,7 @@ export function createChestGeometry(part: 'body' | 'lid', detailed = false): THR
       for (const x of [0,21]) { put(x,x,2,3,z,z,brass); put(x,x,9,10,z,z,brass); }
       // The same small maker's mark appears on the result chest and VS icon.
       put(9,12,3,3,z,z,grain); put(10,11,3,3,z,z,0xf1bf5b);
+      put(10,11,4,4,z,z,0x6fc4a5);
     }
     for (const x of [0,21]) {
       for (const y of [3,6,9]) put(x,x,y,y,2,12,light);

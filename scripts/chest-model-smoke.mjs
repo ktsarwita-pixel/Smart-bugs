@@ -4,6 +4,10 @@ const out=await build({entryPoints:['src/game/chest-model.ts'],bundle:true,platf
 const {sampleChestOpening,createDetailedChest}=await import(`data:text/javascript;base64,${Buffer.from(out.outputFiles[0].contents).toString('base64')}`);
 assert.ok(Math.abs(sampleChestOpening(0).angle)<1e-6);
 assert.ok(Math.abs(sampleChestOpening(1).angle+1.52)<1e-6);
+assert.ok(Math.abs(sampleChestOpening(.08).angle)<1e-6, 'lid holds while the lock releases');
+assert.equal(sampleChestOpening(.2).glow, 0, 'the cavity stays dark until the lid moves');
+assert.ok(sampleChestOpening(.52).glow > sampleChestOpening(1).glow && sampleChestOpening(1).glow > 0,
+  'the reveal flare settles into steady light');
 let prev=0;
 for(let i=0;i<=200;i++){
   const sample=sampleChestOpening(i/200);

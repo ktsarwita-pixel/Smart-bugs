@@ -1,4 +1,5 @@
 import { BUGS, BOTS, MAX_FIELD_SIZE, STAR_MULT, type BugId, type CmdId, BOARD_SLOTS } from "./data";
+import { NO_BONDS, bondLevels, bondMods, type BondLevels } from "./bonds";
 import {
   AIRSTRIKE_FLIGHT, AIRSTRIKE_LOCK_PROGRESS, AIRSTRIKE_RADIUS, AIRSTRIKE_RECOVERY, AIRSTRIKE_SECONDS,
   airstrikeTickDamage,
@@ -241,6 +242,9 @@ export interface BattleState {
   pops: Pop[];
   cmdA: CmdId;
   cmdB: CmdId;
+  /** Colony Bond tiers each side entered the fight with (absent on old snapshots). */
+  bondsA?: BondLevels;
+  bondsB?: BondLevels;
   glowA: number;
   glowB: number;
   nid: number;
@@ -316,19 +320,24 @@ export const foeXY = (slot: number) => ({
  * Single source of truth: mkUnit uses it, and the prep inspector shows
  * it — so the ATK on the stat sheet is the damage the bug deals.
  */
-export function battleStats(bugId: BugId, star: number, cmd: CmdId) {
+export function battleStats(bugId: BugId, star: number, cmd: CmdId, bonds: BondLevels = NO_BONDS) {
   const s = statsFor(bugId, star);
   const hpMul = cmd === "matriarch" ? 1.18 : 1;
   const atkMul = cmd === "matriarch" ? 1.08 : 1;
+  // Colony Bonds (v0.8) move the same stat-sheet numbers the commander does,
+  // so the card still shows exactly what the bug brings to the fight.
+  const bond = bondMods(bugId, bonds);
   return {
-    hp: Math.round(s.hp * hpMul),
-    atk: Math.round(s.atk * atkMul),
+    hp: Math.round(s.hp * hpMul * bond.hpMul),
+    atk: Math.round(s.atk * atkMul * bond.atkMul),
     def: s.def,
+    /** Seconds between attacks, Ambush bond included. */
+    atkCd: Math.round(BUGS[bugId].atkCd * bond.cdMul * 1000) / 1000,
   };
 }
 
-function mkUnit(uid: number, bugId: BugId, star: number, side: "ally" | "foe", x: number, y: number, cmd: CmdId): BUnit {
-  const s = battleStats(bugId, star, cmd);
+function mkUnit(uid: number, bugId: BugId, star: number, side: "ally" | "foe", x: number, y: number, cmd: CmdId, bonds: BondLevels = NO_BONDS): BUnit {
+  const s = battleStats(bugId, star, cmd, bonds);
   const b = BUGS[bugId];
   const maxHp = s.hp;
   return {
@@ -344,7 +353,7 @@ function mkUnit(uid: number, bugId: BugId, star: number, side: "ally" | "foe", x
     def: s.def,
     range: b.range,
     spd: b.spd,
-    atkCd: b.atkCd,
+    atkCd: s.atkCd,
     cd: Math.random() * 0.4,
     energy: 40,
     maxEnergy: 100,
@@ -379,13 +388,17 @@ export function createBattle(
   cmdB: CmdId
 ): BattleState {
   const units: BUnit[] = [];
+  // Colony Bonds are counted from each side's own fielded line, by the same
+  // function for both — rivals earn exactly the bonds their line-up shows.
+  const bondsA = bondLevels(allies.map((u) => u.bugId));
+  const bondsB = bondLevels(foes.map((u) => u.bugId));
   for (const u of allies) {
     const p = boardXY(u.slot);
-    units.push(mkUnit(u.uid, u.bugId, u.star, "ally", p.x, p.y, cmdA));
+    units.push(mkUnit(u.uid, u.bugId, u.star, "ally", p.x, p.y, cmdA, bondsA));
   }
   for (const u of foes) {
     const p = foeXY(u.slot);
-    units.push(mkUnit(u.uid, u.bugId, u.star, "foe", p.x, p.y, cmdB));
+    units.push(mkUnit(u.uid, u.bugId, u.star, "foe", p.x, p.y, cmdB, bondsB));
   }
   const st: BattleState = {
     t: 0,
@@ -393,6 +406,8 @@ export function createBattle(
     pops: [],
     cmdA,
     cmdB,
+    bondsA,
+    bondsB,
     glowA: 5,
     glowB: 5,
     nid: 1,
@@ -1007,15 +1022,25 @@ export function stepBattle(b: BattleState, dt: number): BattleState {
 
   const liveAlly: BUnit[] = [];
   const liveFoe: BUnit[] = [];
-  const live: BUnit[] = [];
   for (let i = 0; i < b.units.length; i++) {
     const u = b.units[i];
     if (!u.dead) {
-      live.push(u);
       if (u.side === "ally") liveAlly.push(u);
       else liveFoe.push(u);
     }
   }
+  // Fair initiative (v0.8). Units used to act in array order, so the ally
+  // line always moved and struck first inside a tick. Order matters twice:
+  // the first line to act lands a killing blow before the reply, and the
+  // second line gets a free opening strike on whoever just stepped into
+  // reach. Measured on mirror matches (same line-up on both sides) the ally
+  // side won anywhere from 42% to 81% instead of 50%.
+  // Strictly alternating the order does not fix it — the contact tick has a
+  // fixed parity for a given layout, so one side still always benefits. A
+  // fair coin per tick makes every order-dependent quirk even in
+  // expectation, for the player's fight and for simulated rival duels alike.
+  const foeFirst = Math.random() < 0.5;
+  const live: BUnit[] = foeFirst ? liveFoe.concat(liveAlly) : liveAlly.concat(liveFoe);
 
   for (let li = 0; li < live.length; li++) {
     const u = live[li];

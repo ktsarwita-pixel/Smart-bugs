@@ -251,6 +251,11 @@ export function CodexModal({ open, onClose }: Props) {
                   t: "THE BATTLE DESK",
                   d: "The HUD keeps you oriented: the round counter shows alive-colony pips, a chunky timer counts down the pre-roll, and ROUND + FIGHT flare when a battle starts. Placement: ONE tap on a bench bug deploys it to a smart row; tap a field bug then a tile to move it; when your line is full, tapping a field bug arms SWAP mode — tap a bench bug to trade them. Press the inspector ('i') on any specimen to study its stats. PATCH NOTES on the title screen lists every update so far.",
                 },
+                {
+                  n: "09",
+                  t: "COLONY BONDS",
+                  d: "Every bug has a role. Field 2 bugs of the same role to activate its bond and 4 for the stronger tier — each fielded bug counts, so two Stag Beetles are two Frontline bugs. Shield Wall (Frontline): +12% / +25% max HP. Battery (Artillery): +15% / +30% ATK. Ambush (Assassin): 10% / 20% shorter attack delay. A bond only strengthens bugs of its own role, rival colonies earn bonds the same way, and the strip above the board shows both lines.",
+                },
               ].map((item) => (
                 <div key={item.n} className="border border-[#3B322A] bg-[#1C1611] p-3">
                   <div className="flex items-center gap-2">

@@ -1,5 +1,6 @@
 import { createBattle, nextUid, statsFor, type BattleState, type PrepUnit } from './engine';
-import type { CmdId } from './data';
+import { BUGS, type CmdId } from './data';
+import { NO_BONDS } from './bonds';
 
 /** Only the first and fourth global rounds are treasure encounters. */
 export function treasureRound(round: number): 1 | 4 | null {
@@ -21,7 +22,11 @@ export function createTreasureBattle(allies: PrepUnit[], cmd: CmdId, round: numb
     u.maxHp = u.hp = Math.round(base.hp * multiplier);
     u.atk = Math.round(base.atk * multiplier);
     u.def = Math.round(base.def * multiplier);
+    // Guards are neutral: their stats are the specified values above, so
+    // they carry no Colony Bond either — not in numbers, not on the HUD.
+    u.atkCd = BUGS[u.bugId].atkCd;
     u.treasureGuard = true;
   }
+  b.bondsB = { ...NO_BONDS };
   return b;
 }

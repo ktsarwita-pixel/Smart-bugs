@@ -58,26 +58,25 @@ export const CHEST_VIEWBOX = '0 0 20 16';
 export const STAG_VIEWBOX = '0 0 16 20';
 
 /**
- * Test-build encounter sprites. Each character is one actual pixel, rather
- * than a scaled illustration: the chest has a curved lid, iron straps and a
- * keyhole; the beetle has hooked mandibles, eyes, six legs and split elytra.
- * A small neutral palette retains the timeline's monochrome, non-rarity UI.
+ * Hand-drawn encounter sprites. The plated dome, bright clasp and small
+ * scarab mark are readable at 16px, even without the larger chest's color.
+ * Both encounter types share a neutral palette; it never signals rarity.
  */
 export const ADVANCED_CHEST_PIXELS = [
   '................',
   '...oooooooooo...',
   '..osmmllllmmso..',
-  '.osmllmmmmllmso.',
-  '.osmllmmmmllmso.',
-  'osmmmlmssmlmmmso',
-  'osmmmlmmmmlmmmso',
+  '.osllmmhhmmllso.',
+  '.osmlmssssmlmso.',
+  'osmlmmmssmmmlmso',
+  'osmlsmmssmmslmso',
   'oolllllllllllloo',
-  'osmmmlhhhhlmmmso',
-  'osmmmlhoohlmmmso',
-  'osmmmlhoohlmmmso',
-  'osmmmlhhhhlmmmso',
-  'osmmmlmllmlmmmso',
-  'osssslsssslsssso',
+  'osmlmshhhhsmlmso',
+  'osmlmshoohsmlmso',
+  'osmlmshoohsmlmso',
+  'osllmshhhhsmllso',
+  'osmlllmllmlllmso',
+  'osllsllllllsllso',
   '.oooooooooooooo.',
   '................',
 ] as const;

@@ -2334,11 +2334,11 @@ html[data-background="light"] .shop-heading .shop-toggle[aria-pressed="true"] { 
 .treasure-queue button { min-height:40px; padding:4px 6px; border:1px solid #e1a43a; background:#6a4619; color:#fff0be; font-weight:bold; }
 
 .treasure-loot { display:flex; gap:4px; }
-.treasure-loot span { animation:loot-rise .55s ease-out both; }
-.treasure-loot span:nth-child(2) { animation-delay:.12s; }
-@keyframes loot-rise { from { opacity:0; transform:translateY(12px) scale(.6); } to { opacity:1; transform:none; } }
-@media (prefers-reduced-motion: reduce) { .treasure-loot span { animation:none; } }
-[data-motion="reduced"] .treasure-loot span { animation:none; }
+.treasure-loot > span { animation:loot-rise .48s cubic-bezier(.16,1,.3,1) .42s both; }
+.treasure-loot > span:nth-child(2) { animation-delay:.52s; }
+@keyframes loot-rise { from { opacity:0; transform:translateY(7px) scale(.82); } to { opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce) { .treasure-loot > span { animation:none; } }
+[data-motion="reduced"] .treasure-loot > span { animation:none; }
 
 /* Monochrome encounter icons: identical cell dimensions for all states. */
 .round-track { display:flex; align-items:center; justify-content:center; min-width:0; padding:5px; border:2px solid #454545; background:#121212; box-shadow:inset 0 0 0 1px #090909; }
@@ -2374,49 +2374,46 @@ html[data-background="light"] .shop-heading .shop-toggle[aria-pressed="true"] { 
 .fight-banner .fight-flare__round { position:static; margin:4px 0 3px; font-size:8px; letter-spacing:.11em; animation:none; }
 .fight-banner .fight-flare__word { padding:0; border:0; background:none; box-shadow:none; font-size:clamp(19px,6vw,32px); color:#fff1c9; animation:none; }
 .fight-banner__sub { color:#dbb66f; font-size:8px; letter-spacing:.12em; margin-top:5px; }
-/* The small VS badge stays front-facing; only the fixed metal highlights
-   gently gleam, with no spinning or detached sparkles. */
-.chest-icon__shine { animation:chest-icon-sheen 3.4s ease-in-out infinite; }
-@keyframes chest-icon-sheen { 0%,100% { opacity:.65; } 50% { opacity:1; } }
-@media (prefers-reduced-motion:reduce) { .chest-icon__shine { animation:none; opacity:1; } }
-html[data-motion="reduced"] .chest-icon__shine { animation:none; opacity:1; }
+/* The glint passes across the brass, not across the chest silhouette. */
+.chest-icon__shine { opacity:0; }
+@keyframes chest-icon-sheen {
+  0%, 7% { transform:translateX(-6px); opacity:0; }
+  13% { opacity:.9; }
+  21% { opacity:.8; }
+  28%, 100% { transform:translateX(33px); opacity:0; }
+}
 
 /* A single CSS-3D model is available on the very first paint. All faces share
    the same dimensions and hinge: no old sprite, extra WebGL context or swap. */
-.treasure-chest-3d { --chest-width:68px; --chest-depth:24px; position:relative; flex:none; width:84px; height:76px; perspective:340px; perspective-origin:50% 38%; }
+.treasure-chest-3d { position:relative; flex:none; width:84px; height:76px; perspective:340px; perspective-origin:50% 38%; }
 .treasure-chest-3d::before { content:""; position:absolute; left:10px; right:10px; bottom:3px; height:8px; border-radius:50%; background:radial-gradient(ellipse,#5b381e55,transparent 70%); }
 .treasure-chest-3d__world { position:absolute; top:34px; left:8px; width:68px; height:34px; transform-style:preserve-3d; transform:rotateX(-24deg); }
 .treasure-chest-3d__world > *, .treasure-chest-3d__lid > * { position:absolute; box-sizing:border-box; backface-visibility:visible; }
-.treasure-chest-3d__body-front, .treasure-chest-3d__body-back { left:0; top:0; width:68px; height:34px; border:2px solid #422412; }
+.treasure-chest-3d__body-front, .treasure-chest-3d__body-back { left:0; top:0; width:68px; height:34px; border:2px solid #43271c; }
 .treasure-chest-3d__pixel-texture { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
-.treasure-chest-3d__body-front { transform:translateZ(12px); background:linear-gradient(90deg,#48200b44,transparent 22%,transparent 78%,#48200b44),repeating-linear-gradient(to bottom,#c27630 0 1px,#aa5b25 1px 7px,#683117 7px 9px); box-shadow:inset 0 3px #f0b458,inset 0 -4px #7a3b1a,inset 0 -6px #bc7f33,0 2px #2e1a10; }
+.treasure-chest-3d__body-front { transform:translateZ(12px); background:#532a20; box-shadow:0 2px #2e1a10; }
+.treasure-chest-3d__body-front svg { overflow:visible; }
 .treasure-chest-3d__body-back { transform:translateZ(-12px); background:#6b3619; }
 .treasure-chest-3d__body-side { left:22px; top:0; width:24px; height:34px; border:2px solid #482611; background:repeating-linear-gradient(to bottom,#9a5123 0 7px,#623116 7px 9px); }
 .treasure-chest-3d__body-side--left { transform:rotateY(90deg) translateZ(-34px); }
 .treasure-chest-3d__body-side--right { transform:rotateY(90deg) translateZ(34px); }
 .treasure-chest-3d__floor, .treasure-chest-3d__cavity { left:0; width:68px; height:24px; transform:rotateX(90deg); }
 .treasure-chest-3d__floor { top:22px; background:#522d17; }
-.treasure-chest-3d__cavity { top:-12px; border:4px solid #c99439; background:#542a14; box-shadow:inset 0 0 0 2px #2e190e; overflow:hidden; }
-.treasure-chest-3d__cavity::before { content:""; position:absolute; inset:0; opacity:0; background:radial-gradient(ellipse at center,#ffe58a88,transparent 75%); }
-.treasure-chest-3d--open .treasure-chest-3d__cavity::before { animation:chest-loot-light .75s ease-out .4s both; }
-@keyframes chest-loot-light { from { opacity:0; } to { opacity:1; } }
+.treasure-chest-3d__cavity { top:-12px; border:4px solid #b77c34; background:#4e2e22; box-shadow:inset 0 0 0 2px #2e190e,inset 0 2px 4px #301b10; overflow:hidden; }
+.treasure-chest-3d__cavity::before { content:""; position:absolute; z-index:1; inset:0; opacity:0; pointer-events:none; background:radial-gradient(ellipse at 50% 42%,#fff1ac,transparent 76%); }
+.treasure-chest-3d--open .treasure-chest-3d__cavity::before { opacity:.32; }
 .treasure-chest-3d__treasure { position:absolute; inset:0; width:100%; height:100%; }
 .treasure-chest-3d__cavity i { position:absolute; bottom:2px; width:13px; height:8px; clip-path:polygon(2px 0,calc(100% - 2px) 0,calc(100% - 2px) 1px,100% 1px,100% calc(100% - 1px),calc(100% - 2px) calc(100% - 1px),calc(100% - 2px) 100%,2px 100%,2px calc(100% - 1px),0 calc(100% - 1px),0 1px,2px 1px); background:linear-gradient(#fff1b1 0 1px,#f4c354 1px 5px,#c78a29 5px); box-shadow:inset 0 0 0 1px #a46d22; }
 .treasure-chest-3d__cavity i:nth-of-type(1) { left:0; } .treasure-chest-3d__cavity i:nth-of-type(2) { left:7px; bottom:5px; } .treasure-chest-3d__cavity i:nth-of-type(3) { left:16px; bottom:1px; } .treasure-chest-3d__cavity i:nth-of-type(4) { left:25px; bottom:5px; } .treasure-chest-3d__cavity i:nth-of-type(5) { right:15px; bottom:1px; } .treasure-chest-3d__cavity i:nth-of-type(6) { right:7px; bottom:5px; } .treasure-chest-3d__cavity i:nth-of-type(7) { right:0; }
-.treasure-chest-3d__gem { position:absolute; left:27px; top:2px; width:7px; height:7px; transform:rotate(45deg); border:1px solid #267d72; background:#7ce0c7; box-shadow:inset 1px 1px #dbfff3; }
-.treasure-chest-3d__gem--ruby { left:43px; top:5px; width:6px; height:6px; border-color:#893320; background:#f07855; box-shadow:inset 1px 1px #ffd4b2; }
-.treasure-chest-3d__strap { position:absolute; top:0; bottom:0; width:7px; background:linear-gradient(to right,#8f5c21,#f3c563 35%,#cf8b2d 75%,#80521c); box-shadow:0 0 0 1px #72431b; }
-.treasure-chest-3d__strap--left { left:8px; } .treasure-chest-3d__strap--right { right:8px; }
-.treasure-chest-3d__strap::before, .treasure-chest-3d__strap::after { content:""; position:absolute; left:2px; width:2px; height:2px; background:#fff0b2; box-shadow:1px 1px #8a591e; }
-.treasure-chest-3d__strap::before { top:3px; } .treasure-chest-3d__strap::after { bottom:3px; }
-.treasure-chest-3d__lock { position:absolute; z-index:2; left:50%; top:-2px; width:12px; height:14px; transform:translateX(-50%); border:2px solid #4c2b12; background:linear-gradient(135deg,#fff0b2,#eab64f 55%,#bd7a23); box-shadow:0 1px #603b19,inset 0 1px #fff4bb; }
-.treasure-chest-3d__lock i { position:absolute; left:3px; top:4px; width:2px; height:4px; background:#533215; }
+.treasure-chest-3d__gem { position:absolute; left:24px; top:1px; width:11px; height:11px; }
+.treasure-chest-3d__gem--ruby { left:42px; top:4px; width:8px; height:8px; }
+.treasure-chest-3d__lock-flash { opacity:0; }
 .treasure-chest-3d__lid { left:0; top:0; width:68px; height:0; transform-style:preserve-3d; transform-origin:50% 0 0; transform:translateZ(-12px) rotateX(0deg); }
-.treasure-chest-3d--open .treasure-chest-3d__lid { animation:treasure-3d-open 1.25s cubic-bezier(.32,0,.2,1) both; }
-@keyframes treasure-3d-open { 0%,8% { transform:translateZ(-12px) rotateX(0deg); } 100% { transform:translateZ(-12px) rotateX(94deg); } }
+.treasure-chest-3d--open .treasure-chest-3d__lid { transform:translateZ(-12px) rotateX(94deg); }
 .treasure-chest-3d__lid-front, .treasure-chest-3d__lid-back { left:0; top:-16px; width:68px; height:16px; border:2px solid #4d2913; }
-.treasure-chest-3d__lid-front { transform:translateZ(24px); background:linear-gradient(90deg,#4b210b44,transparent 22%,transparent 78%,#4b210b44),linear-gradient(#e4a256 0 3px,#ae6129 3px 9px,#7c3b1a 9px 12px,#d6a148 12px); }
+.treasure-chest-3d__lid-front { transform:translateZ(24px); background:linear-gradient(90deg,#3c201d44,transparent 22%,transparent 78%,#3c201d44),linear-gradient(#c98340 0 3px,#a3582d 3px 8px,#713b25 8px 10px,#ad6d32 10px); }
 .treasure-chest-3d__lid-latch { position:absolute; left:50%; bottom:0; width:8px; height:4px; transform:translateX(-50%); border:1px solid #6c3e16; background:linear-gradient(#ffe4a0,#d19635); }
+.treasure-chest-3d--open .treasure-chest-3d__lid-latch { transform:translate(-50%,-2px); }
 .treasure-chest-3d__lid-back { transform:translateZ(0); background:#73401c; }
 .treasure-chest-3d__lid-side { left:22px; top:-16px; width:24px; height:16px; border:2px solid #4d2913; background:#9d5a27; }
 .treasure-chest-3d__lid-side--left { transform:translateZ(12px) rotateY(90deg) translateZ(-34px); }
@@ -2441,9 +2438,40 @@ html[data-motion="reduced"] .chest-icon__shine { animation:none; opacity:1; }
 .treasure-chest-3d__lid-bottom { top:-12px; background:linear-gradient(90deg,transparent 0 15%,#c5934a 15% 20%,transparent 20% 80%,#c5934a 80% 85%,transparent 85%),repeating-linear-gradient(to bottom,#a76029 0 5px,#734019 5px 7px); box-shadow:inset 0 0 0 2px #e8bb70,inset 0 0 0 4px #75451f; }
 .treasure-chest-3d__body-anchor, .treasure-chest-3d__lid-anchor { left:50%; top:0; width:0; height:0; pointer-events:none; }
 .treasure-chest-3d__body-anchor { transform:translateZ(-12px); }
-@media (prefers-reduced-motion:reduce) { .treasure-chest-3d--open .treasure-chest-3d__lid { animation:none; transform:translateZ(-12px) rotateX(94deg); } .treasure-chest-3d--open .treasure-chest-3d__cavity::before { animation:none; opacity:1; } }
-html[data-motion="reduced"] .treasure-chest-3d--open .treasure-chest-3d__lid { animation:none; transform:translateZ(-12px) rotateX(94deg); }
-html[data-motion="reduced"] .treasure-chest-3d--open .treasure-chest-3d__cavity::before { animation:none; opacity:1; }
+/* Flat FX overlay: no opacity or filter is applied to a preserve-3d node. */
+.treasure-chest-3d__reveal { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.treasure-chest-3d__rays, .treasure-chest-3d__spark { opacity:0; transform-box:fill-box; }
+.treasure-chest-3d__rays { transform-origin:center bottom; }
+.treasure-chest-3d__spark { transform-origin:center; }
+.treasure-chest-3d__spark--left { --spark-x:18px; --spark-y:15px; --spark-delay:.43s; }
+.treasure-chest-3d__spark--center { --spark-x:0px; --spark-y:20px; --spark-delay:.5s; }
+.treasure-chest-3d__spark--right { --spark-x:-18px; --spark-y:13px; --spark-delay:.55s; }
+
+/* First the lock catches the light, then the lid opens and the loot rises.
+   Static open/closed poses above also cover the OS and in-game motion settings. */
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-motion="reduced"]) .chest-icon__shine { animation:chest-icon-sheen 4.6s ease-in-out infinite; }
+  html:not([data-motion="reduced"]) .treasure-chest-3d--open .treasure-chest-3d__lock-flash { animation:chest-unlock .34s ease-out both; }
+  html:not([data-motion="reduced"]) .treasure-chest-3d--open .treasure-chest-3d__lid-latch { animation:chest-latch-lift .17s ease-out both; }
+  html:not([data-motion="reduced"]) .treasure-chest-3d--open .treasure-chest-3d__lid { animation:treasure-3d-open 1.04s cubic-bezier(.34,.03,.15,1) .14s both; }
+  html:not([data-motion="reduced"]) .treasure-chest-3d--open .treasure-chest-3d__cavity::before { animation:chest-loot-light .86s ease-out .27s both; }
+  html:not([data-motion="reduced"]) .treasure-chest-3d__rays { animation:chest-reveal-rays .78s cubic-bezier(.18,.73,.32,1) .33s both; }
+  html:not([data-motion="reduced"]) .treasure-chest-3d__spark { animation:chest-spark-rise .64s cubic-bezier(.19,.7,.25,1) var(--spark-delay) both; }
+}
+@keyframes chest-unlock { 0%,100% { opacity:0; } 26% { opacity:1; } }
+@keyframes chest-latch-lift { from { transform:translateX(-50%); } to { transform:translate(-50%,-2px); } }
+@keyframes treasure-3d-open {
+  from { transform:translateZ(-12px) rotateX(0deg); }
+  to { transform:translateZ(-12px) rotateX(94deg); }
+}
+@keyframes chest-loot-light { from { opacity:0; } 38% { opacity:.63; } to { opacity:.32; } }
+@keyframes chest-reveal-rays { from { opacity:0; transform:scaleY(.25); } 32% { opacity:.73; } to { opacity:0; transform:scaleY(1); } }
+@keyframes chest-spark-rise {
+  from { opacity:0; transform:translate(var(--spark-x),var(--spark-y)) scale(.48); }
+  32% { opacity:1; }
+  68% { opacity:.83; }
+  to { opacity:0; transform:translate(0,-3px) scale(1); }
+}
 .pixel-treasure { display:block; flex:none; width:76px; height:76px; overflow:visible; image-rendering:pixelated; }
 .pixel-treasure__loot { opacity:0; }
 .pixel-treasure--open .pixel-treasure__loot { animation:pixel-treasure-loot 420ms steps(3,end) 400ms forwards; }
@@ -3284,3 +3312,102 @@ html, body, #root { max-width: 100%; overflow-x: clip; }
   .advanced-ui .shop-grid > button { min-height: 116px; }
   .advanced-ui .action-bar { padding: 10px 14px 12px; }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   COLONY BONDS strip (v0.8)
+   A slim row between the command deck and the 3D stage. It owns its own
+   height, so no chip ever sits on a tile, health bar or commander.
+   ───────────────────────────────────────────────────────────── */
+.bonds-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 4px 8px;
+  border-top: 1px solid #2a2018;
+  border-bottom: 1px solid #2a2018;
+  background: #110c09;
+}
+.bonds-bar__cap { flex-shrink: 0; font-size: 6.5px; color: #8c7e6e; }
+.bonds-bar__chips { display: flex; flex: 1; min-width: 0; gap: 5px; }
+.bond-chip {
+  --bond: #f0a93b;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  min-height: 26px;
+  padding: 2px 7px;
+  border: 1px solid #3b322a;
+  background: #18120e;
+  color: #8c7e6e;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.bond-chip:hover { border-color: #6b4b24; }
+.bond-chip:focus-visible { outline: 2px solid #f0a93b; outline-offset: 1px; }
+.bond-chip[data-level="1"],
+.bond-chip[data-level="2"] {
+  border-color: color-mix(in srgb, var(--bond) 65%, #3b322a);
+  background: color-mix(in srgb, var(--bond) 10%, #18120e);
+  color: var(--bond);
+}
+.bond-chip[data-level="2"] {
+  border-color: var(--bond);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--bond) 30%, transparent), 0 0 10px color-mix(in srgb, var(--bond) 22%, transparent);
+}
+.bond-chip__glyph { display: grid; flex-shrink: 0; place-items: center; }
+.bond-chip__name { min-width: 0; overflow: hidden; font-size: 6.5px; text-overflow: ellipsis; white-space: nowrap; }
+.bond-chip__pips { display: flex; flex-shrink: 0; gap: 2px; }
+.bond-chip__pips i { width: 5px; height: 5px; border: 1px solid #4a3828; background: #2a2018; }
+.bond-chip__pips i[data-tier] { border-color: #7b6e5f; }
+.bond-chip__pips i[data-on] { border-color: var(--bond); background: var(--bond); }
+.bond-chip__fx {
+  flex-shrink: 0;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 9.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.bonds-bar__rival {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 5px;
+  padding-left: 7px;
+  border-left: 1px solid #2a2018;
+}
+.bonds-bar__rival-cap { font-size: 6px; color: #f05a36; }
+.bonds-bar__none { color: #6e6252; font-size: 10px; line-height: 1; }
+.bond-mini {
+  --bond: #f0a93b;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--bond);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 9px;
+  line-height: 1;
+}
+@media (max-width: 719px) {
+  /* Phones: glyph + pips/bonus only, three equal chips. In combat the row
+     steps aside so the battlefield keeps its height. */
+  .bonds-bar--combat { display: none; }
+  .bonds-bar { gap: 5px; padding: 2px 6px; }
+  .bond-chip { flex: 1 1 0; justify-content: center; gap: 4px; min-height: 24px; padding: 2px 4px; }
+  .bond-chip__name { display: none; }
+  .bond-chip[data-level="1"] .bond-chip__pips,
+  .bond-chip[data-level="2"] .bond-chip__pips { display: none; }
+  .bond-chip__fx { font-size: 9px; }
+}
+@media (max-width: 400px) {
+  .bonds-bar__cap, .bonds-bar__rival-cap { display: none; }
+  .bonds-bar__rival { padding-left: 5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bond-chip { transition: none; }
+}
+:root[data-motion="reduced"] .bond-chip { transition: none; }

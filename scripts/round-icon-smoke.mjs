@@ -8,11 +8,14 @@ const load = async name => {
   return import(`data:text/javascript;base64,${Buffer.from(output.contents).toString('base64')}`);
 };
 const icons = await load('round-icons');
-const {isAdvancedGameLocation} = await load('build-mode');
-for (const [pathname,search,expected] of [
+const {isAdvancedGameLocation, isTestBuildLocation} = await load('build-mode');
+for (const [pathname,search,testBanner] of [
   ['/','?advenced',true], ['/','?advenced=1',true], ['/preview/','',true],
   ['/','',false], ['/','?advanced',false], ['/advanced','',false],
-]) assert.equal(isAdvancedGameLocation({pathname,search}),expected,`${pathname}${search}`);
+]) {
+  assert.equal(isAdvancedGameLocation({pathname,search}),true,`same artwork at ${pathname}${search}`);
+  assert.equal(isTestBuildLocation({pathname,search}),testBanner,`banner at ${pathname}${search}`);
+}
 
 for (const [name,rows] of [['chest',icons.ADVANCED_CHEST_PIXELS], ['stag beetle',icons.ADVANCED_STAG_PIXELS]]) {
   assert.equal(rows.length,16);
@@ -83,7 +86,8 @@ try {
   await page.goto(base+'/');
   await page.getByRole('button',{name:'PLAY MATCH'}).tap();
   await page.getByRole('button',{name:'BEGIN ROUND 1'}).first().tap();
-  assert.equal(await page.locator('.round-track--advanced, [data-sprite="chest"], [data-sprite="stag"]').count(),0,'plain URL must not use test-build sprites');
+  assert.deepEqual(await page.locator('.round-track--compact svg').evaluateAll(svgs=>svgs.map(svg=>svg.dataset.sprite)),
+    ['chest','stag','stag','chest'],'the public route uses the same artwork as the test route');
   assert.deepEqual(errors,[]);
-  console.log('PASS shaded chest/stag pixel art, opt-in routing, accessible states and 6–7-cell layouts and health separation at 280–1280px');
+  console.log('PASS shaded chest/stag pixel art, shared artwork on both routes, accessible states and 6–7-cell layouts at 280–1280px');
 } finally {await browser.close();}

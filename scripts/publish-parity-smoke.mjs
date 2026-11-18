@@ -30,7 +30,7 @@ const countCode = (needle) => code.split(needle).length - 1;
 const occurrences = (haystack, needle) => haystack.split(needle).length - 1;
 assert.equal(countCode('npm run build'), 1, 'the publish script must build exactly one bundle');
 assert.equal(countCode('npm ci'), 1, 'the publish script must install exactly once');
-assert.equal(countCode('codeload.github.com'), 1, 'only the branch itself may be downloaded - no second, pinned build');
+assert.equal(countCode('codeload.github.com'), 1, 'only the deployed commit may be downloaded, not a second source tree');
 assert.doesNotMatch(script, /PUBLIC_COMMIT|723715b/, 'the old pinned public build is gone for good');
 for (const path of ['dist/preview', 'dist/advanced', 'dist/advenced']) {
   assert.ok(script.includes(path), `the publish script must still write ${path}`);

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { IconClose, IconGlobe, IconSettings } from "./CustomIcons";
-import { useSettings, type Lang } from "../i18n";
+import { fill, useSettings, type Lang } from "../i18n";
+import { playSfx, setSfxEnabled, setSfxVolume, useSfxSettings } from "../game/sfx";
+import { clearCareer, useCareer } from "../game/career";
 import { isAdvancedGameLocation } from "../game/build-mode";
 import type { RenderResolution } from "../game/render-quality";
 
@@ -32,6 +34,11 @@ type LockableOrientation = ScreenOrientation & { lock?: (orientation: "landscape
  */
 export function SettingsModal({ open, onClose }: Props) {
   const { lang, setLang, motion, setMotion, potato, setPotato, resolution, setResolution, background, setBackground, t } = useSettings();
+  const sfx = useSfxSettings();
+  const career = useCareer();
+  // Erasing the record takes two taps; closing the sheet disarms it.
+  const [confirmErase, setConfirmErase] = useState(false);
+  useEffect(() => { if (!open) setConfirmErase(false); }, [open]);
   const [fullscreen, setFullscreen] = useState(() => !!document.fullscreenElement);
   const [fullscreenError, setFullscreenError] = useState(false);
   const [sidewaysLocked, setSidewaysLocked] = useState(() => sidewaysSession.locked);
@@ -200,6 +207,56 @@ export function SettingsModal({ open, onClose }: Props) {
             })}
           </div>
 
+          {/* Sound (v0.8) — synthesised on the device, off by one tap */}
+          <div className="mt-4 mb-2 flex items-center gap-2">
+            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" className="text-[#F0A93B]">
+              <path d="M2 5h2.4L7.5 2.4v9.2L4.4 9H2Z" fill="currentColor" />
+              <path d="M9.4 4.6a3.4 3.4 0 0 1 0 4.8M11 3a5.6 5.6 0 0 1 0 8" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+            </svg>
+            <h3 className="label text-[8px] text-[#F0A93B]">{t("SOUND")}</h3>
+          </div>
+          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t("SOUND")}>
+            {([true, false] as const).map((option) => {
+              const on = sfx.enabled === option;
+              return (
+                <button
+                  key={String(option)}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => { setSfxEnabled(option); if (option) playSfx("select"); }}
+                  className={`lift min-h-[48px] border px-3 py-2 text-left font-mono text-[10px] ${
+                    on
+                      ? "border-[#F0A93B] bg-[#241B14] text-[#F0A93B] shadow-[0_0_0_1px_#F0A93B]"
+                      : "border-[#3B322A] bg-[#17110C] text-[#B3A594] hover:border-[#6B4B24]"
+                  }`}
+                >
+                  {option ? t("On — synthesized effects") : t("Off — silent")}
+                </button>
+              );
+            })}
+          </div>
+          <label className="mt-2 flex min-h-[44px] items-center gap-3 border border-[#3B322A] bg-[#17110C] px-3" style={{ opacity: sfx.enabled ? 1 : 0.5 }}>
+            <span className="label shrink-0 text-[7px] text-[#B3A594]">{t("VOLUME")}</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={Math.round(sfx.volume * 100)}
+              disabled={!sfx.enabled}
+              onChange={(e) => setSfxVolume(Number(e.target.value) / 100)}
+              onPointerUp={() => playSfx("buy")}
+              onKeyUp={() => playSfx("buy")}
+              aria-label={t("VOLUME")}
+              className="h-6 min-w-0 flex-1 accent-[#F0A93B]"
+            />
+            <output className="w-9 shrink-0 text-right font-mono text-[10px] tabular-nums text-[#EDE2CB]">{Math.round(sfx.volume * 100)}%</output>
+          </label>
+          <p className="mt-2 text-[10px] leading-snug text-[#7B6E5F]">
+            {t("All sounds are generated on your device — nothing is downloaded. Sound starts after your first tap.")}
+          </p>
+
           {advancedDoctor && <>
             <div className="mt-4 mb-2 flex items-center gap-2">
               <IconSettings size={13} className="text-[#56DCA8]" />
@@ -365,6 +422,32 @@ export function SettingsModal({ open, onClose }: Props) {
           <p className="mt-2 text-[10px] leading-snug text-[#7B6E5F]">
             {t(advancedDoctor ? "Scans touch, layout, chest alignment, Spider facing and rendering. Deep Scan watches for flashes, rotation and stalled animation; visual history records brief issues while enabled." : "Overlay that hunts unresponsive UI: tiny tap targets, covered buttons, clipped panels, and dropped frames. Shows an FPS meter and a copyable report.")}
           </p>
+
+          {/* Career record (v0.8) — stored on this device, erasable here */}
+          <div className="mt-4 mb-2 flex items-center gap-2">
+            <h3 className="label text-[8px] text-[#F0A93B]">{t("CAREER RECORD")}</h3>
+          </div>
+          <button
+            type="button"
+            disabled={career.matches === 0}
+            onClick={() => {
+              if (!confirmErase) return setConfirmErase(true);
+              clearCareer();
+              setConfirmErase(false);
+            }}
+            className={`min-h-[46px] w-full border px-3 py-2 text-left font-mono text-[10px] disabled:opacity-50 ${
+              confirmErase
+                ? "border-[#F05A36] bg-[#2A120C] text-[#FFB29E]"
+                : "border-[#3B322A] bg-[#17110C] text-[#B3A594] hover:border-[#6B4B24]"
+            }`}
+          >
+            {career.matches === 0
+              ? t("No finished matches yet")
+              : confirmErase
+                ? t("Tap again to erase the record")
+                : fill(t("Erase career record ({n} matches)"), { n: career.matches })}
+          </button>
+          <p className="mt-2 text-[10px] leading-snug text-[#7B6E5F]">{t("Saved on this device only.")}</p>
         </div>
 
         <div className="border-t border-[#3B322A] p-3">

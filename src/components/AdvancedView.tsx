@@ -156,7 +156,7 @@ export function AdvancedView({ onExit }: { onExit: () => void }) {
           <section className="mt-3 flex-1 space-y-2 font-mono text-[10.5px] text-[#B3A594]">
             <div className="border border-[#2D231B] bg-[#14100C] p-3 leading-relaxed">
               <div>{t("version")}: <b className="text-[#F0A93B]">{GAME_INFO.version}</b></div>
-              <div>{t("built")}: <b className="text-[#F0A93B]">{__BUILD_TIME__}</b></div>
+              <div>{t("built")}: <b className="text-[#F0A93B]">{typeof __BUILD_TIME__ === "string" ? __BUILD_TIME__ : "dev"}</b></div>
               <div className="mt-1.5">
                 {t("board")}: {BOARD_SLOTS} ({MAX_FIELD_SIZE} {t("max line")}) · {t("bench")}: {BENCH_SIZE} · {t("start HP")}: {STARTING_COLONY_HP}
               </div>

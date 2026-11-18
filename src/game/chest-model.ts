@@ -4,13 +4,14 @@ import { createChestGeometry } from "./treasure-voxel";
 const clamp = (n: number) => Math.max(0, Math.min(1, n));
 const smooth = (n: number) => { const t = clamp(n); return t * t * t * (t * (t * 6 - 15) + 10); };
 
-/** A smooth, eased hinge, with a small damped settle after the lid opens. */
+/** Release the lock, ease the attached lid into place, then let the brief
+ * treasure flare settle to a warm idle glow without a continuing pulse. */
 export function sampleChestOpening(progress: number) {
   const p = clamp(progress);
-  const opening = smooth((p - 0.08) / 0.72);
-  const settleT = Math.max(0, p - 0.68);
-  const settle = 0.035 * Math.sin(settleT * 20) * Math.exp(-settleT * 8) * smooth(settleT / 0.10) * (1 - smooth((p - 0.93) / 0.07));
-  return { angle: -1.52 * (opening + settle), glow: smooth((p - 0.2) / 0.55) };
+  const opening = smooth((p - 0.10) / 0.78);
+  const reveal = smooth((p - 0.24) / 0.28);
+  const settle = smooth((p - 0.52) / 0.43);
+  return { angle: -1.52 * opening, glow: reveal * (1 - 0.58 * settle) };
 }
 
 /** The battlefield model echoes the full, hinged reward-card chest. */
@@ -63,7 +64,11 @@ export function createDetailedChest() {
   function update(progress: number) {
     const sample = sampleChestOpening(progress);
     lid.rotation.x = sample.angle;
+    glow.visible = sample.glow > 0;
     glowMat.opacity = sample.glow * .25;
+    coinMat.emissiveIntensity = .32 + sample.glow * .36;
+    gemMat.emissiveIntensity = .45 + sample.glow * .55;
+    rubyMat.emissiveIntensity = .45 + sample.glow * .45;
   }
   const inspect = () => {
     const bounds = body.geometry.boundingBox!;

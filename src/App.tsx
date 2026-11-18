@@ -2,6 +2,7 @@ import { ADVANCED_CHEST_PATHS, ADVANCED_STAG_PATHS, CHEST_PATH, CHEST_VIEWBOX, S
 import { isAdvancedGameLocation, isTestBuildLocation } from "./game/build-mode";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Scene3D } from "./components/Scene3D";
+import { ChestIcon } from "./components/ChestIcon";
 import { TreasureChest3D } from "./components/TreasureChest3D";
 import { PatchNotesModal } from "./components/PatchNotesModal";
 import { warmRoster } from "./game/voxel";
@@ -15,6 +16,11 @@ import { SettingsModal } from "./components/SettingsModal";
 import { UiDoctor } from "./components/UiDoctor";
 import { AdvancedView, DEV_BUILD } from "./components/AdvancedView";
 import { fill, useSettings } from "./i18n";
+import { BONDS, NO_BONDS, ROLE_ORDER, bondCounts, bondLevels, bondPercent, roleOf } from "./game/bonds";
+import { BondsBar } from "./components/BondsBar";
+import { CareerPanel } from "./components/CareerPanel";
+import { saveMatch, type RecordOutcome } from "./game/career";
+import { msSinceLastSfx, playSfx, sfxForPop } from "./game/sfx";
 import {
   IconPlay,
   IconArrowRight,
@@ -147,30 +153,6 @@ interface Report {
   treasure?: 1 | 4 | null;
   rewards?: BugId[];
   treasureGold?: number;
-}
-
-function ChestIcon({ size = 24, advanced = false }: { size?: number; advanced?: boolean }) {
-  if (advanced) return <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" shapeRendering="crispEdges" className="chest-icon chest-icon--advanced">
-    {/* Symmetric, front-facing curved lid, oak boards and engraved brass. */}
-    <path fill="#29180f" d="M2 15h2v-4h2V8h2V6h3V4h10v2h3v2h2v3h2v4h2v11h-2v3H4v-3H2z" />
-    <path fill="#673419" d="M4 15v-3h2V9h2V7h3V5h10v2h3v2h2v3h2v3z" />
-    <path data-chest-dome fill="#b96b2b" d="M6 13v-2h2V9h2V6h12v3h2v2h2v2z" />
-    <path fill="#e5a14b" d="M11 6h10v1H11zM9 8h14v1H9z" />
-    <path fill="#d99143" d="M10 8h12v1H10zM8 10h16v1H8zM6 13h20v1H6z" />
-    <path fill="#8a451f" d="M4 16h24v11H4z" />
-    <path fill="#c27231" d="M5 17h22v3H5zM5 22h22v3H5z" />
-    <path fill="#6b3418" d="M5 20h22v2H5zM5 25h22v1H5z" />
-    <path data-chest-grain fill="#eb9b49" d="M11 11h3v1h-3zM18 11h3v1h-3zM11 17h3v1h-3zM18 17h3v1h-3zM11 22h3v1h-3zM18 22h3v1h-3z" />
-    <path fill="#713719" d="M12 19h3v1h-3zM17 19h3v1h-3zM12 24h3v1h-3zM17 24h3v1h-3z" />
-    <path data-chest-corners fill="#c58a34" d="M4 22h2v3h3v2H4zM26 22h2v5h-5v-2h3z" />
-    <path data-chest-emblem fill="#f4c462" d="M15 22h2v1h1v1h-1v1h-2v-1h-1v-1h1z" />
-    <path fill="#9f671f" d="M7 9h4v17H7zM21 9h4v17h-4zM4 14h24v3H4zM4 25h24v2H4z" />
-    <path fill="#e4a846" d="M8 9h2v5H8zM22 9h2v5h-2zM8 17h2v8H8zM22 17h2v8h-2zM5 15h22v1H5zM5 25h22v1H5z" />
-    <path className="chest-icon__shine" fill="#ffe39b" d="M9 9h1v4H9zM22 9h1v4h-1zM9 17h1v7H9zM22 17h1v7h-1zM6 15h20v1H6z" />
-    <path data-chest-lock fill="#40240f" d="M12 13h8v8h-8z" /><path fill="#f7cb69" d="M13 14h6v6h-6z" /><path fill="#fff0b5" d="M14 14h4v1h-4z" /><path fill="#693c18" d="M15 16h2v2h-2zM15 18h2v1h-2z" />
-    <path fill="#fff0b5" d="M8 19h1v1H8zM23 19h1v1h-1zM8 23h1v1H8zM23 23h1v1h-1zM5 25h1v1H5zM26 25h1v1h-1z" />
-  </svg>;
-  return <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" shapeRendering="crispEdges"><path fill="#3b2112" d="M2 4h12v2h1v8H1V6h1z"/><path fill="#a9692e" d="M3 5h10v3H3zM2 9h12v4H2z"/><path fill="#f1bb4c" d="M3 4h10v1H3zM2 8h12v1H2zM7 9h2v3H7z"/></svg>;
 }
 
 /** Hand-drawn low-resolution pixel sprites; lid and loot snap between
@@ -374,6 +356,51 @@ export default function App() {
     toastTimer.current = window.setTimeout(() => setToast(""), 2200);
   }, [t]);
 
+  /* ── Colony Bonds (v0.8) ─────────────────────────────────────
+     Role synergies counted from the fielded line. The same bondLevels()
+     the engine calls in createBattle, so the strip can never disagree
+     with the fight. */
+  const bondCountsNow = useMemo(() => bondCounts(boardUnits.map((u) => u.bugId)), [boardUnits]);
+  const bonds = useMemo(() => bondLevels(boardUnits.map((u) => u.bugId)), [boardUnits]);
+  // The rival's line-up for this round is already decided, so its bonds are
+  // honest scouting intel rather than a guess.
+  const rivalBonds = useMemo(() => {
+    if (!roundFixture) return null;
+    // Treasure guards are neutral: fixed stats, no bonds (see treasure.ts).
+    if (treasure) return NO_BONDS;
+    return bondLevels(makeFoeTeam(foeIdx, round).map((u) => u.bugId));
+  }, [roundFixture, treasure, round, foeIdx]);
+  const prevBonds = useRef(bonds);
+  useEffect(() => {
+    const prev = prevBonds.current;
+    prevBonds.current = bonds;
+    if (phase !== "prep") return;
+    const role = ROLE_ORDER.find((r) => bonds[r] > prev[r]);
+    if (!role) return;
+    playSfx("bond");
+    say(tf("{name} {tier} ACTIVE — {effect}", {
+      name: t(BONDS[role].name).toUpperCase(),
+      tier: bonds[role] === 2 ? "II" : "I",
+      effect: tf(BONDS[role].effect, { n: bondPercent(role, bonds[role]) }).toUpperCase(),
+    }), "good");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bonds]);
+
+  /* ── Career record (v0.8): per-match counters, written once at the end. */
+  const matchStats = useRef({ roundsWon: 0, bestStreak: 0, recorded: false });
+  const [careerNote, setCareerNote] = useState<RecordOutcome | null>(null);
+
+  /* A soft tick for any button that did not already make its own sound. */
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (!el?.closest?.("button, [role='button'], [role='radio'], [role='tab'], a[href]")) return;
+      if (msSinceLastSfx() > 60) playSfx("click");
+    };
+    window.addEventListener("click", onClick);
+    return () => window.removeEventListener("click", onClick);
+  }, []);
+
   /** Flash the gold counter whenever the balance moves. */
   const [goldFlash, setGoldFlash] = useState(0);
   const lastGold = useRef(gold);
@@ -417,7 +444,7 @@ export default function App() {
     const id = shop[idx];
     if (!id) return;
     const cost = BUGS[id].cost;
-    if (gold < cost) return say("NOT ENOUGH GOLD");
+    if (gold < cost) { playSfx("deny"); return say("NOT ENOUGH GOLD"); }
 
     // Allow buying even when bench is full IF buying immediately moults 2 bench copies!
     const used = new Set(units.filter((u) => u.zone === "bench").map((u) => u.slot));
@@ -429,7 +456,7 @@ export default function App() {
       }
     }
     const willMoult = ownedCounts[id].s1 >= 2;
-    if (free < 0 && !willMoult) return say("BENCH IS FULL");
+    if (free < 0 && !willMoult) { playSfx("deny"); return say("BENCH IS FULL"); }
 
     const nu: PrepUnit = { uid: nextUid(), bugId: id, star: 1, zone: "bench", slot: Math.max(0, free) };
     const { out, moulted } = combine([...units, nu]);
@@ -437,22 +464,26 @@ export default function App() {
     setGold((g) => g - cost);
     setShop((s) => s.map((v, i) => (i === idx ? null : v)));
     if (moulted) {
+      playSfx("merge");
       setSelected(moulted.uid);
       say(tf("MOULTED! {name} ({star}-STAR)", { name: BUGS[moulted.bugId].short, star: moulted.star }), "good");
     } else {
+      playSfx("buy");
       setSelected(nu.uid);
     }
   };
 
   const reroll = () => {
-    if (gold < 2) return say("NOT ENOUGH GOLD");
+    if (gold < 2) { playSfx("deny"); return say("NOT ENOUGH GOLD"); }
+    playSfx("reroll");
     setGold((g) => g - 2);
     setShop(rollShop());
     if (shopLocked) setShopLocked(false); // rerolling obviously releases the lock
   };
 
   const toggleLock = () => {
-    if (!shopLocked && !shop.some((x) => x !== null)) return say("NOTHING LEFT TO HOLD");
+    if (!shopLocked && !shop.some((x) => x !== null)) { playSfx("deny"); return say("NOTHING LEFT TO HOLD"); }
+    playSfx("lock");
     setShopLocked((v) => {
       say(v ? "SHOP UNLOCKED" : "SHOP HELD FOR NEXT DRAWER");
       return !v;
@@ -461,8 +492,9 @@ export default function App() {
 
 
   const levelUp = () => {
-    if (level >= MAX_FIELD_SIZE) return say("MAX LINE SIZE");
-    if (gold < levelCost) return say("NOT ENOUGH GOLD", "warn");
+    if (level >= MAX_FIELD_SIZE) { playSfx("deny"); return say("MAX LINE SIZE"); }
+    if (gold < levelCost) { playSfx("deny"); return say("NOT ENOUGH GOLD", "warn"); }
+    playSfx("levelup");
     setGold((g) => g - levelCost);
     setLevel((l) => l + 1);
     say(tf("LINE SIZE {n}", { n: level + 1 }), "good");
@@ -474,6 +506,7 @@ export default function App() {
     if (uid == null) return;
     const u = units.find((x) => x.uid === uid);
     if (!u) return;
+    playSfx("sell");
     setGold((g) => g + sellValue(u));
     setUnits((l) => l.filter((x) => x.uid !== u.uid));
     if (selected === u.uid) setSelected(null);
@@ -485,7 +518,7 @@ export default function App() {
 
     // Touch forgiveness: if nothing selected and user taps an occupied tile, select that bug!
     if (selected == null) {
-      if (occupant) setSelected(occupant.uid);
+      if (occupant) { playSfx("select"); setSelected(occupant.uid); }
       else say("TAP A BENCH BUG TO DEPLOY IT — TAP A BOARD BUG TO MOVE IT");
       return;
     }
@@ -497,8 +530,10 @@ export default function App() {
       return;
     }
     if (u.zone === "bench" && !occupant && boardUnits.length >= level) {
+      playSfx("deny");
       return say(tf("LINE FULL ({a}/{b}) — TAP A BUG TO SWAP", { a: level, b: level }));
     }
+    playSfx("deploy");
     setUnits((l) =>
       l.map((x) => {
         if (x.uid === u.uid) return { ...x, zone: "board" as const, slot };
@@ -510,6 +545,7 @@ export default function App() {
 
   const onUnit = (uid: number) => {
     if (phase !== "prep") return;
+    playSfx("select");
     setSelected((s) => (s === uid ? null : uid));
   };
 
@@ -538,6 +574,7 @@ export default function App() {
       placed++;
     }
     if (placed > 0) {
+      playSfx("deploy");
       setBenchInspectMode(false);
       setUnits(nextUnits);
       say(tf("DEPLOYED {n} SPECIMENS", { n: placed }), "good");
@@ -580,6 +617,7 @@ export default function App() {
       if (boardUnits.length < level) {
         const slot = smartSlotFor(occupant.bugId, units);
         if (slot >= 0) {
+          playSfx("deploy");
           setUnits((l) => l.map((x) => (x.uid === occupant.uid ? { ...x, zone: "board" as const, slot } : x)));
           setSelected(null);
           say(tf("{name} DEPLOYED — TAP IT ON THE BOARD TO REPOSITION", { name: t(BUGS[occupant.bugId].name).toUpperCase() }), "good");
@@ -643,6 +681,7 @@ export default function App() {
     setScouting(false); // the lineup panel is a prep tool — close it for the fight
     setSimLive(false);
     setPhase("battle");
+    playSfx("engage");
   };
 
   useEffect(() => {
@@ -651,6 +690,9 @@ export default function App() {
     let acc = 0;
     let last = performance.now();
     let lastHudBucket = -1;
+    // Battle audio rides the pop-up stream the engine already emits: each
+    // new pop id is voiced once (the cue itself is rate-limited in sfx.ts).
+    let lastPopId = 0;
 
     const loop = (now: number) => {
       const dt = Math.min(350, now - last);
@@ -663,6 +705,12 @@ export default function App() {
         while (acc >= stepMs && guard++ < 14 && !cur.over) {
           acc -= stepMs;
           stepBattle(cur, 0.1);
+        }
+        for (const p of cur.pops) {
+          if (p.id > lastPopId) {
+            lastPopId = p.id;
+            playSfx(sfxForPop(p.kind, p.text));
+          }
         }
         const bucket = Math.floor(cur.t * 4);
         if (cur.over || bucket !== lastHudBucket) {
@@ -712,6 +760,24 @@ export default function App() {
     const dealt = win ? base : 0;
     const taken = win ? 0 : base;
     setStreak(nextStreak);
+
+    // Career record: count the round, and write the match the moment the
+    // player's final place is known (pinned or crowned) — exactly once.
+    const stats = matchStats.current;
+    if (win) stats.roundsWon += 1;
+    stats.bestStreak = Math.max(stats.bestStreak, nextStreak);
+    const finalPlace = updated.colonies.find((c) => c.id === PLAYER_ID)?.place ?? null;
+    if (finalPlace !== null && !stats.recorded) {
+      stats.recorded = true;
+      setCareerNote(saveMatch({
+        place: finalPlace,
+        commander: cmd ?? "matriarch",
+        roundsPlayed: match.round + 1,
+        roundsWon: stats.roundsWon,
+        bestStreak: stats.bestStreak,
+      }));
+    }
+    playSfx(updated.winnerId === PLAYER_ID ? "champion" : finalPlace !== null ? "eliminated" : win ? "win" : "lose");
     setLog((l) =>
       [
         tf(win ? (duel.echo ? "WON vs {foe} (ECHO) — {a} of yours left, {b} of theirs" : "WON vs {foe} — {a} of yours left, {b} of theirs") : duel.echo ? "LOST vs {foe} (ECHO) — {a} of yours left, {b} of theirs" : "LOST vs {foe} — {a} of yours left, {b} of theirs", { foe: BOTS[foeIdx].short, a: surv("ally"), b: surv("foe") }),
@@ -803,6 +869,8 @@ export default function App() {
     setBattleSnap(null);
     setReport(null);
     setSelected(null);
+    matchStats.current = { roundsWon: 0, bestStreak: 0, recorded: false };
+    setCareerNote(null);
     // speed preference deliberately persists across restarts (QOL)
   };
 
@@ -1177,11 +1245,13 @@ export default function App() {
       else if (k === "a") { autoFillLine(); e.preventDefault(); }
       else if (k === " " || k === "enter") { engage(); e.preventDefault(); }
       else if (k >= "1" && k <= "5") { buy(Number(k) - 1); e.preventDefault(); }
+      // v0.8: sell the selected bug without reaching for the button
+      else if (k === "e" && selected != null) { sell(); e.preventDefault(); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, gold, shop, units, level, boardUnits.length, benchUnits.length, shopLocked, cmd, round, foeIdx, settingsOpen, guideOpen, patchOpen, adminOpen]);
+  }, [phase, gold, shop, units, level, boardUnits.length, benchUnits.length, shopLocked, cmd, round, foeIdx, selected, settingsOpen, guideOpen, patchOpen, adminOpen]);
   const canDeployMore = useMemo(() => {
     if (!sel) return boardUnits.length < level;
     if (sel.zone === "board") return true;
@@ -1422,6 +1492,9 @@ export default function App() {
                   </span>
                 ))}
               </div>
+
+              {/* Lifetime record — appears once a match has been finished */}
+              <CareerPanel variant="strip" />
 
               {/* Primary CTA Row */}
               <div className="hero-actions safe-b mt-5 flex w-full flex-col gap-2.5 sm:flex-row sm:w-auto">
@@ -1747,6 +1820,8 @@ export default function App() {
               ))}
             </ol>
 
+            <CareerPanel variant="card" note={careerNote} />
+
             <button
               onClick={restart}
               className="lift mt-6 w-full border-2 border-[#56DCA8] bg-[#1F7A5A] py-3.5 font-pixel text-[12px] text-[#090604] shadow-[0_5px_0_#0D3B2A]"
@@ -1771,6 +1846,13 @@ export default function App() {
      ════════════════════════════════════════════════════════════ */
   const interestNext = Math.min(5, Math.floor(gold / 10));
   const inCombat = phase === "battle" || phase === "result";
+  // Inspector stats come from the same battleStats() the engine uses. A bug
+  // on the bench is not fielded, so it shows no bond bonus until deployed.
+  const selStats = sel
+    ? battleStats(sel.bugId, sel.star, cmd ?? "matriarch", sel.zone === "board" ? bonds : NO_BONDS)
+    : null;
+  const selRole = sel ? roleOf(sel.bugId) : null;
+  const selBondLevel = sel && selRole && sel.zone === "board" ? bonds[selRole] : 0;
   const allyLiveHp = battleSnap
     ? battleSnap.units.filter((u) => u.side === "ally").reduce((n, u) => n + Math.max(0, u.hp), 0)
     : 1;
@@ -1834,7 +1916,7 @@ export default function App() {
                   <span className="label hidden text-[7px] text-[#56DCA8] min-[420px]:inline">{t("YOU")}</span>
                   <span className="vs-word">VS</span>
                   <span className="label max-w-[16ch] truncate text-[7px] text-[#F05A36]">{treasure ? t("TREASURE GUARDS") : foe.short}</span>
-                  {treasure ? <ChestIcon size={advancedGame ? 28 : 24} advanced={advancedGame} /> : <SpecimenIcon id={foe.cmd} size={24} badge="none" />}
+                  {treasure ? <ChestIcon /> : <SpecimenIcon id={foe.cmd} size={24} badge="none" />}
                 </div>
               ) : (
                 <button
@@ -1849,7 +1931,7 @@ export default function App() {
                   <span className="label hidden text-[7px] text-[#56DCA8] min-[420px]:inline">{t("YOU")}</span>
                   <span className="vs-word">VS</span>
                   <span className="label max-w-[16ch] truncate text-[7px] text-[#F05A36]">{treasure ? t("TREASURE GUARDS") : foe.short}</span>
-                  {treasure ? <ChestIcon size={advancedGame ? 28 : 24} advanced={advancedGame} /> : <SpecimenIcon id={foe.cmd} size={24} badge="none" />}
+                  {treasure ? <ChestIcon /> : <SpecimenIcon id={foe.cmd} size={24} badge="none" />}
                   <IconScout size={11} className={`vs-scout-ico shrink-0 ${scouting ? "text-[#F05A36]" : "text-[#8C7E6E]"}`} />
                 </button>
               )}
@@ -1999,6 +2081,17 @@ export default function App() {
 
           </div>
 
+          {/* Colony Bonds (v0.8): your role synergies + the rival line's.
+              A slim row of its own, so nothing sits on top of the board. */}
+          {hp > 0 && (
+            <BondsBar
+              counts={bondCountsNow}
+              rival={inCombat ? battleSnap?.bondsB ?? rivalBonds : rivalBonds}
+              onInfo={() => setGuideOpen(true)}
+              className={inCombat ? "bonds-bar--combat" : ""}
+            />
+          )}
+
           {/* 3D Specimen Drawer Viewport (Fills Flexible Height!) */}
           <div className="battle-stage relative min-h-[235px] flex-1 bg-[#0D0907] min-[720px]:min-h-[175px]">
             {/* Compact unit controls stay over the upper board, away from the ladder. */}
@@ -2015,7 +2108,7 @@ export default function App() {
                     </span>
                   </div>
                   <div className="label truncate text-[7px] text-[#56DCA8]">
-                    HP {battleStats(sel.bugId, sel.star, cmd ?? "matriarch").hp} · ATK {battleStats(sel.bugId, sel.star, cmd ?? "matriarch").atk} ·{" "}
+                    HP {selStats?.hp} · ATK {selStats?.atk} ·{" "}
                     {selSkillUnlocked ? t(BUGS[sel.bugId].skill.name) : t("NO SKILL")}
                   </div>
                   {BUGS[sel.bugId].passive && (
@@ -2098,7 +2191,7 @@ export default function App() {
                 the stage stays clean mid-fight */}
             {!sel && !treasure && (
               <div className={`pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-2 border border-[#3B322A]/90 bg-[#120D09]/90 px-2 py-1 ${inCombat ? "hidden min-[720px]:flex" : ""}`}>
-                {treasure ? <ChestIcon size={30} advanced={advancedGame} /> : <><SpecimenIcon id={foe.cmd} size={30} badge="none" /><RankBadge id={foe.cmd} size={14} /></>}
+                {treasure ? <ChestIcon size={30} /> : <><SpecimenIcon id={foe.cmd} size={30} badge="none" /><RankBadge id={foe.cmd} size={14} /></>}
                 <div className="leading-tight">
                   <div className="label text-[7px] text-[#F0A93B]">
                     {inCombat ? t("FIGHTING") : "VS"} {treasure ? t("TREASURE GUARDS") : foe.name}{(phase === "result" ? report?.echo : roundFixture?.echo) ? " / ECHO" : ""}
@@ -2139,9 +2232,13 @@ export default function App() {
                   </div>
                   <div className="latin text-[12.5px] text-[#56DCA8]">{BUGS[sel.bugId].latin}</div>
                   <div className="label mt-1 text-[7.5px] text-[#B3A594]">
-                    {t(BUGS[sel.bugId].role)} · HP {battleStats(sel.bugId, sel.star, cmd ?? "matriarch").hp} · ATK{" "}
-                    {battleStats(sel.bugId, sel.star, cmd ?? "matriarch").atk}
+                    {t(BUGS[sel.bugId].role)} · HP {selStats?.hp} · ATK {selStats?.atk}
                   </div>
+                  {selRole && selBondLevel > 0 && (
+                    <div className="label mt-1 text-[7px]" style={{ color: BONDS[selRole].accent }}>
+                      {t(BONDS[selRole].name)} {selBondLevel === 2 ? "II" : "I"} · {tf(BONDS[selRole].effect, { n: bondPercent(selRole, selBondLevel) })}
+                    </div>
+                  )}
                   <p className="mt-1 text-[11px] leading-snug text-[#9C8F7E]">
                     <span className="label mr-1 text-[7.5px] text-[#F0A93B]">
                       {selSkillUnlocked ? `${t(BUGS[sel.bugId].skill.name)}:` : `${t("NO SKILL")}:`}
@@ -2703,7 +2800,7 @@ export default function App() {
       {(simLive || fightHasRoar.current) && fightFlash > 0 && phase === "battle" && (
         <div key={fightFlash} className="fight-flare pointer-events-none fixed inset-0 z-30 grid place-items-center" aria-hidden="true">
           <div className="fight-banner" data-treasure={treasure ? "1" : "0"}>
-            <div className="fight-banner__crest">{treasure ? <ChestIcon size={27} advanced={advancedGame} /> : <IconClash size={23} />}</div>
+            <div className="fight-banner__crest">{treasure ? <ChestIcon size={27} /> : <IconClash size={23} />}</div>
             <span className="fight-flare__round label">{tf("PERIOD {p} · ROUND {n}/{total}", { p: period.period, n: period.round, total: period.length })}</span>
             <span className="fight-flare__word font-pixel">{treasure ? t("TREASURE") : t("FIGHT")}</span>
             <span className="fight-banner__sub label">{treasure ? t("DEFEAT THE GUARDS") : t("COLONY CLASH")}</span>

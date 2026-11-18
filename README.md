@@ -5,9 +5,9 @@ Choose a bug commander, recruit and evolve your army, and fight until only one c
 
 ## ▶ Just want to play?
 
-Open **`Smart-Bugs-RUN-DIRECTLY.html`** in any browser (double-click it).
-Everything — React, Three.js, CSS, fonts, game code — is bundled inside that one file.
-No server, no npm, no internet needed.
+Play the latest release at **[smart-bugs.vercel.app](https://smart-bugs.vercel.app/)**.
+To play offline, generate `Smart-Bugs-RUN-DIRECTLY.html` using the steps below,
+then open that file in a browser.
 
 ## 🛠 Develop / import the project
 
@@ -32,6 +32,78 @@ re-embeds them and checks that the UI copy still has every glyph it needs:
 ```bash
 python3 scripts/make-direct.py --reuse-fonts=Smart-Bugs-RUN-DIRECTLY.html
 ```
+
+## 🧬 v0.8 — Colony Bonds, fair initiative, sound, career record
+
+### Colony Bonds (role synergies)
+
+Every bug already had a role that did nothing mechanically. Now fielding **2** bugs of
+one role activates its bond and **4** activates the stronger tier. Counting is per
+fielded bug, not per species (two Stag Beetles are two Frontline bugs), and a bond only
+strengthens bugs of its own role.
+
+| Bond | Role | 2 fielded | 4 fielded |
+|---|---|---|---|
+| Shield Wall | Frontline (Stag Beetle, Spider) | +12% max HP | +25% max HP |
+| Battery | Artillery (Bombardier) | +15% ATK | +30% ATK |
+| Ambush | Assassin (Mantis, Dragonfly) | attack delay −10% | attack delay −20% |
+
+- Bonds go through `battleStats()` in `src/game/engine.ts`, the same single source the
+  commander bonus uses, so the inspector still shows exactly what a fielded bug brings
+  to the fight. "Damage = ATK, exactly" is unchanged: bonds move stats, never a hit.
+- `createBattle()` counts both lines with the same `bondLevels()`, so rival colonies
+  earn bonds from their own line-ups. Treasure guards stay neutral (fixed stats, no bond).
+- The strip under the command deck shows your three bonds (pips, live bonus) and the
+  active bonds of the line you are about to face. Definitions live in `src/game/bonds.ts`.
+- Attack delay is resolved on the engine's 0.1s tick, so Ambush shortens a Mantis's
+  swing from 11 ticks to 10 (tier I) or 9 (tier II).
+
+### Fair initiative
+
+Units used to act in array order, so the ally line always moved and struck first inside
+a tick. Measured over mirror matches (identical line-ups on both sides, no bonds), the
+ally side won between 42% and 81% depending on the line-up instead of 50%. Strictly
+alternating the order did not fix it (a 3-Mantis mirror went to 0%), because the tick
+on which two lines meet has a fixed parity. Initiative is now a coin flip per tick;
+mirror matches measure 46–54% over 500–600 fights each. Two consequences worth knowing:
+close fights are slightly harder for the player than in v0.7, and simulated
+rival-vs-rival duels no longer favour the colony listed first.
+
+### Sound
+
+The game shipped silent. `src/game/sfx.ts` synthesises every cue with WebAudio at play
+time (no audio files, nothing fetched, the single-file build stays single-file). Battle
+audio is driven by the pop-up stream the engine already emits. Cues are rate-limited per
+name and voice-capped. Settings → **SOUND** has an on/off switch and a volume slider;
+audio starts only after the first tap or keypress (browser autoplay policy).
+
+### Career record
+
+Finished matches are kept in `localStorage` (`smartbugs.career`): matches, titles,
+podiums, best finish, longest win streak, round win rate and a per-commander tally. A
+match is written once, when your final place is known; abandoned matches are not
+counted. It shows on the main menu and the final standings, and Settings can erase it.
+
+### Also
+
+- `E` sells the selected bug during prep.
+- `__BUILD_TIME__` on the `/advanced` page falls back to `dev` when the build does not
+  define it, instead of throwing.
+
+```bash
+node scripts/bonds-smoke.mjs   # bonds, neutral guards, mirror-match fairness, career, translations
+
+# Browser check (needs a Chromium executable and playwright-core, like the other visual scripts):
+npm run build && npx vite preview --port 4173 &
+CHROMIUM_PATH=/path/to/chromium node scripts/v08-browser-smoke.mjs
+```
+
+The browser check drives the real build with key presses: it recruits five Stag Beetles
+and asserts the line produces exactly Shield Wall I, fights a live battle and confirms it
+was voiced, flips the sound switch, checks the bonds strip fits at 1280, 390 and 360px
+(the last in Bahasa Indonesia), then loses a whole match to prove the career record is
+written once and shown on the final standings and the main menu. `SHOTS=dir` keeps
+screenshots of every stage.
 
 ## 📊 Damage Shower — the in-battle damage chart
 
@@ -170,35 +242,27 @@ For development you can also just run `npm run dev` / `npm run build` as above.
 **Policy: every update published to the advanced/test server is published to the
 original server in the same build.** No release ever lands on only one of them.
 
-`smart-bugs.vercel.app` and `smart-bugs.vercel.app/?advenced` serve the **same
-v0.7 bundle**; the `?advenced` spelling (intentional) only hands off to
-`/preview/`, where the ADVANCED TEST BUILD banner and test-only visuals switch
-on. For a production deployment, run `bash smartbugs-build.sh`: it builds the
-current checkout **once**, prints the bundle fingerprint plus the version, and
-packages that identical bundle at `/`, `/preview/`, `/advanced` and `/advenced`
-(the last three are byte-identical to `/` minus its query router). The normal
-`npm run build` alone is a single development bundle without that routing.
-Locally, `/?advenced` enables the test-only visuals and `/` keeps them off.
+`smart-bugs.vercel.app` and `smart-bugs.vercel.app/?advenced` serve the same
+release. The `?advenced` spelling (intentional) hands off to `/preview/`, which
+shows the ADVANCED TEST BUILD banner without changing the game or layouts.
+`bash smartbugs-build.sh` builds once, prints a bundle fingerprint, and
+packages the game at `/`, `/preview/`, `/advanced` and `/advenced`. Only `/`
+gets an extra query router. `npm run test:publish` checks that the game bytes
+are otherwise identical, and `npm run test:ui-default` checks the banner rules.
 
-The **interface is not URL-dependent** either: since v0.7 `/` and `/preview/`
-render the same updated screens (`isAdvancedGameLocation` is true everywhere).
-Only the ADVANCED TEST BUILD banner is gated, by `isTestBuildLocation`, so the
-original server never shows test chrome. `npm run test:ui-default` fails if a
-screen ever starts sniffing `?advenced` to pick its layout again.
+The Vercel project does not deploy on Git pushes. For a file-based production
+deployment, push the release commit and send `smartbugs-build.sh`, `vercel.json`
+and a text file named `smartbugs-release-ref` containing that commit's full SHA
+(`git rev-parse HEAD`). With no checkout uploaded, the build script downloads
+that exact revision from the public repo. The project runs `bash smartbugs-build.sh`
+with a no-op install command and serves `dist`.
 
-`npm run test:publish` enforces the policy: it rebuilds if needed and fails
-unless `/` is exactly the test bundle plus the router, `/preview/`, `/advanced`
-and `/advenced` are byte-identical, and `smartbugs-build.sh` still builds and
-installs exactly once.
+To verify the chest artwork and reveal locally, start `npm run dev` and run:
 
-Pushing to GitHub does **not** deploy here — Vercel's GitHub app is not
-connected to this project, so branch builds stop with `git_info_fail`. The
-working deployments therefore carry just `smartbugs-build.sh` + `vercel.json`
-and let the script download the source itself: set `PREVIEW_REF` (default
-`refs/heads/arena/ec287bd6-smart-bugs`, i.e. the session branch) and the
-script fetches it from codeload before building. Publishing is: push the
-branch, then create a **production** deployment of the `smart-bugs` Vercel
-project with those two files.
+```bash
+CHROMIUM_PATH=/path/to/chromium npm run test:chest
+CHROMIUM_PATH=/path/to/chromium npm run test:treasure-art
+```
 
 ### Mobile UI smoke test
 

@@ -15,6 +15,21 @@ interface VersionEntry {
 
 export const VERSIONS: VersionEntry[] = [
   {
+    v: "0.8",
+    title: "COLONY BONDS",
+    items: [
+      "New COLONY BONDS: every bug's role now matters. Field 2 bugs of one role to activate its bond and 4 for the stronger tier. Bonds count each fielded bug, so two Stag Beetles are two Frontline bugs.",
+      "Shield Wall (Frontline): +12% / +25% max HP. Battery (Artillery): +15% / +30% ATK. Ambush (Assassin): 10% / 20% shorter attack delay. A bond only strengthens bugs of its own role.",
+      "A new bonds strip under the command deck shows your three bonds with progress pips and the live bonus, plus the active bonds of the rival line you are about to face. Tap a chip to open the Field Guide.",
+      "Bonds change the same numbers the stat sheet shows, so the inspector still displays exactly what a fielded bug brings to the fight. Rival colonies earn bonds from their own line-ups by the same rule.",
+      "Fair initiative: bugs used to act in a fixed order, so your line always moved and struck first inside each moment of a fight. With identical line-ups on both sides, that side won up to 81% of battles. Initiative is now a coin flip each moment and identical line-ups win 50%. Close fights are a little harder than before, and duels between rival colonies no longer favour one of them.",
+      "Sound: the game now has synthesized effects for recruiting, moulting, deploying, bonds, hits, skills, knock-outs and round results. Nothing is downloaded. Settings has an on/off switch and a volume slider.",
+      "Career record: finished matches are kept on this device — matches, titles, podiums, best finish, longest win streak and round win rate. It appears on the main menu and the final standings, and can be erased in Settings.",
+      "Treasure chests have new brass-and-jade artwork. On a win the clasp glints, the lid opens, and gold and gems rise from the chest. Reduced motion shows the open chest without the burst.",
+      "New shortcut: press E to sell the selected bug.",
+    ],
+  },
+  {
     v: "0.7",
     title: "THE BATTLE ROAR",
     items: [

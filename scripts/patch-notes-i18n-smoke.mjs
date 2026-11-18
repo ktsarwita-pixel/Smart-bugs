@@ -43,7 +43,7 @@ const {VERSIONS, PatchNotesModal, SettingsProvider, hasTranslation, translate, G
 
 // ── The newest card is the version the build claims to be ─────────────────
 assert.equal(VERSIONS[0].v, GAME_INFO.version, 'the top patch-notes card must match GAME_INFO.version');
-assert.equal(GAME_INFO.version, '0.7', 'the shipped build is v0.7');
+assert.equal(GAME_INFO.version, '0.8', 'the shipped build is v0.8');
 
 const seen = new Set();
 for (const entry of VERSIONS) {
@@ -53,9 +53,19 @@ for (const entry of VERSIONS) {
   assert.equal(new Set(entry.items).size, entry.items.length, `v${entry.v} repeats a note`);
 }
 
-// ── The Damage Shower notes live in the current card ──────────────────────
-const current = VERSIONS[0];
+// ── The Damage Shower notes stay in the card that shipped them (v0.7) ─────
+const damageCard = VERSIONS.find((entry) => entry.v === '0.7');
+assert.ok(damageCard, 'the v0.7 card is still in the log');
 for (const marker of ['DAMAGE SHOWER chart', 'SHOW ENEMY DAMAGE', 'credited to the bug that caused it']) {
+  assert.ok(
+    damageCard.items.some((item) => item.includes(marker)),
+    `the v0.7 card should carry the "${marker}" note`,
+  );
+}
+
+// ── The current card (v0.8) announces what actually changed ───────────────
+const current = VERSIONS[0];
+for (const marker of ['COLONY BONDS', 'Shield Wall', 'Fair initiative', 'Sound:', 'Career record', 'press E']) {
   assert.ok(
     current.items.some((item) => item.includes(marker)),
     `the current card should carry the "${marker}" note`,

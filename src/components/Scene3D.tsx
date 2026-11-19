@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { createChestGeometry } from "../game/treasure-voxel";
-import { commanderBattleSignal, createCommanderEffects } from "../game/commander-effects";
+import { commanderBattleSignal, commanderPrepSignal, createCommanderEffects } from "../game/commander-effects";
 import { createDetailedChest } from "../game/chest-model";
 import { BUGS, COMMANDERS, SPECIMEN_IDS, type BugId, type CmdId } from "../game/data";
 import { COLS, ROWS, SPIDER_ROAR_SECONDS, boardXY, type BattleState, type BUnit, type Zone, type PrepUnit } from "../game/engine";
@@ -3639,7 +3639,7 @@ export function Scene3D({
       }
       const prepAge = (now - commanderPrepAt) / 1000;
       const prepSignal = p.mode === "prep" && p.prepCue !== undefined
-        ? Math.sin(Math.PI * Math.min(1, prepAge / (p.cmdA === "worm" ? 0.76 : 1.10))) : 0;
+        ? commanderPrepSignal(p.cmdA, prepAge) : 0;
       if (activeBattle?.over) commanderAfterTime += dt;
       const commanderTime = visualBattleTime + commanderAfterTime;
       const openerTime = t - commanderOpenerStart;

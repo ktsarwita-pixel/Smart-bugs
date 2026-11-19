@@ -25,6 +25,8 @@ export const WORM_MAW_COLS = 11;
 export const WORM_MAW_ROWS = 6;
 export const WORM_MAW = pixels(worm.art, 2, 1, WORM_MAW_COLS, WORM_MAW_ROWS);
 
-export const INCOME_CUE_MS = 2350;
-export const WORM_BENCH_CUE_MS = 1550;
-export const WORM_REVEAL_MS = 530;
+export const INCOME_CUE_MS = 2650;
+export const WORM_BENCH_CUE_MS = 2180;
+export const WORM_REVEAL_MS = 1000;
+export const WORM_FLIGHT_MS = 340;
+export const WORM_STAGGER_MS = 110;

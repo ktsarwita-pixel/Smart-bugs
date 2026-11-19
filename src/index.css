@@ -1991,7 +1991,7 @@ button:not(:disabled).pressable:active,
   font-size: 10px; letter-spacing: .1em; color: #d2c2ac;
 }
 .section-heading button { min-height: 40px; }
-.bench-grid { gap: 6px; }
+.bench-grid { --bench-gap: 6px; gap: var(--bench-gap); }
 .bench-slot { height: 58px; }
 .shop-heading > div { min-width: 0; flex-wrap: wrap; }
 .shop-grid { grid-template-columns: repeat(5, minmax(76px, 1fr)); gap: 8px; overflow-x: auto; padding: 2px 2px 8px; scrollbar-width: thin; scrollbar-color: #6b4b24 transparent; }
@@ -2105,7 +2105,7 @@ button:not(:disabled).pressable:active,
   .section-heading { gap: 4px; margin-bottom: 4px; }
   .section-heading > .label, .shop-heading > div:first-child > .label { font-size: 8px; }
   .bench-section .section-heading button { min-height: 28px; }
-  .bench-grid { gap: 4px; }
+  .bench-grid { --bench-gap: 4px; }
   .bench-slot { height: 44px; }
   .bench-slot .hit-24::after { display: none; }
   .shop-heading { flex-wrap: nowrap; }
@@ -3071,7 +3071,7 @@ html, body, #root { max-width: 100%; overflow-x: clip; }
   .advanced-ui .bench-section { padding-inline: 4px; }
   .advanced-ui .section-heading { gap: 4px; margin-bottom: 4px; }
   .advanced-ui .section-heading > .label, .advanced-ui .shop-heading > div:first-child > .label { font-size: 8px; }
-  .advanced-ui .bench-grid { gap: 4px; }
+  .advanced-ui .bench-grid { --bench-gap: 4px; }
   .advanced-ui .bench-slot { height: 44px; }
   .advanced-ui .bench-empty-hint, .advanced-ui .shop-rarities { display: none; }
   .advanced-ui .shop-heading { flex-wrap: nowrap; }
@@ -3386,8 +3386,8 @@ html, body, #root { max-width: 100%; overflow-x: clip; }
 .advanced-ui .commander-current p.commander-current__skill { padding-top: 4px; border-top: 1px solid #b4a78975; }
 
 /* Commander cues, staged on the active specimen, reserve or reward slip. */
-.commander-cast { position: fixed; inset: 0; z-index: 36; overflow: hidden; pointer-events: none; --credit-at: 1400ms; }
-.commander-cast[data-local-credit] { --credit-at: 660ms; }
+.commander-cast { position: fixed; inset: 0; z-index: 36; overflow: hidden; pointer-events: none; --burst-at: 740ms; --flight-time: 810ms; --credit-at: calc(var(--burst-at) + var(--flight-time)); }
+.commander-cast[data-local-credit] { --flight-time: 480ms; }
 .commander-flecks { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
 .commander-flecks i {
   position: absolute; top: -1px; left: -1px; width: 3px; height: 3px;
@@ -3402,121 +3402,194 @@ html, body, #root { max-width: 100%; overflow-x: clip; }
   100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(65deg) scale(.55); }
 }
 
+/* Gild the exact SVG silhouette, then scatter bullion and collect the coins. */
 .income-route { position: absolute; inset: 0; }
-.income-route__line, .income-route__base {
-  stroke-dasharray: 100; animation: assay-trace 1380ms 470ms linear both;
-}
-.income-route__chase { opacity: 0; stroke-dasharray: 14 86; animation: assay-chase 810ms 590ms cubic-bezier(.41,.11,.5,1) forwards; }
+.income-route__line { stroke-dasharray: 2 2.4; opacity: 0; animation: income-lane 1120ms calc(var(--burst-at) + 105ms) ease both; }
 .income-assay {
-  position: absolute; width: 62px; height: 62px; translate: -50% -50%;
-  filter: drop-shadow(0 1px 2px #21160c); animation: assay-presence 975ms ease both;
+  position: absolute; width: 80px; height: 80px; translate: -50% -50%; display: grid; place-items: center;
 }
-.income-assay svg { width: 100%; height: 100%; overflow: visible; }
-.income-assay__dial { transform-origin: center; animation: assay-index 650ms cubic-bezier(.17,.7,.29,1) both; }
-.income-assay__caliper { animation: assay-close 730ms cubic-bezier(.26,.66,.33,1) both; }
-.income-assay__sweep { animation: assay-sweep 480ms 65ms ease-in-out both; }
-.income-assay__stamp {
-  position: absolute; inset: 8px; border: 2px solid #ffde91; border-radius: 9px;
-  box-shadow: 0 0 9px #ebad5eb3, inset 0 0 7px #ffca7870;
-  opacity: 0; animation: assay-strike 445ms 460ms ease-out forwards;
+.income-die, .income-ignition { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.income-die { animation: income-die 975ms cubic-bezier(.22,.68,.33,1) both; }
+.income-portrait {
+  position: relative; width: 60px; height: 60px; animation: income-imprint 870ms cubic-bezier(.2,.7,.35,1) both;
+  filter: drop-shadow(0 3px 3px #100a05ee) drop-shadow(0 0 6px #ec9d4166);
 }
-.income-mint-chips { --chip-at: 455ms; }
+.income-portrait svg { position: absolute; inset: 0; }
+.income-portrait__gold { animation: income-gild 400ms 128ms steps(16, end) both; }
+.income-portrait__bar {
+  position: absolute; left: 0; right: 0; top: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, #ffe49a 27%, #fff5c9 71%, transparent);
+  box-shadow: 0 -3px 7px #f7a347; animation: income-metal-sweep 470ms 112ms steps(16, end) both;
+}
+.income-ignition { opacity: 0; animation: income-crack 490ms var(--burst-at) ease-out forwards; }
+.income-fragments { position: absolute; width: 0; height: 0; }
+.income-fragments i {
+  position: absolute; top: -2px; left: -2px; width: 4px; height: 4px;
+  background: var(--ink); border-top: 1px solid #fff0ae; box-shadow: 1px 1px #633813;
+  animation: income-shard 525ms calc(var(--burst-at) + var(--lag)) ease-out both;
+}
+.income-fragments i:nth-child(3n) { width: 6px; }
+.bench-slot[data-income-target] .spec-icon__plate svg { animation: income-source 1060ms ease-in-out both; }
+.income-stream { position: absolute; inset: 0; }
 .income-carrier {
-  position: absolute; left: 0; top: 0; width: 24px; height: 24px; offset-anchor: center; offset-rotate: 0deg;
-  filter: drop-shadow(0 2px 2px #201608); animation: assay-transfer 810ms 590ms cubic-bezier(.41,.11,.5,1) both;
+  position: absolute; left: 0; top: 0; width: var(--coin-size); height: var(--coin-size); offset-anchor: center; offset-rotate: 0deg;
+  filter: drop-shadow(0 2px 2px #3d230bbb); opacity: 0;
+  animation: income-fan var(--flight-time) calc(var(--burst-at) + var(--coin-lag)) cubic-bezier(.28,.14,.51,.97) both;
 }
-.income-carrier svg { display: block; width: 100%; height: 100%; animation: assay-mint 1000ms 420ms ease both; }
-.commander-cast[data-local-credit] .income-carrier { translate: -50% -50%; animation: assay-local 850ms 400ms ease both; }
+.income-carrier svg {
+  display: block; width: 100%; height: 100%;
+  animation: income-flip 435ms calc(var(--burst-at) + var(--coin-lag)) cubic-bezier(.46,.12,.56,.93) infinite;
+}
 .income-bank { position: absolute; width: 0; height: 0; }
 .income-bank__strike {
-  position: absolute; inset: -14px -29px; border-block: 2px solid #ffd890;
-  box-shadow: 0 0 10px #bf873e91, inset 0 0 10px #f8d88638;
-  opacity: 0; animation: assay-strike 650ms var(--credit-at) ease-out forwards;
+  position: absolute; inset: -14px -29px; border: 1px solid #ffe0a0; border-block-width: 2px;
+  border-radius: 5px; box-shadow: 0 0 11px #e7973990, inset 0 0 10px #f8d88646;
+  opacity: 0; animation: income-credit-spark 630ms var(--credit-at) ease-out forwards;
 }
-.income-bank-chips { --chip-at: var(--credit-at); }
+.income-bank-chips { --chip-at: var(--credit-at); --fleck-alt: #ffd162; }
 .income-credit {
   position: absolute; display: flex; align-items: center; gap: 4px; white-space: nowrap;
-  margin-top: -17px; translate: -50% -100%; color: #fff1cd; background: #262119;
-  border: 1px solid #ddab5d; border-left: 3px solid #8de2bc; border-radius: 3px;
-  padding: 4px 7px; font: 700 12px/1 var(--font-mono); box-shadow: 0 2px 6px #100c07cc;
-  animation: assay-credit 900ms var(--credit-at) cubic-bezier(.23,.72,.33,1) both;
+  margin-top: -17px; translate: -50% -100%; color: #fff1cd; background: #2c2016;
+  border: 1px solid #e1b567; border-left: 3px solid #ffe09b; border-radius: 3px;
+  padding: 4px 7px; font: 700 13px/1 var(--font-mono); box-shadow: 0 2px 6px #100c07cc;
+  animation: income-credit 952ms var(--credit-at) cubic-bezier(.23,.72,.33,1) both;
 }
 .income-credit[data-below] { margin-top: 30px; translate: -50% 0; }
-@keyframes assay-presence { 0%, 100% { opacity: 0; } 13%, 66% { opacity: 1; } }
-@keyframes assay-index { 0% { opacity: .35; transform: rotate(-26deg) scale(.76); } 64%, 100% { opacity: 1; transform: none; } }
-@keyframes assay-close { 0% { transform: translateX(-7px); } 56%, 75% { transform: none; } 100% { transform: translateX(-3px); } }
-@keyframes assay-sweep { 0% { opacity: 0; } 18%, 73% { opacity: .96; } 100% { opacity: 0; transform: translateY(18px); } }
-@keyframes assay-trace {
-  0% { stroke-dashoffset: 100; opacity: 0; }
-  17% { opacity: .76; }
-  67% { stroke-dashoffset: 0; opacity: .74; }
-  100% { stroke-dashoffset: 0; opacity: 0; }
+@keyframes income-die {
+  0% { opacity: 0; transform: scale(.42) rotate(-12deg); }
+  29% { opacity: 1; transform: none; }
+  68% { opacity: 1; transform: scale(1.04); }
+  78% { opacity: .8; transform: scale(.91); }
+  100% { opacity: 0; transform: scale(1.32); }
 }
-@keyframes assay-chase { 0% { stroke-dashoffset: 0; opacity: .25; } 29%, 86% { opacity: .95; } 100% { stroke-dashoffset: -100; opacity: 0; } }
-@keyframes assay-transfer { 0% { offset-distance: 0%; } 94% { opacity: 1; } 100% { offset-distance: 100%; opacity: 0; } }
-@keyframes assay-mint {
-  0% { opacity: 0; transform: scale(.35, .55); }
-  17% { opacity: 1; transform: scale(1.23); }
-  34%, 56% { transform: scale(1); }
-  73% { transform: scaleX(.48); }
-  90%, 100% { opacity: 1; transform: scale(.89); }
+@keyframes income-imprint {
+  0% { opacity: .6; transform: scale(.44); }
+  27% { opacity: 1; transform: scale(.94); }
+  70% { transform: scale(1.05); }
+  83% { opacity: 1; transform: scale(.94); }
+  89% { opacity: .95; transform: scale(1.13); }
+  100% { opacity: 0; transform: scale(1.23); }
 }
-@keyframes assay-local { 0%, 100% { opacity: 0; } 18%, 40% { opacity: 1; } 100% { transform: translateY(-16px); } }
-@keyframes assay-strike { 0% { opacity: 1; transform: scale(.83); } 100% { opacity: 0; transform: scale(1.17); } }
-@keyframes assay-credit {
+@keyframes income-gild { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0); } }
+@keyframes income-metal-sweep { 0%, 100% { opacity: 0; } 16%, 73% { opacity: 1; } 100% { transform: translateY(59px); } }
+@keyframes income-source { 0%, 100% { opacity: 1; } 19%, 70% { opacity: .18; } }
+@keyframes income-crack { 0% { opacity: .91; transform: scale(.42) rotate(-8deg); } 100% { opacity: 0; transform: scale(1.28) rotate(4deg); } }
+@keyframes income-shard {
+  0% { opacity: 0; transform: translate(var(--sx), var(--sy)) scale(.64); }
+  7%, 46% { opacity: 1; }
+  63% { transform: translate(var(--dx), var(--dy)) rotate(110deg); }
+  100% { opacity: 0; transform: translate(var(--dx), calc(var(--dy) + 16px)) rotate(165deg) scale(.66); }
+}
+@keyframes income-lane { 0%, 100% { opacity: 0; } 27%, 73% { opacity: .52; } }
+@keyframes income-fan { 0% { opacity: 0; offset-distance: 0%; } 10%, 94% { opacity: 1; } 100% { opacity: 0; offset-distance: 100%; } }
+@keyframes income-flip {
+  0%, 100% { transform: scaleX(.82) rotate(-12deg); }
+  29% { transform: scaleX(.36) rotate(-4deg); }
+  68% { transform: scaleX(1) rotate(13deg); }
+}
+@keyframes income-credit-spark { 0% { opacity: 1; transform: scale(.83); } 100% { opacity: 0; transform: scale(1.17); } }
+@keyframes income-credit {
   0% { opacity: 0; transform: translateY(4px) scale(.9); }
   22% { opacity: 1; transform: translateY(-1px) scale(1.04); }
   43%, 82% { opacity: 1; transform: none; }
   100% { opacity: 0; transform: translateY(-3px); }
 }
 
-/* Everything belonging to a bite or delivery is clipped to its bench socket. */
+/* The larger jaw is clipped to the consumed socket. Hops stay in the bench row. */
 .worm-etch, .worm-arrival__chips {
   display: grid; place-items: center; position: absolute; inset: 1px; overflow: hidden; pointer-events: none;
 }
-.worm-etch { isolation: isolate; animation: worm-socket 920ms ease-out both; }
-.worm-etch__rift, .worm-arrival__seam {
-  position: absolute; width: min(37px, 100%); height: 22px; left: 50%; top: 50%; translate: -50% -50%;
-  background: #261621; border: 1px solid #ba6569; border-radius: 25%;
-  box-shadow: inset 0 0 0 2px #563042, 0 0 6px #ba656975;
-}
-.worm-etch__rift { animation: worm-rift 860ms ease both; }
+.worm-etch { isolation: isolate; animation: worm-socket 1260ms ease-out both; }
 .worm-etch__mouth {
-  position: absolute; width: min(30px, 100%); height: 24px; transform: translateY(1px);
-  filter: drop-shadow(0 1px 1px #22141b); animation: worm-seam 840ms ease both;
+  position: absolute; width: min(54px, 100%); height: min(46px, 100%); overflow: visible;
+  filter: drop-shadow(0 1px 3px #241421); animation: worm-heave 1180ms ease both;
 }
-.worm-etch__lip { animation: worm-clamp 650ms cubic-bezier(.48,.06,.3,1) both; }
-.worm-etch__shed { position: absolute; animation: worm-occlude 425ms cubic-bezier(.42,.02,.66,1) both; }
-.worm-bite-chips, .worm-spit-chips { --fleck: #ffdc9a; --fleck-alt: #de9c91; }
-.worm-bite-chips { --chip-at: 320ms; }
-.worm-arrival { position: relative; width: 100%; height: 100%; display: grid; place-items: center; }
-.worm-arrival > .spec-icon { animation: worm-expose 620ms var(--arrival-delay) cubic-bezier(.25,.72,.3,1) both; }
-.worm-arrival__seam { height: 14px; animation: worm-delivery 560ms var(--arrival-delay) ease-out both; }
-.worm-spit-chips { --chip-at: calc(var(--arrival-delay) + 120ms); }
-@keyframes worm-socket { 0%, 100% { box-shadow: inset 0 0 0 1px #ba656900; } 41% { box-shadow: inset 0 0 0 1px #ba6569; } }
-@keyframes worm-rift { 0% { opacity: 0; transform: scale(.18, .15); } 34%, 64% { opacity: 1; transform: none; } 100% { opacity: 0; transform: scale(.75, .2); } }
-@keyframes worm-seam { 0%, 100% { opacity: 0; } 25%, 59% { opacity: 1; } }
+.worm-etch__lip { animation: worm-clamp 1100ms linear both; }
+.worm-etch__cut { transform-box: fill-box; transform-origin: center; animation: worm-throat 1100ms ease both; }
+.worm-etch__flash { opacity: 0; animation: worm-bite-flash 420ms 400ms ease-out both; }
+.worm-etch__shed { position: absolute; animation: worm-swallow 520ms ease-in-out both; }
+.worm-bite-chips, .worm-spit-chips { --fleck: #ffde9f; --fleck-alt: #e7a4a3; }
+.worm-bite-chips { --chip-at: 405ms; }
+.worm-flights { display: block; position: absolute; inset: 0; overflow: hidden; z-index: 2; pointer-events: none; }
+.worm-flight {
+  position: absolute; inset-block: 0; left: var(--left); width: calc(var(--right) - var(--left));
+  --from-x: 0%; --to-x: 100%; --arc: -12px;
+  animation: worm-route var(--flight-time) var(--launch-at) cubic-bezier(.29,.19,.47,1) both;
+}
+.worm-flight[data-backwards] { --from-x: 100%; --to-x: 0%; }
+.worm-flight__pod {
+  position: absolute; left: -9px; top: calc(50% - 8px); width: 18px; height: 16px; opacity: 0;
+  filter: drop-shadow(0 0 4px #ffd6979c);
+  animation: worm-packet var(--flight-time) var(--launch-at) ease-out both;
+}
+.worm-flight::before {
+  content: ""; position: absolute; width: 14px; height: 2px; top: 50%; left: -19px;
+  background: linear-gradient(90deg, transparent, #f6b884); opacity: 0;
+  animation: worm-wake var(--flight-time) var(--launch-at) ease-out both;
+}
+.worm-flight[data-backwards]::before { left: 5px; background: linear-gradient(270deg, transparent, #f6b884); }
+.worm-arrival {
+  position: relative; width: 100%; height: 100%; display: grid; place-items: center;
+  animation: worm-land 555ms var(--arrival-delay) ease-out both;
+}
+.worm-arrival > .spec-icon { animation: worm-expose 535ms var(--arrival-delay) cubic-bezier(.23,.72,.29,1) both; }
+.worm-arrival__seam {
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: min(43px, 96%); height: 29px;
+  border: 2px solid #daa48c; border-bottom-color: var(--husk); border-radius: 22%; box-shadow: 0 0 7px #b1775c88;
+  animation: worm-shell 510ms var(--arrival-delay) ease-out both;
+}
+.worm-spit-chips { --chip-at: var(--arrival-delay); --fleck-alt: var(--husk); }
+@keyframes worm-socket {
+  0%, 100% { box-shadow: inset 0 0 0 1px #ba656900; }
+  23%, 67% { box-shadow: inset 0 0 0 1px #ba6569, inset 0 0 13px #aa506c70; }
+  37% { box-shadow: inset 0 0 0 2px #e8a78b, inset 0 0 12px #c56c7375; }
+}
+@keyframes worm-heave {
+  0% { opacity: 0; transform: scale(.24,.13) translateY(5px); }
+  18% { opacity: 1; transform: scale(.88,.54); }
+  30%, 35% { transform: none; }
+  40% { transform: scale(.98,.79) translateY(2px); }
+  49% { transform: scale(.995,.88); }
+  61%, 71% { opacity: 1; transform: scale(1,.96); }
+  100% { opacity: 0; transform: scale(.86,.14) translateY(5px); }
+}
 @keyframes worm-clamp {
-  0% { transform: translateY(calc(var(--part) * .2)); }
-  43% { transform: translateY(var(--part)); }
-  56% { transform: translateY(calc(var(--part) * -.42)); }
-  71%, 100% { transform: none; }
+  0% { transform: translateY(0); }
+  26%, 34% { transform: translateY(var(--part)); }
+  41% { transform: translateY(calc(var(--part) * -.18)); }
+  50%, 55% { transform: none; }
+  62%, 77% { transform: translateY(calc(var(--part) * .82)); }
+  100% { transform: scaleY(.73); }
 }
-@keyframes worm-occlude {
-  0%, 39% { opacity: 1; clip-path: inset(0); transform: none; }
-  64% { transform: translateY(2px) scale(.88); }
-  98%, 100% { opacity: 0; clip-path: inset(52% 0 48%); transform: translateY(4px) scale(.63); }
+@keyframes worm-throat {
+  0%, 43%, 100% { transform: scaleY(.22); }
+  29%, 35%, 67%, 79% { transform: scaleY(1.12); }
 }
-@keyframes worm-delivery {
-  0% { opacity: 0; transform: scale(.26, .46); }
-  23% { opacity: .93; transform: none; }
-  100% { opacity: 0; transform: scale(.7, .28); }
+@keyframes worm-bite-flash { 0%, 100% { opacity: 0; } 23% { opacity: .94; } }
+@keyframes worm-swallow {
+  0%, 23% { opacity: 1; clip-path: inset(0); transform: none; }
+  57% { opacity: 1; transform: translateY(-5px) scale(.95) rotate(-11deg); }
+  88%, 100% { opacity: 0; clip-path: inset(48% 12% 46%); transform: translateY(7px) scale(.52,.35); }
 }
+@keyframes worm-route { from { transform: translateX(var(--from-x)); } to { transform: translateX(var(--to-x)); } }
+@keyframes worm-packet {
+  0% { opacity: 0; transform: translateY(5px) scale(.6); }
+  14%, 86% { opacity: 1; }
+  43% { transform: translateY(var(--arc)) scale(1.08) rotate(-14deg); }
+  100% { opacity: 0; transform: translateY(3px) scale(.68); }
+}
+@keyframes worm-wake {
+  0%, 100% { opacity: 0; }
+  42% { opacity: .85; transform: translateY(var(--arc)) scaleX(1); }
+  100% { transform: translateY(1px) scaleX(.35); }
+}
+@keyframes worm-land { 0%, 100% { box-shadow: inset 0 0 0 2px #daa48c00; } 22% { box-shadow: inset 0 0 0 1px var(--husk), inset 0 0 18px #d9a05f55; } }
+@keyframes worm-shell { 0% { opacity: 0; transform: scale(.45); } 19% { opacity: .95; } 100% { opacity: 0; transform: scale(1.13); } }
 @keyframes worm-expose {
-  0% { opacity: 0; clip-path: inset(49% 0 51%); transform: translateY(6px) scale(.79); }
-  31% { opacity: 1; clip-path: inset(0); transform: translateY(-3px) scale(1.04); }
-  62% { transform: translateY(1px); }
-  84%, 100% { opacity: 1; clip-path: none; transform: none; }
+  0% { opacity: 0; clip-path: inset(43% 0 47%); transform: translateY(8px) scale(.76,.69); }
+  27% { opacity: 1; clip-path: inset(0); transform: translateY(-4px) scale(1.12,.93); }
+  59% { transform: translateY(2px) scale(.97,1.04); }
+  100% { opacity: 1; clip-path: none; transform: none; }
 }
 
 .pressure-result {
@@ -3558,14 +3631,14 @@ html, body, #root { max-width: 100%; overflow-x: clip; }
 @keyframes vault-print { 0% { opacity: .68; transform: translateY(2px); } 100% { opacity: 1; transform: none; } }
 @keyframes vault-reserve { 0% { opacity: .16; transform: translate(-7px, 4px) scale(.74); } 57% { transform: translateY(-2px) scale(1.09); } 100% { opacity: 1; transform: none; } }
 
-/* Preserve the actual payout, HP, slot contents and open/closed state in quiet mode. */
-html[data-motion="reduced"] :is(.commander-cast *, .pressure-result *, .worm-arrival *, .worm-etch, .worm-etch *) { animation: none !important; }
-html[data-motion="reduced"] :is(.income-route, .income-carrier, .income-assay__sweep, .income-assay__stamp, .income-bank, .commander-flecks, .worm-etch > *, .worm-arrival__seam) { display: none; }
+/* Quiet mode keeps the gilded still, credit, actual units, and vault state. */
+html[data-motion="reduced"] :is(.commander-cast *, .bench-slot[data-income-target] .spec-icon__plate svg, .pressure-result *, .worm-arrival, .worm-arrival *, .worm-etch, .worm-etch *, .worm-flights *) { animation: none !important; }
+html[data-motion="reduced"] :is(.income-route, .income-stream, .income-portrait__ink, .income-portrait__bar, .income-ignition, .income-fragments, .income-bank, .commander-flecks, .worm-etch > *, .worm-flights, .worm-arrival__seam) { display: none; }
 html[data-motion="reduced"] .worm-etch { box-shadow: inset 0 0 0 1px #ba6569; }
 @media (prefers-reduced-motion: reduce) {
-  :is(.commander-cast *, .pressure-result *, .worm-arrival *, .worm-etch, .worm-etch *) { animation: none !important; }
-  :is(.income-route, .income-carrier, .income-assay__sweep, .income-assay__stamp, .income-bank, .commander-flecks, .worm-etch > *, .worm-arrival__seam) { display: none; }
+  :is(.commander-cast *, .bench-slot[data-income-target] .spec-icon__plate svg, .pressure-result *, .worm-arrival, .worm-arrival *, .worm-etch, .worm-etch *, .worm-flights *) { animation: none !important; }
+  :is(.income-route, .income-stream, .income-portrait__ink, .income-portrait__bar, .income-ignition, .income-fragments, .income-bank, .commander-flecks, .worm-etch > *, .worm-flights, .worm-arrival__seam) { display: none; }
   .worm-etch { box-shadow: inset 0 0 0 1px #ba6569; }
 }
-html[data-potato="1"] :is(.commander-flecks, .income-route__chase) { display: none; }
-html[data-potato="1"] :is(.income-assay, .income-carrier, .pressure-inlay) { filter: none !important; }
+html[data-potato="1"] :is(.commander-flecks, .income-route), html[data-potato="1"] .worm-flight::before { display: none; }
+html[data-potato="1"] :is(.income-portrait, .income-carrier, .worm-etch__mouth, .worm-flight__pod, .pressure-inlay) { filter: none !important; }

@@ -17,9 +17,9 @@ import { UiDoctor } from "./components/UiDoctor";
 import { AdvancedView, DEV_BUILD } from "./components/AdvancedView";
 import { fill, useSettings } from "./i18n";
 import { CommanderSkillControl } from "./components/CommanderSkillControl";
-import { IncomeAssay, PressurePresent, WormBenchArrival, WormBenchCue, screenPoint, type PrepCast } from "./components/CommanderVignettes";
+import { IncomeAssay, PressurePresent, WormBenchArrival, WormBenchCue, WormBenchFlights, screenPoint, type PrepCast, type WormArrival } from "./components/CommanderVignettes";
 import { eatAndSpit, freshCommander, incomeFrom, PRESSURE_GOLD, settleCommander, strongestOwned, WORM_CAP, WORM_INTERVAL } from "./game/commander";
-import { INCOME_CUE_MS, WORM_BENCH_CUE_MS, WORM_REVEAL_MS } from "./game/commander-motifs";
+import { INCOME_CUE_MS, WORM_BENCH_CUE_MS, WORM_REVEAL_MS, WORM_STAGGER_MS } from "./game/commander-motifs";
 import { addRecruit, combine, deliverRecruits } from "./game/roster";
 import { CareerPanel } from "./components/CareerPanel";
 import { saveMatch, type RecordOutcome } from "./game/career";
@@ -285,6 +285,7 @@ export default function App() {
   const [skillTargeting, setSkillTargeting] = useState(false);
   const [oraclePrepMark, setOraclePrepMark] = useState<number | null>(null);
   const [prepCast, setPrepCast] = useState<PrepCast | null>(null);
+  const benchCast = prepCast?.kind === "eat-spit" ? prepCast : null;
   const castSerial = useRef(0);
   const goldAnchor = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -462,10 +463,10 @@ export default function App() {
       const fed = eatAndSpit(commanderProgress, target);
       if (!fed) return;
       const received = deliverRecruits(units.filter((u) => u.uid !== uid), [...commanderReserve, ...fed.rewards]);
-      const arrivals = new Map<number, { star: number; delay: number }>();
+      const arrivals = new Map<number, WormArrival>();
       for (const recruit of received.out) {
         if (recruit.zone === "bench" && !units.some((old) => old.uid === recruit.uid && old.star === recruit.star)) {
-          arrivals.set(recruit.uid, { star: recruit.star, delay: WORM_REVEAL_MS + 85 * Math.min(arrivals.size, 3) });
+          arrivals.set(recruit.uid, { star: recruit.star, slot: recruit.slot, delay: WORM_REVEAL_MS + WORM_STAGGER_MS * arrivals.size });
         }
       }
       setPrepCast({ kind: "eat-spit", serial: ++castSerial.current, slot: target.slot, eaten: target.bugId, arrivals });
@@ -479,7 +480,7 @@ export default function App() {
       if (!income) return;
       const at = castPoint(target);
       const bank = screenPoint(goldAnchor.current);
-      setPrepCast({ kind: "incomes", serial: ++castSerial.current, at, bank, gold: income.gold });
+      setPrepCast({ kind: "incomes", serial: ++castSerial.current, targetUid: target.uid, bugId: target.bugId, at, bank, gold: income.gold });
       setCommanderProgress(income.progress);
       setGold((g) => g + income.gold);
       playSfx("sell");
@@ -2661,13 +2662,13 @@ export default function App() {
                 {commanderReserve.length > 0 && (
                   <p className="commander-reserve" role="status">{tf("Skill recruits in reserve: {n}. Make room on the bench.", { n: commanderReserve.length })}</p>
                 )}
-                <div className="bench-grid grid grid-cols-6 gap-1">
+                <div className="bench-grid relative grid grid-cols-6">
                   {Array.from({ length: BENCH_SIZE }).map((_, i) => {
                     const u = benchUnits.find((b) => b.slot === i);
                     const isSel = !!u && selected === u.uid;
-                    const morsel = prepCast?.kind === "eat-spit" ? prepCast : null;
-                    const arrival = u && morsel?.arrivals.get(u.uid);
-                    const arriving = !!arrival && arrival.star === u.star;
+                    const arrival = u && benchCast?.arrivals.get(u.uid);
+                    const arriving = !!arrival && arrival.star === u.star && arrival.slot === i;
+                    const gilded = u && prepCast?.kind === "incomes" && prepCast.targetUid === u.uid;
                     return (
                       <div key={i} className="bench-item relative min-w-0">
                       <button
@@ -2679,6 +2680,7 @@ export default function App() {
                         title={u ? skillTargeting ? skillPrompt : benchInspectMode ? tf("Inspect {name}", { name: t(BUGS[u.bugId].name) }) : tf("{name} — tap to deploy instantly", { name: t(BUGS[u.bugId].name) }) : t("Empty bench slot")}
                         data-unit-id={u?.uid}
                         data-skill-target={!!u && skillTargeting && pickable.some((target) => target.uid === u.uid)}
+                        data-income-target={gilded || undefined}
                         className={`lift bench-slot relative grid h-11 w-full place-items-center border sm:h-12 ${
                           isSel ? "border-[#F0A93B] bg-[#241B14]" : "border-[#3B322A] bg-[#120D09]"
                         } ${!u && benchUnits.length >= BENCH_SIZE ? "bench-slot--over" : ""}`}
@@ -2694,8 +2696,8 @@ export default function App() {
                               className="absolute left-0 top-0 h-full w-[2px]"
                               style={{ background: BUGS[u.bugId].accent }}
                             />
-                            {arriving && morsel
-                              ? <WormBenchArrival key={`${morsel.serial}-${u.uid}`} id={u.bugId} star={u.star} selected={isSel} delay={arrival.delay} />
+                            {arriving && benchCast
+                              ? <WormBenchArrival key={`${benchCast.serial}-${u.uid}`} id={u.bugId} star={u.star} selected={isSel} delay={arrival.delay} />
                               : <SpecimenIcon id={u.bugId} size={33} star={u.star} selected={isSel} badge="none" />}
                             <span className="pointer-events-none absolute left-0.5 top-0.5">
                               <RankBadge id={u.bugId} size={11} />
@@ -2705,11 +2707,12 @@ export default function App() {
                         ) : (
                           <span className="bench-slot__index">{i + 1}</span>
                         )}
-                        {morsel?.slot === i && <WormBenchCue key={morsel.serial} eaten={morsel.eaten} />}
+                        {benchCast?.slot === i && <WormBenchCue key={benchCast.serial} eaten={benchCast.eaten} />}
                       </button>
                       </div>
                     );
                   })}
+                  {benchCast && <WormBenchFlights key={benchCast.serial} cast={benchCast} bench={benchUnits} />}
                 </div>
               </div>
 

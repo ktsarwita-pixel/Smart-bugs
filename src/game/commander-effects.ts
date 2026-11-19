@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import {
   LANTERN_INK as opal, LANTERN_LENS, LANTERN_LENS_COLS, LANTERN_LENS_ROWS,
-  WORM_INK as chitin, WORM_MAW, WORM_MAW_COLS, WORM_MAW_ROWS,
+  WORM_INK as chitin, WORM_MAW, WORM_MAW_COLS, WORM_MAW_ROWS, WORM_REVEAL_MS, WORM_FLIGHT_MS,
 } from "./commander-motifs";
 import { COLS, ROWS, SPARK_LANDING_SECONDS, TRAP_STUN_SECONDS, WAVE_BEATS, type BattleSide, type BattleState, type OracleWave } from "./engine";
 import type { CmdId } from "./data";
@@ -16,7 +16,8 @@ const SPARKS = 24;
 const THREADS = 8;
 const SOUL_FLECKS = 5;
 const TRAPS = 4;
-const GRIT = 9;
+const GRIT = 12;
+const TRAP_FOLD_SECONDS = 0.34;
 const RAY_MOTES = 12;
 const unit = (v: number) => Math.max(0, Math.min(1, v));
 const smooth = (v: number) => { const k = unit(v); return k * k * (3 - 2 * k); };
@@ -34,13 +35,24 @@ export function commanderBattleSignal(battle: BattleState | null, id: CmdId, sid
   if (!battle) return 0;
   if (id === "worm" && battle.holes.some(hole => hole.owner === side)) {
     const age = Math.max(time, openerTime);
-    return smooth(age / 0.24) * (1 - smooth((age - 0.31) / 0.45));
+    const open = smooth(age / 0.26) * (1 - smooth((age - 0.42) / 0.38));
+    const bite = Math.sin(Math.PI * unit((age - 0.32) / 0.24));
+    const release = 1 - smooth(Math.abs(time - TRAP_STUN_SECONDS) / 0.21);
+    return Math.min(1, 0.74 * open + 0.35 * bite + 0.25 * release);
   }
   if (id === "lampyris") {
     const wave = battle.waves[side];
     return Math.max(1 - smooth(pulseAge(wave, time) / 0.65), battle.over ? 0 : 0.66 * waveCharge(wave, time));
   }
   return 0;
+}
+
+/** The stand winds up with the bench maw and kicks again as the first pod launches. */
+export function commanderPrepSignal(id: CmdId, age: number) {
+  if (id !== "worm") return Math.sin(Math.PI * unit(age / 1.10));
+  const launchAt = (WORM_REVEAL_MS - WORM_FLIGHT_MS) / 1000;
+  return (smooth(age / 0.29) * (1 - smooth((age - 0.40) / 0.19))) * 0.82
+    + (smooth((age - launchAt + 0.09) / 0.14) * (1 - smooth((age - launchAt - 0.06) / 0.30))) * 0.94;
 }
 
 type UnitAnchor = (uid: number, into: THREE.Vector3) => boolean;
@@ -64,12 +76,12 @@ function rayPoint(top: THREE.Vector3, hit: THREE.Vector3, u: number, phase: numb
   out.z += Math.sin(a) * taper;
 }
 
-/** The same shallow, stepped teeth as the bench SVG. */
+/** Thick, stepped teeth taken from the same portrait cutout as the bench maw. */
 function mawLip(half: number) {
-  const cellX = 0.052, cellZ = 0.063;
+  const cellX = 0.086, cellZ = 0.094;
   const parts = WORM_MAW.filter(p => p.ink !== "b" && Number(p.y >= WORM_MAW_ROWS / 2) === half).map(({ x, y, ink }) => {
-    const h = ink === "t" ? 0.020 : ink === "e" ? 0.032 : 0.039;
-    const geo = new THREE.BoxGeometry(cellX, h, cellZ).translate(
+    const h = ink === "t" ? 0.063 : ink === "e" ? 0.091 : ink === "r" ? 0.070 : 0.108;
+    const geo = new THREE.BoxGeometry(cellX + 0.0005, h, cellZ + 0.0005).translate(
       (x + 0.5 - WORM_MAW_COLS / 2) * cellX, h / 2, (y + 0.5 - WORM_MAW_ROWS / 2) * cellZ,
     );
     const c = new THREE.Color(chitin[ink]);
@@ -81,6 +93,48 @@ function mawLip(half: number) {
   const geo = mergeGeometries(parts);
   for (const part of parts) part.dispose();
   return geo;
+}
+
+// A cut in the soil rather than a filled decal. Inner bands drop into the
+// throat; top facets alternate slightly to make its raised edge legible.
+function burrowBed() {
+  const corners = [[-0.35, -0.47], [0.35, -0.47], [0.55, -0.25], [0.55, 0.25],
+    [0.35, 0.47], [-0.35, 0.47], [-0.55, 0.25], [-0.55, -0.25]];
+  const layers = [
+    { radius: 1, y: -0.01, color: 0x3a2325 },
+    { radius: 0.94, y: 0.023, color: 0xaa5e59 },
+    { radius: 0.84, y: 0.045, color: 0xcf8272 },
+    { radius: 0.74, y: 0.004, color: 0x713c4c },
+    { radius: 0.59, y: -0.009, color: 0x2a1523 },
+    { radius: 0, y: -0.009, color: 0x150d18 },
+  ];
+  const vertices: number[] = [], colors: number[] = [], faces: number[] = [];
+  const c = new THREE.Color();
+  for (const { radius, y, color } of layers) {
+    corners.forEach(([x, z], i) => {
+      vertices.push(x * radius, y, z * radius);
+      c.setHex(color).multiplyScalar(i % 3 ? 1 : 0.78);
+      colors.push(c.r, c.g, c.b);
+    });
+  }
+  const n = corners.length;
+  for (let ring = 0; ring < layers.length - 1; ring++) {
+    for (let i = 0; i < n; i++) {
+      const a = ring * n + i, b = ring * n + (i + 1) % n;
+      faces.push(a, a + n, b, b, a + n, b + n);
+    }
+  }
+  return new THREE.BufferGeometry().setIndex(faces)
+    .setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3))
+    .setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+}
+
+function burrowFracture() {
+  const shape = new THREE.Shape().moveTo(-0.54, -0.02).lineTo(-0.39, -0.13).lineTo(-0.24, -0.066)
+    .lineTo(-0.096, -0.10).lineTo(0.04, -0.032).lineTo(0.18, -0.078).lineTo(0.30, -0.01)
+    .lineTo(0.55, -0.075).lineTo(0.34, 0.05).lineTo(0.17, -0.037).lineTo(0.03, 0.016)
+    .lineTo(-0.11, -0.045).lineTo(-0.24, -0.023).lineTo(-0.39, -0.10);
+  return new THREE.ShapeGeometry(shape).rotateX(-Math.PI / 2);
 }
 
 function lanternPrint() {
@@ -142,37 +196,32 @@ export function createCommanderEffects(scene: THREE.Scene, camera: THREE.Perspec
   const lens = track(lanternPrint());
   const lightTeal = new THREE.Color(opal.e), lightGreen = new THREE.Color(0xb0ffd2);
 
-  // Worm: bevelled soil cut, a hairline split, then the teeth lock into place.
+  // Worm: the ground fractures, the raised jaws bite, then the burrow caves in.
   const lipGeo = [track(mawLip(0)), track(mawLip(1))];
-  const lipMat = track(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.87, emissive: 0x392020, emissiveIntensity: 0.48 }));
-  const cut = new THREE.Shape().moveTo(-0.32, -0.08).lineTo(-0.20, -0.25).lineTo(0.20, -0.25)
-    .lineTo(0.32, -0.08).lineTo(0.32, 0.15).lineTo(0.21, 0.267).lineTo(-0.21, 0.267).lineTo(-0.32, 0.15);
-  const bedGeo = track(new THREE.ShapeGeometry(cut).rotateX(-Math.PI / 2));
-  const bedMat = ink(chitin.b, 0.98);
-  const edgeMat = ink(chitin.s, 0.95);
-  const dust = pool(chipGeo, track(new THREE.MeshStandardMaterial({ color: chitin.m, roughness: 1 })), TRAPS * GRIT);
+  const lipMat = track(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.83, emissive: 0x854b38, emissiveIntensity: 0.28 }));
+  const bedGeo = track(burrowBed());
+  const bedMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false, side: THREE.DoubleSide }));
+  const splitGeo = track(burrowFracture());
+  const dust = pool(chipGeo, track(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92, emissive: 0x382019 })), TRAPS * GRIT);
+  const gritColors = [new THREE.Color(chitin.d), new THREE.Color(chitin.m), new THREE.Color(chitin.r), new THREE.Color(chitin.e)];
   const gritOffsets = Array.from({ length: GRIT }, (_, i) => {
     const a = i * 2.39996;
-    return { x: Math.cos(a), z: Math.sin(a), height: 0.06 + (i % 4) * 0.028 };
+    return { x: Math.cos(a), z: Math.sin(a), height: 0.14 + (i % 4) * 0.064 };
   });
   const traps = Array.from({ length: TRAPS }, () => {
     const root = new THREE.Group();
     root.visible = false;
     group.add(root);
-    const rim = new THREE.Mesh(bedGeo, edgeMat);
     const bed = new THREE.Mesh(bedGeo, bedMat);
-    bed.scale.set(0.88, 1, 0.87);
-    bed.position.y = 0.002;
     const scoreMat = ink(chitin.r, 0.48);
     const score = new THREE.Mesh(ringGeo, scoreMat);
-    score.position.y = 0.004;
-    score.scale.set(0.305, 1, 0.235);
+    score.position.y = 0.020;
     const seamMat = ink(chitin.e);
-    const seam = new THREE.Mesh(patchGeo, seamMat);
-    seam.position.y = 0.008;
+    const seam = new THREE.Mesh(splitGeo, seamMat);
+    seam.position.y = 0.053;
     const lips = lipGeo.map(geo => new THREE.Mesh(geo, lipMat));
-    root.add(rim, bed, score, seam, ...lips);
-    return { root, lips, scoreMat, seam, seamMat, snap: 0 };
+    root.add(bed, score, seam, ...lips);
+    return { root, bed, lips, score, scoreMat, seam, seamMat, snap: 0 };
   });
 
   // Spark: ivory faceted core, amber husk and taper, and separate send/receive seals.
@@ -277,46 +326,55 @@ export function createCommanderEffects(scene: THREE.Scene, camera: THREE.Perspec
     let dustCount = 0;
     for (let i = 0; i < traps.length; i++) {
       const trap = traps[i];
-      const { root, lips, scoreMat, seamMat, seam } = trap;
+      const { root, bed, lips, score, scoreMat, seamMat, seam } = trap;
       const hole = battle?.holes[i];
-      root.visible = !!hole && time < TRAP_STUN_SECONDS + (reduced ? 0 : 0.34);
-      if (!hole || !root.visible) continue;
-      const age = Math.max(time, openerTime) - (i % 2) * 0.065;
-      const rise = reduced ? 1 : smooth((age - 0.06) / 0.23);
-      const snap = trap.snap = reduced ? 1 : smooth((age - 0.25) / 0.25);
       const release = time - TRAP_STUN_SECONDS;
-      const open = reduced ? 0 : smooth((release + 0.19) / 0.29);
-      const fold = reduced ? 0 : smooth(release / 0.34);
-      const bite = reduced ? 0 : Math.sin(Math.PI * unit((age - 0.36) / 0.22));
-      const gap = Math.max(0.003, 0.010 + 0.066 * rise * (1 - snap * (1 - open)) - 0.010 * bite);
-      // The rim peeks out from the target's shadow without extending into a second tile.
-      const rimZ = hole.y + 0.13;
-      root.position.set(hole.x, 0.027 - 0.088 * fold, rimZ);
+      root.visible = !!hole && release < (reduced ? 0 : TRAP_FOLD_SECONDS);
+      if (!hole || !root.visible) continue;
+      const age = Math.max(time, openerTime) - (i % 2) * 0.056;
+      const split = reduced ? 1 : smooth(age / 0.14);
+      const rise = reduced ? 1 : smooth((age - 0.075) / 0.225);
+      const snap = trap.snap = reduced ? 1 : smooth((age - 0.29) / 0.24);
+      const impact = reduced ? 0 : Math.sin(Math.PI * unit((age - 0.43) / 0.19));
+      const warning = reduced ? 0 : smooth((release + 0.19) / 0.19);
+      const reopen = reduced ? 0 : smooth(release / 0.105);
+      const fold = reduced ? 0 : smooth((release - 0.09) / (TRAP_FOLD_SECONDS - 0.09));
+      const gape = Math.max(rise * (1 - snap), reopen * 0.86);
+      const gap = 0.022 + 0.179 * gape - 0.011 * impact;
+      // Centre the bigger cut on the trapped tile, not on a second target.
+      root.position.set(hole.x, 0.029 - 0.113 * fold, hole.y);
       root.rotation.y = hole.owner === "foe" ? Math.PI : 0;
-      root.scale.set(0.58 + 0.42 * rise, 1, 0.42 + 0.58 * rise);
-      scoreMat.opacity = (0.36 + 0.44 * bite) * (1 - 0.8 * fold);
-      seam.scale.set(0.35 + 0.13 * (1 - snap), 1, 0.017 + 0.024 * bite);
-      seamMat.opacity = (0.25 + 0.68 * bite) * (1 - fold);
+      root.scale.set((0.38 + 0.62 * split) * (1 - 0.39 * fold), 1 - 0.70 * fold, 1 - 0.65 * fold);
+      bed.scale.z = 0.24 + 0.76 * rise;
+      score.visible = !potato && (reduced || rise > 0.13) && fold < 0.95;
+      score.scale.set(0.54 + 0.023 * impact, 1, (0.29 + 0.18 * rise + 0.020 * impact) * (1 - 0.47 * fold));
+      scoreMat.opacity = (0.34 + 0.45 * impact + 0.20 * warning) * (1 - fold);
+      seam.scale.set(0.46 + 0.54 * split, 1, (0.62 + 0.38 * rise) * (1 - 0.64 * fold));
+      seamMat.opacity = (0.15 + split * (1 - rise) * 0.78 + 0.50 * impact + 0.28 * warning) * (1 - fold);
       for (let j = 0; j < lips.length; j++) {
         const sign = j === 0 ? -1 : 1;
-        lips[j].position.set(0, -0.043 + rise * 0.056 - bite * 0.012, gap * sign);
-        lips[j].rotation.x = -sign * (0.06 + (1 - snap + open) * 0.15);
+        lips[j].visible = rise > 0.10;
+        lips[j].position.set(0, -0.105 + rise * 0.144 + gape * 0.17 - impact * 0.027 + warning * 0.015, gap * sign);
+        lips[j].rotation.x = -sign * (0.055 + gape * 0.49 - 0.095 * impact);
       }
       if (reduced) continue;
       const clearing = release >= 0;
-      const dustAge = clearing ? release / 0.33 : (age - 0.33) / 0.52;
+      const dustAge = clearing ? release / 0.33 : (age - 0.39) / 0.54;
       if (dustAge < 0 || dustAge >= 1) continue;
-      const count = potato ? 2 : clearing ? 5 : GRIT;
+      const count = potato ? 3 : clearing ? 7 : GRIT;
       for (let j = 0; j < count; j++) {
-        const c = gritOffsets[j];
-        const radius = 0.19 + dustAge * 0.15;
-        dummy.position.set(hole.x + c.x * radius, 0.038 + Math.sin(Math.PI * dustAge) * c.height, rimZ + c.z * radius);
-        dummy.rotation.set(dustAge * 2.8, i + j, dustAge * 0.72);
-        dummy.scale.setScalar((1 - dustAge) * (0.91 + j % 3 * 0.16));
+        const { x, z, height } = gritOffsets[j];
+        const radius = 0.28 + dustAge * 0.29;
+        dummy.position.set(hole.x + x * radius, 0.041 + Math.sin(Math.PI * dustAge) * height, hole.y + z * radius * 0.85);
+        dummy.rotation.set(dustAge * 3.7 + j, i + j, dustAge * 3.2);
+        dummy.scale.setScalar((1 - dustAge) * (0.88 + j % 3 * 0.31));
+        const tone = (i + j) % gritColors.length;
+        dust.setColorAt(dustCount, gritColors[tone]);
         put(dust, dustCount++);
       }
     }
     commit(dust, dustCount);
+    if (dustCount && dust.instanceColor) dust.instanceColor.needsUpdate = true;
   }
 
   function updateSparks({ battle, time, reduced, potato, anchor }: Frame) {
@@ -540,8 +598,9 @@ export function createCommanderEffects(scene: THREE.Scene, camera: THREE.Perspec
     update,
     inspect: () => ({
       traps: traps.filter(({ root }) => root.visible).length, debris: dust.count,
-      trapMeasures: traps.flatMap(({ root, lips, snap }) => root.visible ? [{
-        size: inspectBox.setFromObject(root).getSize(inspectSize).toArray(), gap: lips[1].position.z - lips[0].position.z, snap,
+      trapMeasures: traps.flatMap(({ root, bed, lips, snap }) => root.visible ? [{
+        size: inspectBox.setFromObject(bed).getSize(inspectSize).toArray(),
+        gap: lips[1].position.z - lips[0].position.z, jawY: root.position.y + lips[0].position.y * root.scale.y, snap,
       }] : []),
       souls: souls.count, threads: threads.count, departureRings: sendRings.count, landingRings: receiveRings.count, landingFlecks: soulFlecks.count,
       marks: oracles.filter(({ ward }) => ward.visible).length,

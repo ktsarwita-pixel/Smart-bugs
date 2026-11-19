@@ -17,8 +17,9 @@ import { UiDoctor } from "./components/UiDoctor";
 import { AdvancedView, DEV_BUILD } from "./components/AdvancedView";
 import { fill, useSettings } from "./i18n";
 import { CommanderSkillControl } from "./components/CommanderSkillControl";
-import { IncomeAssay, PressurePresent, WormBenchCue, screenPoint, type PrepCast } from "./components/CommanderVignettes";
+import { IncomeAssay, PressurePresent, WormBenchArrival, WormBenchCue, screenPoint, type PrepCast } from "./components/CommanderVignettes";
 import { eatAndSpit, freshCommander, incomeFrom, PRESSURE_GOLD, settleCommander, strongestOwned, WORM_CAP, WORM_INTERVAL } from "./game/commander";
+import { INCOME_CUE_MS, WORM_BENCH_CUE_MS, WORM_REVEAL_MS } from "./game/commander-motifs";
 import { addRecruit, combine, deliverRecruits } from "./game/roster";
 import { CareerPanel } from "./components/CareerPanel";
 import { saveMatch, type RecordOutcome } from "./game/career";
@@ -288,7 +289,7 @@ export default function App() {
   const goldAnchor = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!prepCast) return;
-    const timer = window.setTimeout(() => setPrepCast(null), 1810);
+    const timer = window.setTimeout(() => setPrepCast(null), prepCast.kind === "incomes" ? INCOME_CUE_MS : WORM_BENCH_CUE_MS);
     return () => window.clearTimeout(timer);
   }, [prepCast]);
   useEffect(() => {
@@ -429,10 +430,12 @@ export default function App() {
   };
 
   const castPoint = (target: PrepUnit) => {
-    const targetEl = document.querySelector(target.zone === "bench"
+    const targetEl = document.querySelector<HTMLElement>(target.zone === "bench"
       ? `.bench-slot[data-unit-id="${target.uid}"]`
       : `.battle-stage .ov-unit[data-unit-id="${target.uid}"]`);
-    const point = screenPoint(targetEl) ?? screenPoint(document.querySelector(".commander-control__skill"))
+    const local = targetEl?.dataset.skillPoint;
+    const projected = local ? screenPoint(document.querySelector(".battle-stage canvas"), JSON.parse(local)) : null;
+    const point = projected ?? screenPoint(targetEl) ?? screenPoint(document.querySelector(".commander-control__skill"))
       ?? { x: window.innerWidth / 2, y: window.innerHeight / 2 };
     return { x: Math.max(18, Math.min(window.innerWidth - 18, point.x)), y: point.y };
   };
@@ -462,7 +465,7 @@ export default function App() {
       const arrivals = new Map<number, { star: number; delay: number }>();
       for (const recruit of received.out) {
         if (recruit.zone === "bench" && !units.some((old) => old.uid === recruit.uid && old.star === recruit.star)) {
-          arrivals.set(recruit.uid, { star: recruit.star, delay: 340 + 110 * Math.min(arrivals.size, 3) });
+          arrivals.set(recruit.uid, { star: recruit.star, delay: WORM_REVEAL_MS + 85 * Math.min(arrivals.size, 3) });
         }
       }
       setPrepCast({ kind: "eat-spit", serial: ++castSerial.current, slot: target.slot, eaten: target.bugId, arrivals });
@@ -475,7 +478,7 @@ export default function App() {
       const income = incomeFrom(commanderProgress, round, target);
       if (!income) return;
       const at = castPoint(target);
-      const bank = screenPoint(goldAnchor.current) ?? { x: at.x, y: Math.max(38, at.y - 48) };
+      const bank = screenPoint(goldAnchor.current);
       setPrepCast({ kind: "incomes", serial: ++castSerial.current, at, bank, gold: income.gold });
       setCommanderProgress(income.progress);
       setGold((g) => g + income.gold);
@@ -2248,6 +2251,7 @@ export default function App() {
               interactive={phase === "prep" || (phase === "battle" && skillTargeting && skillReady)}
               targetableUids={skillTargeting ? new Set(pickable.map((u) => u.uid)) : undefined}
               markedUid={activeMark?.uid}
+              prepCue={phase === "prep" ? prepCast?.serial : undefined}
               cmdA={cmd ?? "matriarch"}
               cmdB={foe.cmd}
               treasure={!!treasure}
@@ -2690,10 +2694,9 @@ export default function App() {
                               className="absolute left-0 top-0 h-full w-[2px]"
                               style={{ background: BUGS[u.bugId].accent }}
                             />
-                            <span className={arriving ? "worm-arrival" : "contents"} data-skill-arrival={arriving || undefined}
-                              style={arriving ? { animationDelay: `${arrival.delay}ms` } : undefined}>
-                              <SpecimenIcon id={u.bugId} size={33} star={u.star} selected={isSel} badge="none" />
-                            </span>
+                            {arriving && morsel
+                              ? <WormBenchArrival key={`${morsel.serial}-${u.uid}`} id={u.bugId} star={u.star} selected={isSel} delay={arrival.delay} />
+                              : <SpecimenIcon id={u.bugId} size={33} star={u.star} selected={isSel} badge="none" />}
                             <span className="pointer-events-none absolute left-0.5 top-0.5">
                               <RankBadge id={u.bugId} size={11} />
                             </span>

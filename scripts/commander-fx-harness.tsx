@@ -22,11 +22,14 @@ Object.assign(window, {
       markOracleTarget(battle, side, receiver.uid);
       return before;
     },
+    arm: () => {
+      mark.hp = mark.maxHp / 2 + 51;
+      markOracleTarget(battle, 'ally', mark.uid);
+    },
+    edgeMark: () => { mark.x = 0.5; mark.y = 5.5; },
     crossThreshold: () => {
       // Wounded after the opening trap. A stag's 34 ATK is 51 on Vulnerable.
-      const before = mark.maxHp / 2 + 51;
-      mark.hp = before;
-      markOracleTarget(battle, 'ally', mark.uid);
+      const before = mark.hp;
       Object.assign(attacker, {x: mark.x - .3, y: mark.y - .8, cd: 0});
       stepBattle(battle, .1);
       attacker.cd = 100;

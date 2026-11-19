@@ -39,9 +39,10 @@ try {
   await step(6);
   await page.waitForFunction(() => {
     const fx = JSON.parse(document.querySelector('canvas').dataset.commanderFx);
-    return fx.trapMeasures.length === 2 && fx.trapMeasures.every(m => m.gap < .03);
+    return fx.trapMeasures.length === 2 && fx.trapMeasures.every(m => m.snap === 1 && m.gap < .03);
   });
-  for (const {size} of (await read()).trapMeasures) {
+  for (const {size, snap} of (await read()).trapMeasures) {
+    assert.equal(snap, 1, 'the lips close on both real targets');
     assert.ok(size[0] < .68 && size[2] < .68 && size[1] < .1, `jaws should stay low and use less than a tile: ${size}`);
   }
   if (shots) {
@@ -55,6 +56,10 @@ try {
   await rendered('traps',0);
   await rendered('rays',0);
 
+  await page.evaluate(() => window.commanderFxHarness.arm());
+  await rendered('marks',1);
+  assert.equal((await read()).rays,0, 'a healthy mark has a ward, not a premature ray');
+  await shot('02-armed-ward');
   const first = await page.evaluate(() => {
     const f = window.commanderFxHarness;
     const before = f.crossThreshold(); // observe this very tick, without stepping again
@@ -73,36 +78,47 @@ try {
   const instant = (await read()).rayAxes[0];
   checkAxis(instant, '0s ally');
   assert.equal(instant.age, 0);
+  assert.ok(instant.prismWidth >= .2 && instant.motes > 0, 'the full prism and arrival glints start immediately');
   assert.equal(instant.bandProgress, 0, 'the moving band starts at the sky, after the heal is already visible');
   assert.equal(await page.locator('[data-heal-source="oracle"]').innerText(), `+${gain} HP`);
-  assert.equal(await page.locator(`[data-unit-id="${first.uid}"] .ov-hp i`).evaluate(el => el.style.width),
-    `${Math.round(first.hp / first.maxHp * 100)}%`, 'the first rendered pulse already has the post-heal HP');
-  await shot('02-instant-opal');
+  const bar = await page.locator(`[data-unit-id="${first.uid}"][data-heal-receive="oracle"] .ov-hp i`).evaluate(el => ({
+    declared: el.style.width, ratio: el.getBoundingClientRect().width / el.parentElement.getBoundingClientRect().width,
+  }));
+  assert.equal(bar.declared, `${Math.round(first.hp / first.maxHp * 100)}%`, 'the first rendered pulse already has the post-heal HP');
+  assert.ok(Math.abs(bar.ratio - first.hp / first.maxHp) < .015, 'the bar itself snaps, not just its declared width');
+  await shot('03-instant-prism');
   await step(3);
   await page.waitForFunction(() => JSON.parse(document.querySelector('canvas').dataset.commanderFx).rayAxes[0]?.bandProgress > .24);
   const moved = (await read()).rayAxes[0];
   assert.ok(Math.abs(moved.middle[0] - instant.middle[0]) > .01 && Math.abs(moved.middle[2] - instant.middle[2]) > .01,
     'refraction changes phase in both horizontal axes');
-  await shot('03-opal-descent');
+  await shot('04-prism-descent');
 
-  await page.evaluate(() => { const f=window.commanderFxHarness; f.fall(); f.step(2); });
+  await page.evaluate(() => window.commanderFxHarness.fall());
   await rendered('souls',1);
   await rendered('departureRings',1);
-  assert.ok((await read()).threads >= 2, 'Last Spark leaves a tapered thread');
-  await shot('04-soul-thread');
+  await shot('05-last-spark-departure');
+  await step(2);
+  await page.waitForFunction(() => JSON.parse(document.querySelector('canvas').dataset.commanderFx).threads >= 2);
+  await shot('06-last-spark-flight');
   await step(3);
   await rendered('souls',0);
   await rendered('landingRings',1);
+  assert.ok((await read()).landingFlecks > 0);
+  assert.match(await page.locator('[data-heal-source="spark"]').innerText(), /^\+\d+ HP$/, 'amber seal lands with the healing tick');
   await step(2);
   await rendered('rays',0);
-  await shot('05-last-spark-arrival');
-  await step(4);
+  await shot('07-last-spark-arrival');
+  await step(2);
+  await page.waitForFunction(() => JSON.parse(document.querySelector('canvas').dataset.commanderFx).charges[0] > .21);
+  await step(2);
   await rendered('rays',1);
   assert.equal(await page.evaluate(() => window.commanderFxHarness.battle.waves.ally.pulses), 2);
-  await step(47);
+  await step(46);
   await rendered('landingRings',0);
   await rendered('smoke',1);
-  await shot('06-green-impact');
+  assert.deepEqual((await read()).impactTiles, [9, 0], 'the last pulse illuminates the real 3×3');
+  await shot('08-green-impact');
   assert.equal(await page.evaluate(() => window.commanderFxHarness.battle.waves.ally.pulses),4);
   await step(17);
   await rendered('smoke',0);
@@ -124,6 +140,11 @@ try {
   await page.waitForFunction(() => document.querySelector('canvas').clientWidth === 390);
   const [portraitAlly, portraitFoe] = (await read()).rayAxes;
   checkAxis(portraitAlly, 'portrait ally'); checkAxis(portraitFoe, 'portrait foe');
+  await shot('09-portrait-mirror');
+  await page.evaluate(() => window.commanderFxHarness.edgeMark());
+  await step(60);
+  await rendered('smoke',2);
+  assert.deepEqual((await read()).impactTiles, [4, 9], 'the final nine-tile pattern clips at the board corner');
 
   await page.emulateMedia({reducedMotion:'reduce'});
   await page.evaluate(() => localStorage.setItem('smartbugs.settings',JSON.stringify({rev:2, lang:'en', motion:'reduced', potato:true})));
@@ -138,9 +159,12 @@ try {
   const quiet = (await read()).rayAxes[0];
   checkAxis(quiet, 'reduced/Potato ally');
   assert.ok(quiet.segments < instant.segments, 'lower-budget mode omits the supplemental strand');
-  await shot('07-reduced-potato');
+  assert.equal(quiet.prismWidth, 0);
+  assert.equal(quiet.motes, 0);
+  await shot('10-reduced-potato');
   await step(60);
-  await rendered('smoke',1);
+  await page.waitForFunction(() => JSON.parse(document.querySelector('canvas').dataset.commanderFx).impactTiles[0] === 9);
+  assert.equal((await read()).smoke, 0, 'Potato keeps the footprint but sheds the fog');
   assert.deepEqual(errors,[]);
-  console.log('commander-fx: PASS — low-profile traps, instant sky ray and travelling band, soul thread, 3×3 impact, reduced motion and Potato');
+  console.log('commander-fx: PASS — slot-sized traps, marked ward and instant prism, travelling soul and same-tick halo, clipped 3×3, reduced motion and Potato');
 } finally { await browser.close(); }

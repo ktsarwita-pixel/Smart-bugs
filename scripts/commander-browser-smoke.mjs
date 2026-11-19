@@ -26,9 +26,13 @@ await page.addInitScript(() => {
   // the Oracle case finish with the normal combat clock.
   const timer = window.setTimeout.bind(window);
   window.setTimeout = (fn, delay, ...args) => {
-    if (!window.__holdPreRoll || delay !== 640) return timer(fn, delay, ...args);
+    const captureCue = window.__holdCue && (delay === 2350 || delay === 1550);
+    const preRoll = window.__holdPreRoll && delay === 640;
+    if (!captureCue && !preRoll) return timer(fn, delay, ...args);
     const id = timer(fn, 60000, ...args);
-    window.__releasePreRoll = () => { window.clearTimeout(id); fn(...args); };
+    const release = () => { window.clearTimeout(id); fn(...args); };
+    if (captureCue) window.__releaseCue = () => { window.__holdCue = false; release(); };
+    else window.__releasePreRoll = release;
     return id;
   };
 });
@@ -54,6 +58,9 @@ const point = (locator) => locator.evaluate(el => {
   const { x,y,width,height } = el.getBoundingClientRect();
   return [x + width / 2, y + height / 2];
 });
+// Let screenshots set the CSS clock without racing a short expiry timer.
+const holdCue = () => page.evaluate(() => { window.__holdCue = true; });
+const releaseCue = () => page.evaluate(() => window.__releaseCue());
 const engage = async () => { await page.getByRole('button',{name:/Engage battle/}).tap(); await combat.waitFor(); };
 const next = async () => { await result.locator('.result-next').tap(); await page.locator('.prep-dock .commander-control').waitFor(); };
 const noBonds = async () => assert.equal(await page.locator('.bonds-bar, .bond-chip, .bond-mini').count(),0);
@@ -127,14 +134,14 @@ try {
     const move = el.getAnimations()[0];
     move.pause(); move.currentTime = 100;
     const locked = getComputedStyle(el).transform;
-    move.currentTime = 1050;
+    move.currentTime = 840;
     const open = getComputedStyle(el).transform;
     move.finish();
     return [locked,open];
   });
   assert.notEqual(locked,open,'the vault actually opens across the payout sequence');
   assert.equal(await pressure.locator('.pressure-specimens .spec-icon').count(),2);
-  if (shots) { await atFrame(pressure, 1200); await shot('scavanger-vault-payout'); }
+  if (shots) { await atFrame(pressure, 920); await shot('scavanger-vault-payout'); }
   await page.emulateMedia({reducedMotion:'reduce'});
   assert.equal(await animation(pressure.locator('.pressure-shutter').first()),'none','reduced motion keeps a static open vault');
   assert.equal(await pressure.locator('.pressure-specimens .spec-icon').count(),2);
@@ -150,17 +157,19 @@ try {
   await bench.first().scrollIntoViewIfNeeded();
   const [x,y] = await point(bench.first());
   const [bankX,bankY] = await point(page.locator('.deck-resources .gold-flash').locator('..'));
+  await holdCue();
   await bench.first().tap();
   const income = await cast('incomes').evaluate(el => {
     const path = el.querySelector('.income-route__line');
     const point = length => { const {x,y} = path.getPointAtLength(length); return {x,y}; };
     const token = el.querySelector('.income-carrier');
     const motion = token.getAnimations()[0];
-    motion.pause(); motion.currentTime = 290;
+    motion.pause(); motion.currentTime = 590;
     const depart = parseFloat(getComputedStyle(token).offsetDistance);
-    motion.currentTime = 885;
+    motion.currentTime = 1130;
     const traveling = parseFloat(getComputedStyle(token).offsetDistance);
     return { pointer: getComputedStyle(el).pointerEvents, carriers: el.querySelectorAll('.income-carrier').length,
+      chase: getComputedStyle(el.querySelector('.income-route__chase')).animationName,
       sweep: getComputedStyle(el.querySelector('.income-assay__sweep')).animationName,
       animation: getComputedStyle(token).animationName, credit: el.querySelector('.income-credit').textContent,
       start: point(0), end: point(path.getTotalLength()), depart, traveling };
@@ -169,11 +178,23 @@ try {
   assert.equal(income.carriers,1);
   assert.equal(income.sweep,'assay-sweep');
   assert.equal(income.animation,'assay-transfer');
+  assert.equal(income.chase,'assay-chase');
   assert.equal(income.credit,'+6G');
   assert.ok(income.depart === 0 && income.traveling > 45, 'the carrier moves along the etching');
   assert.ok(Math.hypot(income.start.x - x, income.start.y - y) < 8, 'appraisal starts at the actual bench bug');
   assert.ok(Math.hypot(income.end.x - bankX, income.end.y - bankY) < 8, 'the transfer ends at the Gold counter');
-  if (shots) { await atFrame(cast('incomes'), 820); await shot('scavanger-incomes'); }
+  if (shots) {
+    await atFrame(cast('incomes'), 495); await shot('scavanger-incomes-mint');
+    await atFrame(cast('incomes'), 1000); await shot('scavanger-incomes-transfer');
+    await atFrame(cast('incomes'), 1605); await shot('scavanger-incomes-credit');
+  }
+  await page.emulateMedia({reducedMotion:'reduce'});
+  assert.equal(await animation(cast('incomes').locator('.income-assay__caliper').first()), 'none');
+  assert.equal(await cast('incomes').locator('.income-carrier').isVisible(), false);
+  assert.equal(await cast('incomes').locator('.income-credit').isVisible(), true);
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await releaseCue();
+  await cast('incomes').waitFor({state:'detached'});
   assert.equal(Number(await page.locator('.deck-resources .gold-flash').innerText()) - before,6);
   assert.equal(await page.locator('.bench-slot').filter({has:page.locator('.spec-icon')}).count(),3,'Incomes does not consume its target');
   assert.ok(await skill.isDisabled());
@@ -183,7 +204,19 @@ try {
   await force(true); await next();
   await statusMatches(/Uses: 1 · Ready/);
   assert.ok(await skill.isEnabled());
-  console.log('PASS Ancient Scavanger brass vault, calibrated transfer for +6G and two-round cooldown');
+  await skill.tap();
+  const boardId = await picker.locator('option').filter({hasText:/STAG.*DRAWER/i}).getAttribute('value');
+  const boardPoint = await page.locator(`.ov-unit[data-unit-id="${boardId}"][data-skill-point]`).evaluate(el => {
+    const canvas = document.querySelector('.battle-stage canvas').getBoundingClientRect();
+    const [x, y] = JSON.parse(el.dataset.skillPoint);
+    return [canvas.left + x, canvas.top + y];
+  });
+  await holdCue();
+  await picker.selectOption(boardId);
+  const mintPoint = await cast('incomes').locator('.income-assay').evaluate(el => [parseFloat(el.style.left), parseFloat(el.style.top)]);
+  assert.ok(Math.hypot(mintPoint[0] - boardPoint[0], mintPoint[1] - boardPoint[1]) < 8, 'a deployed target starts at the 3D body, not the health label');
+  await releaseCue();
+  console.log('PASS Ancient Scavanger brass vault, bench and deployed transfers and two-round cooldown');
 
   await page.setViewportSize({width:390,height:844});
   await start('World Worm','?advenced=1&doctor=1');
@@ -204,6 +237,7 @@ try {
   await page.keyboard.press('Escape');
   assert.equal(await picker.count(),0,'Escape cancels targeting');
   await skill.tap();
+  await holdCue();
   await bench.first().tap();
   const consumed = page.locator('.bench-slot .worm-etch[data-skill-fx="eat-spit"]');
   const spit = await consumed.evaluate(el => {
@@ -218,7 +252,19 @@ try {
   assert.ok(spit.tones.includes('#FFEBCA') && spit.tones.includes('#823F50'), 'the effect uses the same ink as the Worm portrait');
   assert.equal(await cast('eat-spit').count(),0,'no screen-sized overlay for a bench cast');
   assert.equal(await page.locator('.bench-slot [data-skill-arrival="true"] > .spec-icon').count(),2,'only the two actual bench recruits take part');
-  if (shots) { await atFrame(consumed, 405); await shot('worm-slot-reveal'); }
+  const arrivals = page.locator('.bench-slot .worm-arrival > .spec-icon');
+  assert.equal(await animation(arrivals.first()), 'worm-expose');
+  if (shots) {
+    await atFrame(page.locator('.bench-grid'), 365); await shot('worm-bench-bite');
+    await atFrame(page.locator('.bench-grid'), 760); await shot('worm-bench-spit');
+  }
+  await page.emulateMedia({reducedMotion:'reduce'});
+  assert.equal(await animation(arrivals.first()), 'none');
+  assert.equal(await consumed.locator('.worm-etch__mouth').isVisible(), false);
+  assert.equal(await arrivals.count(), 2, 'quiet mode keeps the actual arrivals');
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await releaseCue();
+  await consumed.waitFor({state:'detached'});
   assert.equal(await page.locator('.bench-slot').filter({has:page.locator('.spec-icon')}).count(),2);
   await statusMatches(/0\/5 uses/);
   console.log('PASS World Worm opening seams and small portrait-matched effects in the actual bench slots');
@@ -234,6 +280,7 @@ try {
   const stagUid = await picker.locator('option:not([disabled])').first().getAttribute('value');
   await picker.selectOption(stagUid);
   await statusMatches(/Marked: .*STAG · ≤50% HP/);
+  await page.waitForFunction(() => JSON.parse(document.querySelector('.battle-stage canvas')?.dataset.commanderFx ?? '{}').marks === 1);
   await engage();
   await statusMatches(/Marked: .*STAG · ≤50% HP/);
   await skill.tap();

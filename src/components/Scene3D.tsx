@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { createChestGeometry } from "../game/treasure-voxel";
-import { createCommanderEffects } from "../game/commander-effects";
+import { commanderBattleSignal, createCommanderEffects } from "../game/commander-effects";
 import { createDetailedChest } from "../game/chest-model";
 import { BUGS, COMMANDERS, SPECIMEN_IDS, type BugId, type CmdId } from "../game/data";
 import { COLS, ROWS, SPIDER_ROAR_SECONDS, boardXY, type BattleState, type BUnit, type Zone, type PrepUnit } from "../game/engine";
@@ -34,6 +34,8 @@ interface Props {
   selectedUid?: number | null;
   targetableUids?: ReadonlySet<number>;
   markedUid?: number;
+  /** Identifies a new, already resolved prep cast so the stand can react to it. */
+  prepCue?: number;
   canDeployMore?: boolean;
   interactive?: boolean;
   cmdA?: CmdId;
@@ -141,6 +143,7 @@ export function Scene3D({
   selectedUid = null,
   targetableUids,
   markedUid,
+  prepCue,
   canDeployMore = true,
   interactive = false,
   cmdA = "matriarch",
@@ -170,6 +173,7 @@ export function Scene3D({
     selectedUid,
     targetableUids,
     markedUid,
+    prepCue,
     canDeployMore,
     interactive,
     cmdA,
@@ -190,6 +194,7 @@ export function Scene3D({
     selectedUid,
     targetableUids,
     markedUid,
+    prepCue,
     canDeployMore,
     interactive,
     cmdA,
@@ -383,6 +388,7 @@ export function Scene3D({
       cap: THREE.Mesh<THREE.BoxGeometry>;
       ring: THREE.MeshBasicMaterial;
       accent: THREE.MeshBasicMaterial;
+      tint: THREE.Color;
       id: CmdId | null;
       model: VoxModel | null;
       entry: number;
@@ -594,7 +600,7 @@ export function Scene3D({
         holder.position.y = STAND_DECK + 0.012;
         root.add(wood, brace, cap, plate, band, glint, holder);
         scene.add(root);
-        return { root, holder, wood, cap, ring, accent, id: null, model: null, entry: 1 };
+        return { root, holder, wood, cap, ring, accent, tint: new THREE.Color(), id: null, model: null, entry: 1 };
       };
       stands.ally = mkStand(ROWS + STAND_OUTSET);
       stands.foe = mkStand(-STAND_OUTSET);
@@ -786,6 +792,9 @@ export function Scene3D({
     const inspectCommanderFx = new URLSearchParams(window.location.search).get("doctor") === "1";
     let commanderAfterTime = 0;
     let commanderOpenerStart = 0;
+    let commanderPrepAt = 0;
+    let commanderPrepCue: number | undefined;
+    const healReceivers = new Map<number, "oracle" | "spark">();
     const FN = isCompact ? 22 : 34;
     const fpos = new Float32Array(FN * 3);
     const fbase: [number, number, number][] = [];
@@ -2081,7 +2090,8 @@ export function Scene3D({
     const restBounds = new THREE.Box3();
     const restCenter = new THREE.Vector3();
     let totemAuditClock = 0;
-    function updateStand(stand: Stand | undefined, id: CmdId, foe: boolean, visible: boolean, dt: number, reduced: boolean) {
+    const standGlint = new THREE.Color(0xfff4d5);
+    function updateStand(stand: Stand | undefined, id: CmdId, foe: boolean, visible: boolean, dt: number, reduced: boolean, cast: number) {
       if (!stand) return;
       stand.root.visible = visible;
       if (!visible) return;
@@ -2100,17 +2110,18 @@ export function Scene3D({
         stand.model = model;
         stand.id = id;
         stand.entry = 0;
-        const tint = COMMANDERS.find((c) => c.id === id)?.accent ?? "#F0A93B";
-        stand.ring.color.set(tint);
-        stand.accent.color.set(tint);
+        stand.tint.set(COMMANDERS.find((c) => c.id === id)?.accent ?? "#F0A93B");
       }
       stand.entry = reduced ? 1 : Math.min(1, stand.entry + dt * 2.5);
       const e = stand.entry - 1;
       // Grow from the deck, not from a point submerged in the box.
-      stand.holder.scale.setScalar(Math.max(0.001, 1 + 2.28 * e ** 3 + 1.28 * e ** 2));
+      const gesture = reduced ? 0 : cast;
+      stand.holder.scale.setScalar(Math.max(0.001, 1 + 2.28 * e ** 3 + 1.28 * e ** 2) * (1 + 0.064 * gesture));
       const idle = t + (foe ? 1.4 : 0);
-      stand.holder.rotation.y = (foe ? Math.PI - 0.08 : 0.08) + (reduced ? 0 : Math.sin(idle * 0.7) * 0.05);
-      stand.ring.opacity = reduced ? 0.48 : 0.46 + Math.sin(idle * 2.4) * 0.14;
+      stand.holder.rotation.y = (foe ? Math.PI - 0.08 : 0.08) + (reduced ? 0 : Math.sin(idle * 0.7) * 0.05 + (foe ? 1 : -1) * 0.18 * gesture);
+      stand.ring.opacity = Math.min(0.95, (reduced ? 0.48 : 0.46 + Math.sin(idle * 2.4) * 0.14) + cast * 0.44);
+      stand.ring.color.copy(stand.tint).lerp(standGlint, cast * 0.56);
+      stand.accent.color.copy(stand.ring.color);
       if (!reduced) animateInsectRig(stand.model, id, idle, foe ? 1002 : 1001, false, 0, 0, 0, 0, 0, false, 0, dt);
     }
 
@@ -3119,6 +3130,13 @@ export function Scene3D({
         }
         if (u.ring) (u.ring.material as THREE.MeshBasicMaterial).opacity = o * 0.5;
       } else {
+        // The same roster UID returns in prep after a loss. Clear the
+        // renderer's one-shot death flag so it can be marked or appraised.
+        if (u.prevDead) {
+          u.prevDead = false;
+          u.deadT = 0;
+          if (u.ring) (u.ring.material as THREE.MeshBasicMaterial).opacity = 0.5;
+        }
         if (u.model.bodyMat.transparent) {
           u.model.bodyMat.transparent = false;
           u.model.bodyMat.opacity = 1;
@@ -3615,8 +3633,20 @@ export function Scene3D({
       const liveBattle = p.battleRef?.current ?? p.battle;
       const battleOn = !!liveBattle && p.mode !== "prep";
 
-      updateStand(stands.ally, p.cmdA, false, true, dt, reduceChestMotion);
-      updateStand(stands.foe, p.cmdB, true, !p.treasure, dt, reduceChestMotion);
+      if (p.prepCue !== commanderPrepCue) {
+        commanderPrepCue = p.prepCue;
+        commanderPrepAt = now;
+      }
+      const prepAge = (now - commanderPrepAt) / 1000;
+      const prepSignal = p.mode === "prep" && p.prepCue !== undefined
+        ? Math.sin(Math.PI * Math.min(1, prepAge / (p.cmdA === "worm" ? 0.76 : 1.10))) : 0;
+      if (activeBattle?.over) commanderAfterTime += dt;
+      const commanderTime = visualBattleTime + commanderAfterTime;
+      const openerTime = t - commanderOpenerStart;
+      updateStand(stands.ally, p.cmdA, false, true, dt, reduceChestMotion,
+        Math.max(prepSignal, commanderBattleSignal(activeBattle, p.cmdA, "ally", commanderTime, openerTime)));
+      updateStand(stands.foe, p.cmdB, true, !p.treasure, dt, reduceChestMotion,
+        commanderBattleSignal(activeBattle, p.cmdB, "foe", commanderTime, openerTime));
 
       // Doctor samples projected, animated geometry only while enabled, not
       // on every frame. Normalized bounds let it spot real 3D clipping even
@@ -3728,6 +3758,14 @@ export function Scene3D({
       seen.clear();
       frameParity ^= 1;
       if (battleOn && liveBattle) {
+        healReceivers.clear();
+        for (const spark of liveBattle.sparks) {
+          if (spark.landedAt !== undefined && commanderTime - spark.landedAt < 0.25) healReceivers.set(spark.targetUid, "spark");
+        }
+        for (const side of ["ally", "foe"] as const) {
+          const wave = liveBattle.waves[side];
+          if (wave?.lastPulseAt !== undefined && commanderTime - wave.lastPulseAt < 0.25) healReceivers.set(wave.uid, "oracle");
+        }
         const bUnits = liveBattle.units;
         for (let i = 0; i < bUnits.length; i++) {
           const r = bUnits[i];
@@ -3788,6 +3826,12 @@ export function Scene3D({
               : undefined,
             r.bugId === "spider" && r.star >= 3 && r.roarEnd === undefined && liveBattle.t + 1e-9 >= SPIDER_ROAR_SECONDS,
           );
+          const tag = units.get(r.uid)?.el;
+          const cue = r.dead ? undefined : healReceivers.get(r.uid);
+          if (tag && tag.dataset.healReceive !== cue) {
+            if (cue) tag.dataset.healReceive = cue;
+            else delete tag.dataset.healReceive;
+          }
         }
       } else {
         for (let i = 0; i < p.prep.length; i++) {
@@ -3795,6 +3839,8 @@ export function Scene3D({
           if (u.zone !== "board") continue;
           const q = boardXY(u.slot);
           updateUnitFrame(u.uid, u.bugId, u.star, "ally", q.x, q.y, 1, 1, 0, false, 1, 0, 0, 0, 0, 0, 0, 0, false, 0, dt);
+          const tag = units.get(u.uid)?.el;
+          if (tag?.dataset.healReceive) delete tag.dataset.healReceive;
         }
       }
 
@@ -3805,27 +3851,32 @@ export function Scene3D({
 
       if (targetingRings) {
         let count = 0;
-        if (p.targetableUids || p.markedUid !== undefined || inspectCommanderFx) for (const [uid, u] of units) {
-          if (u.prevDead || (uid !== p.markedUid && !p.targetableUids?.has(uid))) {
-            if (inspectCommanderFx) delete u.el.dataset.skillPoint;
+        for (const [uid, u] of units) {
+          if (u.prevDead || !p.targetableUids?.has(uid)) {
+            if (u.el.dataset.skillPoint) delete u.el.dataset.skillPoint;
             continue;
           }
-          const s = u.scale * (uid === p.markedUid ? 1.13 : 1);
-          ringMatrix.makeScale(s, 1, s).setPosition(u.holder.position.x, 0.032, u.holder.position.z);
-          targetingRings.setMatrixAt(count++, ringMatrix);
-          if (inspectCommanderFx && p.mode === "battle" && p.targetableUids?.has(uid)) {
+          // The committed mark has its own live ward; keep the picker rings
+          // only on eligible alternatives.
+          if (uid !== p.markedUid) {
+            ringMatrix.makeScale(u.scale, 1, u.scale).setPosition(u.holder.position.x, 0.032, u.holder.position.z);
+            targetingRings.setMatrixAt(count++, ringMatrix);
+          }
+          if (p.mode === "prep" || inspectCommanderFx) {
             projectSkillPoint(u);
-            u.el.dataset.skillPoint = JSON.stringify([(proj.x * 0.5 + 0.5) * W, (0.5 - proj.y * 0.5) * H]);
-          } else if (inspectCommanderFx) {
-            delete u.el.dataset.skillPoint;
+            const local = JSON.stringify([Number(((proj.x * 0.5 + 0.5) * W).toFixed(1)), Number(((0.5 - proj.y * 0.5) * H).toFixed(1))]);
+            if (u.el.dataset.skillPoint !== local) u.el.dataset.skillPoint = local;
           }
         }
         targetingRings.count = count;
         if (count) targetingRings.instanceMatrix.needsUpdate = true;
       }
       if (commanderFx) {
-        if (activeBattle?.over) commanderAfterTime += dt;
-        commanderFx.update(activeBattle, visualBattleTime + commanderAfterTime, t - commanderOpenerStart, reduceChestMotion, potatoOn, skillAnchor);
+        commanderFx.update({
+          battle: activeBattle, time: commanderTime, openerTime, ambientTime: t,
+          prepMark: p.mode === "prep" ? p.markedUid : undefined,
+          reduced: reduceChestMotion, potato: potatoOn, anchor: skillAnchor,
+        });
         if (inspectCommanderFx) {
           const info = JSON.stringify(commanderFx.inspect());
           if (renderer.domElement.dataset.commanderFx !== info) renderer.domElement.dataset.commanderFx = info;

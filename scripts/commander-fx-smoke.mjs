@@ -36,33 +36,36 @@ function checkAxis({top, hit, middle, sourceNdcY, leadY}, name) {
 try {
   await page.goto(`${base}/scripts/commander-fx-harness.html?doctor=1`);
   await rendered('traps',2);
-  await step(6);
+  await step(7);
   await page.waitForFunction(() => {
     const fx = JSON.parse(document.querySelector('canvas').dataset.commanderFx);
-    return fx.trapMeasures.length === 2 && fx.trapMeasures.every(m => m.snap === 1 && m.gap < .048);
+    return fx.trapMeasures.length === 2 && fx.trapMeasures.every(m => m.snap === 1 && m.gap <= .13);
   });
   const held = (await read()).trapMeasures;
   for (const {size, snap, jawY} of held) {
     assert.equal(snap, 1, 'both actual targets have locked jaws');
-    assert.ok(size[0] >= 1.05 && size[0] <= 1.12 && size[2] >= .9 && size[2] <= 1.03 && size[1] >= .05,
-      `the carved pit fills a tile, about three times the old footprint: ${size}`);
-    assert.ok(jawY > .035 && jawY < .14, 'the teeth stay around the feet while holding');
+    assert.ok(size[0] >= 1.24 && size[0] <= 1.50 && size[2] >= 1.08 && size[2] <= 1.45 && size[1] >= .073,
+      `the curved well spans the target tile and has a raised bank: ${size}`);
+    assert.ok(jawY > .07 && jawY < .16, 'the teeth stay around the feet while holding');
   }
   if (shots) {
     // Let the generic deployment rings clear; battle time remains fixed.
     await page.waitForTimeout(950);
     await shot('01-trap-hold');
   }
-  await step(24); // exactly the gameplay release at 3s
+  await step(23); // exactly the gameplay release at 3s
   await page.waitForFunction(() => window.commanderFxHarness.battle.units.filter(u => u.vuln > 0).length === 2);
   await step(1);
-  await page.waitForFunction(() => JSON.parse(document.querySelector('canvas').dataset.commanderFx).trapMeasures.every(m => m.gap > .21));
+  await page.waitForFunction(() => JSON.parse(document.querySelector('canvas').dataset.commanderFx).trapMeasures.every(m => m.gap > .40));
   const release = (await read()).trapMeasures;
   assert.equal(release.length,2);
   assert.ok(release.every((m, i) => m.jawY > held[i].jawY + .06), 'both jaws visibly lift to release');
   await shot('01-trap-release');
   await step(2);
-  await page.waitForFunction(() => JSON.parse(document.querySelector('canvas').dataset.commanderFx).trapMeasures.every(m => m.jawY < .05));
+  await page.waitForFunction(() => {
+    const m = JSON.parse(document.querySelector('canvas').dataset.commanderFx).trapMeasures;
+    return m.length === 2 && m.every(trap => trap.size[2] < .56);
+  });
   const folded = (await read()).trapMeasures;
   assert.ok(folded.length === 2 && folded.every(m => m.size[2] < .56), 'the split caves in before disappearing');
   await step(7);
@@ -164,7 +167,7 @@ try {
   await page.goto(`${base}/scripts/commander-fx-harness.html?doctor=1`);
   await rendered('traps',2);
   await rendered('debris',0);
-  assert.ok((await read()).trapMeasures.every(m => m.size[0] > 1.05 && m.snap === 1), 'quiet traps keep the carved footprint and hold pose');
+  assert.ok((await read()).trapMeasures.every(m => m.size[0] > 1.24 && m.snap === 1), 'quiet traps keep the carved footprint and hold pose');
   assert.equal(await page.locator('canvas').getAttribute('data-render-potato'),'1');
   await page.evaluate(() => { const f=window.commanderFxHarness; f.step(40); f.cast(); f.fall(); f.step(2); });
   await rendered('souls',1);

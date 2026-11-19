@@ -1,8 +1,8 @@
 import * as THREE from "three";
-import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { createWormBurrows } from "./worm-burrow";
 import {
   LANTERN_INK as opal, LANTERN_LENS, LANTERN_LENS_COLS, LANTERN_LENS_ROWS,
-  WORM_INK as chitin, WORM_MAW, WORM_MAW_COLS, WORM_MAW_ROWS, WORM_REVEAL_MS, WORM_FLIGHT_MS,
+  WORM_SPIT_MS,
 } from "./commander-motifs";
 import { COLS, ROWS, SPARK_LANDING_SECONDS, TRAP_STUN_SECONDS, WAVE_BEATS, type BattleSide, type BattleState, type OracleWave } from "./engine";
 import type { CmdId } from "./data";
@@ -15,9 +15,6 @@ const SKY_NDC_Y = 1.045;
 const SPARKS = 24;
 const THREADS = 8;
 const SOUL_FLECKS = 5;
-const TRAPS = 4;
-const GRIT = 12;
-const TRAP_FOLD_SECONDS = 0.34;
 const RAY_MOTES = 12;
 const unit = (v: number) => Math.max(0, Math.min(1, v));
 const smooth = (v: number) => { const k = unit(v); return k * k * (3 - 2 * k); };
@@ -50,8 +47,8 @@ export function commanderBattleSignal(battle: BattleState | null, id: CmdId, sid
 /** The stand winds up with the bench maw and kicks again as the first pod launches. */
 export function commanderPrepSignal(id: CmdId, age: number) {
   if (id !== "worm") return Math.sin(Math.PI * unit(age / 1.10));
-  const launchAt = (WORM_REVEAL_MS - WORM_FLIGHT_MS) / 1000;
-  return (smooth(age / 0.29) * (1 - smooth((age - 0.40) / 0.19))) * 0.82
+  const launchAt = WORM_SPIT_MS / 1000;
+  return (smooth(age / 0.43) * (1 - smooth((age - 0.72) / 0.22))) * 0.82
     + (smooth((age - launchAt + 0.09) / 0.14) * (1 - smooth((age - launchAt - 0.06) / 0.30))) * 0.94;
 }
 
@@ -74,67 +71,6 @@ function rayPoint(top: THREE.Vector3, hit: THREE.Vector3, u: number, phase: numb
   out.lerpVectors(top, hit, u);
   out.x += Math.cos(a) * taper;
   out.z += Math.sin(a) * taper;
-}
-
-/** Thick, stepped teeth taken from the same portrait cutout as the bench maw. */
-function mawLip(half: number) {
-  const cellX = 0.086, cellZ = 0.094;
-  const parts = WORM_MAW.filter(p => p.ink !== "b" && Number(p.y >= WORM_MAW_ROWS / 2) === half).map(({ x, y, ink }) => {
-    const h = ink === "t" ? 0.063 : ink === "e" ? 0.091 : ink === "r" ? 0.070 : 0.108;
-    const geo = new THREE.BoxGeometry(cellX + 0.0005, h, cellZ + 0.0005).translate(
-      (x + 0.5 - WORM_MAW_COLS / 2) * cellX, h / 2, (y + 0.5 - WORM_MAW_ROWS / 2) * cellZ,
-    );
-    const c = new THREE.Color(chitin[ink]);
-    const rgb = new Float32Array(geo.getAttribute("position").count * 3);
-    for (let i = 0; i < rgb.length; i += 3) { rgb[i] = c.r; rgb[i + 1] = c.g; rgb[i + 2] = c.b; }
-    geo.setAttribute("color", new THREE.BufferAttribute(rgb, 3));
-    return geo;
-  });
-  const geo = mergeGeometries(parts);
-  for (const part of parts) part.dispose();
-  return geo;
-}
-
-// A cut in the soil rather than a filled decal. Inner bands drop into the
-// throat; top facets alternate slightly to make its raised edge legible.
-function burrowBed() {
-  const corners = [[-0.35, -0.47], [0.35, -0.47], [0.55, -0.25], [0.55, 0.25],
-    [0.35, 0.47], [-0.35, 0.47], [-0.55, 0.25], [-0.55, -0.25]];
-  const layers = [
-    { radius: 1, y: -0.01, color: 0x3a2325 },
-    { radius: 0.94, y: 0.023, color: 0xaa5e59 },
-    { radius: 0.84, y: 0.045, color: 0xcf8272 },
-    { radius: 0.74, y: 0.004, color: 0x713c4c },
-    { radius: 0.59, y: -0.009, color: 0x2a1523 },
-    { radius: 0, y: -0.009, color: 0x150d18 },
-  ];
-  const vertices: number[] = [], colors: number[] = [], faces: number[] = [];
-  const c = new THREE.Color();
-  for (const { radius, y, color } of layers) {
-    corners.forEach(([x, z], i) => {
-      vertices.push(x * radius, y, z * radius);
-      c.setHex(color).multiplyScalar(i % 3 ? 1 : 0.78);
-      colors.push(c.r, c.g, c.b);
-    });
-  }
-  const n = corners.length;
-  for (let ring = 0; ring < layers.length - 1; ring++) {
-    for (let i = 0; i < n; i++) {
-      const a = ring * n + i, b = ring * n + (i + 1) % n;
-      faces.push(a, a + n, b, b, a + n, b + n);
-    }
-  }
-  return new THREE.BufferGeometry().setIndex(faces)
-    .setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3))
-    .setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
-}
-
-function burrowFracture() {
-  const shape = new THREE.Shape().moveTo(-0.54, -0.02).lineTo(-0.39, -0.13).lineTo(-0.24, -0.066)
-    .lineTo(-0.096, -0.10).lineTo(0.04, -0.032).lineTo(0.18, -0.078).lineTo(0.30, -0.01)
-    .lineTo(0.55, -0.075).lineTo(0.34, 0.05).lineTo(0.17, -0.037).lineTo(0.03, 0.016)
-    .lineTo(-0.11, -0.045).lineTo(-0.24, -0.023).lineTo(-0.39, -0.10);
-  return new THREE.ShapeGeometry(shape).rotateX(-Math.PI / 2);
 }
 
 function lanternPrint() {
@@ -190,39 +126,12 @@ export function createCommanderEffects(scene: THREE.Scene, camera: THREE.Perspec
   const patchGeo = track(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2));
   const tileFrameGeo = track(new THREE.RingGeometry(0.89, 1, 4, 1, Math.PI / 4)
     .rotateX(-Math.PI / 2).scale(Math.SQRT1_2, 1, Math.SQRT1_2));
-  const chipGeo = track(new THREE.BoxGeometry(0.047, 0.032, 0.038));
   const flint = track(new THREE.OctahedronGeometry(1));
   const filament = track(new THREE.CylinderGeometry(1, 1, 1, 6));
   const lens = track(lanternPrint());
   const lightTeal = new THREE.Color(opal.e), lightGreen = new THREE.Color(0xb0ffd2);
 
-  // Worm: the ground fractures, the raised jaws bite, then the burrow caves in.
-  const lipGeo = [track(mawLip(0)), track(mawLip(1))];
-  const lipMat = track(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.83, emissive: 0x854b38, emissiveIntensity: 0.28 }));
-  const bedGeo = track(burrowBed());
-  const bedMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false, side: THREE.DoubleSide }));
-  const splitGeo = track(burrowFracture());
-  const dust = pool(chipGeo, track(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92, emissive: 0x382019 })), TRAPS * GRIT);
-  const gritColors = [new THREE.Color(chitin.d), new THREE.Color(chitin.m), new THREE.Color(chitin.r), new THREE.Color(chitin.e)];
-  const gritOffsets = Array.from({ length: GRIT }, (_, i) => {
-    const a = i * 2.39996;
-    return { x: Math.cos(a), z: Math.sin(a), height: 0.14 + (i % 4) * 0.064 };
-  });
-  const traps = Array.from({ length: TRAPS }, () => {
-    const root = new THREE.Group();
-    root.visible = false;
-    group.add(root);
-    const bed = new THREE.Mesh(bedGeo, bedMat);
-    const scoreMat = ink(chitin.r, 0.48);
-    const score = new THREE.Mesh(ringGeo, scoreMat);
-    score.position.y = 0.020;
-    const seamMat = ink(chitin.e);
-    const seam = new THREE.Mesh(splitGeo, seamMat);
-    seam.position.y = 0.053;
-    const lips = lipGeo.map(geo => new THREE.Mesh(geo, lipMat));
-    root.add(bed, score, seam, ...lips);
-    return { root, bed, lips, score, scoreMat, seam, seamMat, snap: 0 };
-  });
+  const burrows = createWormBurrows(group);
 
   // Spark: ivory faceted core, amber husk and taper, and separate send/receive seals.
   const souls = pool(flint, ink(opal.w, 0.99), SPARKS);
@@ -321,61 +230,6 @@ export function createCommanderEffects(scene: THREE.Scene, camera: THREE.Perspec
     dummy.scale.set(width, len + 0.006, width);
     put(mesh, index);
   };
-
-  function updateTraps({ battle, time, openerTime, reduced, potato }: Frame) {
-    let dustCount = 0;
-    for (let i = 0; i < traps.length; i++) {
-      const trap = traps[i];
-      const { root, bed, lips, score, scoreMat, seamMat, seam } = trap;
-      const hole = battle?.holes[i];
-      const release = time - TRAP_STUN_SECONDS;
-      root.visible = !!hole && release < (reduced ? 0 : TRAP_FOLD_SECONDS);
-      if (!hole || !root.visible) continue;
-      const age = Math.max(time, openerTime) - (i % 2) * 0.056;
-      const split = reduced ? 1 : smooth(age / 0.14);
-      const rise = reduced ? 1 : smooth((age - 0.075) / 0.225);
-      const snap = trap.snap = reduced ? 1 : smooth((age - 0.29) / 0.24);
-      const impact = reduced ? 0 : Math.sin(Math.PI * unit((age - 0.43) / 0.19));
-      const warning = reduced ? 0 : smooth((release + 0.19) / 0.19);
-      const reopen = reduced ? 0 : smooth(release / 0.105);
-      const fold = reduced ? 0 : smooth((release - 0.09) / (TRAP_FOLD_SECONDS - 0.09));
-      const gape = Math.max(rise * (1 - snap), reopen * 0.86);
-      const gap = 0.022 + 0.179 * gape - 0.011 * impact;
-      // Centre the bigger cut on the trapped tile, not on a second target.
-      root.position.set(hole.x, 0.029 - 0.113 * fold, hole.y);
-      root.rotation.y = hole.owner === "foe" ? Math.PI : 0;
-      root.scale.set((0.38 + 0.62 * split) * (1 - 0.39 * fold), 1 - 0.70 * fold, 1 - 0.65 * fold);
-      bed.scale.z = 0.24 + 0.76 * rise;
-      score.visible = !potato && (reduced || rise > 0.13) && fold < 0.95;
-      score.scale.set(0.54 + 0.023 * impact, 1, (0.29 + 0.18 * rise + 0.020 * impact) * (1 - 0.47 * fold));
-      scoreMat.opacity = (0.34 + 0.45 * impact + 0.20 * warning) * (1 - fold);
-      seam.scale.set(0.46 + 0.54 * split, 1, (0.62 + 0.38 * rise) * (1 - 0.64 * fold));
-      seamMat.opacity = (0.15 + split * (1 - rise) * 0.78 + 0.50 * impact + 0.28 * warning) * (1 - fold);
-      for (let j = 0; j < lips.length; j++) {
-        const sign = j === 0 ? -1 : 1;
-        lips[j].visible = rise > 0.10;
-        lips[j].position.set(0, -0.105 + rise * 0.144 + gape * 0.17 - impact * 0.027 + warning * 0.015, gap * sign);
-        lips[j].rotation.x = -sign * (0.055 + gape * 0.49 - 0.095 * impact);
-      }
-      if (reduced) continue;
-      const clearing = release >= 0;
-      const dustAge = clearing ? release / 0.33 : (age - 0.39) / 0.54;
-      if (dustAge < 0 || dustAge >= 1) continue;
-      const count = potato ? 3 : clearing ? 7 : GRIT;
-      for (let j = 0; j < count; j++) {
-        const { x, z, height } = gritOffsets[j];
-        const radius = 0.28 + dustAge * 0.29;
-        dummy.position.set(hole.x + x * radius, 0.041 + Math.sin(Math.PI * dustAge) * height, hole.y + z * radius * 0.85);
-        dummy.rotation.set(dustAge * 3.7 + j, i + j, dustAge * 3.2);
-        dummy.scale.setScalar((1 - dustAge) * (0.88 + j % 3 * 0.31));
-        const tone = (i + j) % gritColors.length;
-        dust.setColorAt(dustCount, gritColors[tone]);
-        put(dust, dustCount++);
-      }
-    }
-    commit(dust, dustCount);
-    if (dustCount && dust.instanceColor) dust.instanceColor.needsUpdate = true;
-  }
 
   function updateSparks({ battle, time, reduced, potato, anchor }: Frame) {
     let soulCount = 0, trailCount = 0, sending = 0, receiving = 0, flecks = 0;
@@ -570,7 +424,7 @@ export function createCommanderEffects(scene: THREE.Scene, camera: THREE.Perspec
   }
 
   function update(frame: Frame) {
-    updateTraps(frame);
+    burrows.update(frame);
     updateSparks(frame);
     const { battle, time, anchor, prepMark } = frame;
     for (let i = 0; i < SIDES.length; i++) {
@@ -593,15 +447,10 @@ export function createCommanderEffects(scene: THREE.Scene, camera: THREE.Perspec
     }
   }
 
-  const inspectBox = new THREE.Box3(), inspectSize = new THREE.Vector3();
   return {
     update,
     inspect: () => ({
-      traps: traps.filter(({ root }) => root.visible).length, debris: dust.count,
-      trapMeasures: traps.flatMap(({ root, bed, lips, snap }) => root.visible ? [{
-        size: inspectBox.setFromObject(bed).getSize(inspectSize).toArray(),
-        gap: lips[1].position.z - lips[0].position.z, jawY: root.position.y + lips[0].position.y * root.scale.y, snap,
-      }] : []),
+      ...burrows.inspect(),
       souls: souls.count, threads: threads.count, departureRings: sendRings.count, landingRings: receiveRings.count, landingFlecks: soulFlecks.count,
       marks: oracles.filter(({ ward }) => ward.visible).length,
       charges: oracles.map(({ charge }) => charge),
@@ -614,6 +463,6 @@ export function createCommanderEffects(scene: THREE.Scene, camera: THREE.Perspec
       smoke: oracles.filter(({ cloud }) => cloud.visible).length,
       impactTiles: oracles.map(({ impactTiles }) => impactTiles.count),
     }),
-    dispose: () => { scene.remove(group); resources.forEach(x => x.dispose()); },
+    dispose: () => { burrows.dispose(); scene.remove(group); resources.forEach(x => x.dispose()); },
   };
 }

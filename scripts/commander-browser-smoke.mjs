@@ -26,7 +26,7 @@ await page.addInitScript(() => {
   // the Oracle case finish with the normal combat clock.
   const timer = window.setTimeout.bind(window);
   window.setTimeout = (fn, delay, ...args) => {
-    const captureCue = window.__holdCue && (delay === 2650 || delay === 2180);
+    const captureCue = window.__holdCue && (delay === 3210 || delay === 3050);
     const preRoll = window.__holdPreRoll && delay === 640;
     if (!captureCue && !preRoll) return timer(fn, delay, ...args);
     const id = timer(fn, 60000, ...args);
@@ -49,7 +49,7 @@ const result = page.locator('.result-card');
 const bench = page.locator('.bench-slot[data-skill-target="true"]');
 const combat = page.locator('.combat-scroll');
 const pressure = result.locator('[data-skill-fx="pressure-present"]');
-const cast = (kind) => page.locator(`.commander-cast[data-skill-fx="${kind}"]`);
+const cast = (kind) => page.locator(`.spell-fx[data-skill-fx="${kind}"]`);
 const animation = (locator) => locator.evaluate(el => getComputedStyle(el).animationName);
 const atFrame = (locator, time) => locator.evaluate((el, time) => {
   for (const a of el.getAnimations({subtree:true})) { a.pause(); a.currentTime = time; }
@@ -160,54 +160,57 @@ try {
   const [bankX,bankY] = await point(page.locator('.deck-resources .gold-flash').locator('..'));
   await holdCue();
   await bench.first().tap();
-  const income = await cast('incomes').evaluate((el, uid) => {
-    const path = el.querySelector('.income-route__line');
-    const point = length => { const {x,y} = path.getPointAtLength(length); return {x,y}; };
-    const token = el.querySelector('.income-carrier');
-    const motion = token.getAnimations()[0];
-    motion.pause(); motion.currentTime = 610;
-    const parked = parseFloat(getComputedStyle(token).offsetDistance);
-    motion.currentTime = 1130;
-    const traveling = parseFloat(getComputedStyle(token).offsetDistance);
-    const gold = el.querySelector('.income-portrait__gold');
-    const skin = gold.getAnimations()[0];
-    skin.pause(); skin.currentTime = 120;
-    const raw = getComputedStyle(gold).clipPath;
-    skin.currentTime = 620;
-    const gilded = getComputedStyle(gold).clipPath;
+  const mint = cast('incomes');
+  const income = await mint.evaluate((el, uid) => {
+    const at = node => { const r = node.getBoundingClientRect(); return [r.x + r.width / 2,r.y + r.height / 2]; };
+    const sample = (node, ms, name) => {
+      const a = node.getAnimations().find(a => !name || a.animationName === name);
+      a.pause(); a.currentTime = ms;
+      return at(node);
+    };
+    const avatar = el.querySelector('.mint-avatar'), whole = el.querySelector('.mint-metal__whole');
+    const start = sample(avatar, 0), lifted = sample(avatar, 645);
+    sample(whole, 380, 'mint-gild'); const color = getComputedStyle(whole).clipPath;
+    sample(whole, 870, 'mint-gild'); const gilded = getComputedStyle(whole).clipPath;
+    const carrier = el.querySelector('.mint-coin');
+    const {delay, duration} = carrier.getAnimations()[0].effect.getTiming();
+    const depart = sample(carrier, delay), during = sample(carrier, delay + 405), end = sample(carrier, delay + duration);
+    const base = document.querySelector(`.bench-slot[data-unit-id="${uid}"] .spec-icon__plate svg`);
+    const svg = el.querySelector('.mint-ink');
     const pixels = svg => [...new Set([...svg.querySelectorAll('rect[height="1"]')]
       .filter(r => r.getAttribute('fill') !== '#090705')
       .flatMap(r => Array.from({length:Number(r.getAttribute('width'))}, (_, i) => `${Number(r.getAttribute('x')) + i},${r.getAttribute('y')}`)))].sort().join(' ');
-    const ink = el.querySelector('.income-portrait__ink');
-    const original = document.querySelector(`.bench-slot[data-unit-id="${uid}"] .spec-icon__plate svg`);
-    const palette = svg => [...new Set([...svg.querySelectorAll('rect')].map(r => r.getAttribute('fill')))];
+    const shape = [...el.querySelector('defs [id$="-shape"]').getAttribute('d').matchAll(/M(\d+) (\d+)h1v1h-1Z/g)]
+      .map(([,x,y]) => `${x},${y}`).sort().join(' ');
+    const chips = [...el.querySelectorAll('.mint-piece use')];
     return { pointer: getComputedStyle(el).pointerEvents, type: el.dataset.specimen,
-      carriers: el.querySelectorAll('.income-carrier').length, shards: el.querySelectorAll('.income-fragments i').length,
-      sameArt: pixels(gold) === pixels(ink) && pixels(gold) === pixels(original), goldColors: palette(gold), rawColors: palette(ink),
-      raw, gilded, credit: el.querySelector('.income-credit').textContent,
-      start: point(0), end: point(path.getTotalLength()), parked, traveling };
+      carriers: el.querySelectorAll('.mint-coin').length, sameArt: pixels(svg) === shape && pixels(base) === shape,
+      chips: chips.length, sameGold: chips.every(use => use.getAttribute('href') === el.querySelector('.mint-metal__whole use').getAttribute('href')),
+      color, gilded, start, lifted, depart, during, end, credit: el.querySelector('.mint-credit').textContent };
   }, targetUid);
+  const distance = ([x,y],[sx,sy]) => Math.hypot(x - sx, y - sy);
   assert.equal(income.pointer,'none');
   assert.equal(income.type,'spider');
-  assert.equal(income.sameArt,true,'the real target, lifted SVG and gilded SVG share a silhouette');
-  assert.ok(income.goldColors.length > 5 && income.goldColors.some(color => !income.rawColors.includes(color)), 'gold shades preserve the pixel relief');
-  assert.notEqual(income.raw, income.gilded, 'the color sweep gilds the portrait progressively');
-  assert.equal(income.shards,16);
+  assert.equal(income.sameArt,true,'the live slot, lift and metal all show its exact specimen silhouette');
+  assert.notEqual(income.color, income.gilded, 'the metal sweeps across the actual art');
+  assert.equal(income.chips,8);
+  assert.ok(income.sameGold, 'each chip carries a piece of that same SVG');
   assert.equal(income.carriers,6);
   assert.equal(income.credit,'+6G');
-  assert.ok(income.parked === 0 && income.traveling > 40, 'coins take flight after gilding');
-  assert.ok(Math.hypot(income.start.x - x, income.start.y - y) < 8, 'gilding starts at the actual bench bug');
-  assert.ok(Math.hypot(income.end.x - bankX, income.end.y - bankY) < 8, 'the transfer ends at the Gold counter');
+  assert.ok(distance(income.start, [x,y]) < 8 && distance(income.start,income.lifted) > 75, 'a large portrait lift begins at the bench bug');
+  assert.ok(distance(income.depart,income.lifted) < 3 && distance(income.depart,income.during) > 30, 'coins really leave the fractured art');
+  assert.ok(distance(income.end,[bankX,bankY]) < 8, 'the flight lands at the Gold counter');
   if (shots) {
-    for (const [phase, time] of [['sweep', 330], ['gilded', 625], ['shatter', 925], ['transfer', 1290], ['credit', 1770]]) {
-      await atFrame(cast('incomes'), time); await shot(`scavanger-incomes-${phase}`);
+    for (const [phase, time] of [['lift', 290], ['gilded', 950], ['shatter', 1420], ['transfer', 1810], ['credit', 2260]]) {
+      await atFrame(mint, time); await shot(`scavanger-incomes-${phase}`);
     }
   }
   await page.emulateMedia({reducedMotion:'reduce'});
-  assert.equal(await animation(cast('incomes').locator('.income-portrait__gold')), 'none');
-  assert.equal(await cast('incomes').locator('.income-portrait__gold').isVisible(), true);
-  assert.equal(await cast('incomes').locator('.income-carrier').first().isVisible(), false);
-  assert.equal(await cast('incomes').locator('.income-credit').isVisible(), true);
+  await page.waitForFunction(() => document.querySelector('.mint-fx')?.dataset.quiet === 'true');
+  assert.equal(await animation(mint.locator('.mint-metal__whole')), 'none');
+  assert.equal(await mint.locator('.mint-metal').isVisible(), true, 'Reduced Motion still has a visible gold bug');
+  assert.equal(await mint.locator('.mint-coin').count(), 0);
+  assert.equal(await mint.locator('.mint-credit').isVisible(), true);
   await page.emulateMedia({reducedMotion:'no-preference'});
   await releaseCue();
   await cast('incomes').waitFor({state:'detached'});
@@ -235,17 +238,16 @@ try {
   await holdCue();
   await picker.selectOption(boardId);
   const local = cast('incomes');
-  const mintPoint = await local.locator('.income-assay').evaluate(el => [parseFloat(el.style.left), parseFloat(el.style.top)]);
+  const mintPoint = await local.locator('[data-cast-origin]').evaluate(el => [parseFloat(el.style.left), parseFloat(el.style.top)]);
   assert.ok(Math.hypot(mintPoint[0] - boardPoint[0], mintPoint[1] - boardPoint[1]) < 8, 'a deployed target starts at the 3D body, not the health label');
   assert.equal(await local.getAttribute('data-specimen'),'stag');
   assert.equal(await local.getAttribute('data-local-credit'),'true');
-  assert.equal(await local.locator('.income-route').count(),0, 'no guide line to an offscreen bank');
-  const [localX,localY] = await local.locator('.income-bank').evaluate(el => [parseFloat(el.style.left), parseFloat(el.style.top)]);
-  assert.deepEqual([localX,localY],mintPoint, 'the offscreen bank falls back to collecting over the target');
+  const localEnd = (await local.locator('.mint-coin').first().getAttribute('data-destination')).split(',').map(Number);
+  assert.deepEqual(localEnd,mintPoint, 'the offscreen bank falls back to collecting over the target');
   assert.equal(Number(await bank.locator('.gold-flash').textContent()) - oldGold, 3);
   assert.equal(await page.locator(`.ov-unit[data-unit-id="${boardId}"]`).count(),1,'the gilded deployed bug stays in play');
   await bank.evaluate(el => { el.style.translate = ''; });
-  if (shots) { await atFrame(local, 625); await shot('scavanger-incomes-drawer'); }
+  if (shots) { await atFrame(local, 930); await shot('scavanger-incomes-drawer'); }
   await releaseCue();
   console.log('PASS Ancient Scavanger vault, bench and deployed gilding, coin flights to Gold, local credit and cooldown');
 
@@ -272,66 +274,66 @@ try {
   const eatenSlot = await bench.first().evaluate(el => [...document.querySelectorAll('.bench-slot')].indexOf(el));
   await holdCue();
   await bench.first().tap();
-  const consumed = page.locator('.bench-slot .worm-etch[data-skill-fx="eat-spit"]');
+  const feed = cast('eat-spit');
   const grid = page.locator('.bench-grid');
-  await atFrame(grid, 374);
-  const spit = await consumed.evaluate(el => {
-    const jaw = el.querySelector('.worm-etch__mouth');
-    const bounds = jaw.getBoundingClientRect(), slot = el.closest('.bench-slot').getBoundingClientRect();
-    const lips = [...jaw.querySelectorAll('.worm-etch__lip')].map(lip => lip.getBoundingClientRect().y);
-    return { lip: getComputedStyle(jaw.querySelector('.worm-etch__lip')).animationName, width: bounds.width,
-      within: bounds.left >= slot.left - 0.1 && bounds.right <= slot.right + 0.1 && bounds.top >= slot.top - 0.1 && bounds.bottom <= slot.bottom + 0.1,
-      gap: lips[1] - lips[0], tones: [...jaw.querySelectorAll('rect')].map(x => x.getAttribute('fill')) };
-  });
-  assert.equal(spit.lip,'worm-clamp');
-  assert.ok(spit.within && spit.width >= 40 && spit.width <= 54, `the enlarged maw still fits the consumed slot: ${JSON.stringify(spit)}`);
-  assert.ok(spit.tones.includes('#FFEBCA') && spit.tones.includes('#823F50'), 'the effect uses the same ink as the Worm portrait');
-  assert.equal(await cast('eat-spit').count(),0,'no screen-sized overlay for a bench cast');
+  const arrivals = grid.locator('.worm-arrival > .spec-icon');
+  await feed.waitFor();
+  // Ensure the effect plays by itself before seeking for the visual checks.
+  await page.waitForFunction(() => document.querySelector('.feed-worm')?.getAnimations().some(a => a.currentTime > 240));
+  assert.equal(await feed.locator('.feed-worm').evaluate(el => getComputedStyle(el).animationName),'feed-rise');
+  assert.equal(await feed.evaluate(el => getComputedStyle(el).pointerEvents),'none');
   assert.equal(await page.locator(`.bench-slot[data-unit-id="${bittenUid}"]`).count(),0,'the meal really leaves the roster');
-  const arrivals = page.locator('.bench-slot .worm-arrival > .spec-icon');
   assert.equal(await arrivals.count(),2,'only real bench recruits take part');
-  assert.equal(await animation(arrivals.first()), 'worm-expose');
-  if (shots) await shot('worm-bench-open');
-  await atFrame(grid, 470);
-  const clampedGap = await consumed.locator('.worm-etch__mouth').evaluate(el => {
-    const [a,b] = [...el.querySelectorAll('.worm-etch__lip')].map(lip => lip.getBoundingClientRect().y);
-    return b - a;
+  await atFrame(feed, 655);
+  const gape = await feed.locator('.feed-worm').evaluate(el => {
+    const [u,l] = el.querySelectorAll('.feed-worm__upper, .feed-worm__lower');
+    const box = el.getBoundingClientRect();
+    return [l.getBoundingClientRect().top - u.getBoundingClientRect().bottom, box.width, box.height];
   });
-  assert.ok(clampedGap < spit.gap - 5, 'the jaws snap closed on the meal');
-  if (shots) await shot('worm-bench-bite');
-  const flights = await grid.locator('.worm-flight').evaluateAll((packets, eaten) => {
-    const slots = [...document.querySelectorAll('.bench-slot')];
-    const center = node => { const box = node.getBoundingClientRect(); return box.left + box.width / 2; };
-    return packets.map(el => {
-      const {fromSlot, toSlot} = el.dataset;
-      const pod = el.querySelector('.worm-flight__pod');
-      const move = el.getAnimations().find(a => a.animationName === 'worm-route');
-      const startTime = move.effect.getTiming().delay;
-      move.pause(); move.currentTime = startTime;
-      const start = center(pod);
-      move.currentTime = startTime + move.effect.getTiming().duration;
-      return { slot: Number(toSlot), isMeal: Number(fromSlot) === eaten,
-        missFrom: Math.abs(center(slots[eaten]) - start), missTo: Math.abs(center(slots[toSlot]) - center(pod)),
-        realArrival: !!slots[toSlot].querySelector('[data-skill-arrival]') };
+  assert.ok(gape[1] > 140 && gape[2] > 125, 'the Worm rises visibly above the bench rather than staying clipped in its socket');
+  if (shots) { await atFrame(grid, 655); await shot('worm-feed-open'); }
+  await atFrame(feed, 850);
+  const shut = await feed.locator('.feed-worm').evaluate(el => {
+    const [u,l] = el.querySelectorAll('.feed-worm__upper, .feed-worm__lower');
+    return l.getBoundingClientRect().top - u.getBoundingClientRect().bottom;
+  });
+  assert.ok(shut < gape[0] - 20, 'both jaws actually snap shut');
+  if (shots) { await atFrame(grid, 850); await shot('worm-feed-bite'); }
+  const flights = await feed.locator('.feed-recruit').evaluateAll((recruits, fromSlot) => {
+    const slot = i => document.querySelector(`.bench-slot[data-bench-slot="${i}"]`);
+    const center = node => { const r = node.getBoundingClientRect(); return [r.x+r.width/2,r.y+r.height/2]; };
+    const near = ([x,y],[u,v]) => Math.hypot(x-u,y-v);
+    return recruits.map(el => {
+      const {toSlot,unit} = el.dataset;
+      const a = el.getAnimations().find(a => a.animationName === 'spell-flight');
+      const {delay,duration} = a.effect.getTiming();
+      a.pause(); a.currentTime = delay;
+      const mouth = center(el);
+      a.currentTime = delay + duration * .45;
+      const moved = near(mouth, center(el));
+      a.currentTime = delay + duration;
+      return {slot: Number(toSlot), mouthAbove: center(slot(fromSlot))[1] - mouth[1], moved,
+        miss: near(center(slot(toSlot)),center(el)), real: slot(toSlot).dataset.unitId === unit && !!slot(toSlot).querySelector('[data-skill-arrival]')};
     });
   }, eatenSlot);
   assert.equal(new Set(flights.map(f => f.slot)).size,2);
-  assert.ok(flights.every(f => f.isMeal && f.realArrival && f.missFrom < 2 && f.missTo < 2), JSON.stringify(flights));
+  assert.ok(flights.every(f => f.real && f.mouthAbove > 65 && f.moved > 21 && f.miss < 3), JSON.stringify(flights));
   if (shots) {
-    await atFrame(grid, 845); await shot('worm-bench-flight');
-    await atFrame(grid, 1255); await shot('worm-bench-spit');
+    await atFrame(feed, 1385); await atFrame(grid, 1385); await shot('worm-feed-launch');
+    await atFrame(feed, 1870); await atFrame(grid, 1870); await shot('worm-feed-land');
   }
   await page.emulateMedia({reducedMotion:'reduce'});
+  await page.waitForFunction(() => document.querySelector('.feed-fx')?.dataset.quiet === 'true');
   assert.equal(await animation(arrivals.first()), 'none');
-  assert.equal(await consumed.locator('.worm-etch__mouth').isVisible(), false);
-  assert.equal(await grid.locator('.worm-flights').isVisible(), false);
+  assert.equal(await feed.locator('.feed-worm').isVisible(), true, 'Reduced Motion keeps a visible Worm instead of hiding it');
+  assert.equal(await feed.locator('.feed-recruit').count(),0);
   assert.equal(await arrivals.count(), 2, 'quiet mode keeps the actual arrivals');
   await page.emulateMedia({reducedMotion:'no-preference'});
   await releaseCue();
-  await consumed.waitFor({state:'detached'});
+  await feed.waitFor({state:'detached'});
   assert.equal(await page.locator('.bench-slot').filter({has:page.locator('.spec-icon')}).count(),2);
   await statusMatches(/0\/5 uses/);
-  console.log('PASS World Worm: two real battle traps, wider bench chomp and flights into actual recruit slots');
+  console.log('PASS World Worm: two real battle traps, full Worm emergence, chomp and visible arcs into real recruit slots');
 
   await page.emulateMedia({reducedMotion:'reduce'});
   await start('Hyber Lantern');

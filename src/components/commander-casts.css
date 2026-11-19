@@ -1,0 +1,191 @@
+/* Short portal vignettes. They can cross the bench/board boundary, but are
+   always transparent to dragging, taps, focus, and the Settings dialog. */
+.spell-fx { position: fixed; inset: 0; z-index: 44; pointer-events: none; overflow: hidden; isolation: isolate; }
+.spell-fx :is(.mint-origin, .mint-sun, .mint-avatar, .mint-break, .mint-kiss, .mint-coin, .feed-origin, .feed-bite, .feed-kick, .feed-meal, .feed-recruit) {
+  position: absolute; translate: -50% -50%;
+}
+
+/* Incomes: lift the portrait, cast it in gold, split its actual SVG, bank it. */
+.mint-origin {
+  width: 51px; height: 28px; border-radius: 50%; border: 1px solid #facf8d;
+  background: radial-gradient(ellipse, #fca63538 0%, #bd713426 52%, transparent 73%);
+  box-shadow: 0 0 12px #f9af4375, inset 0 0 8px #efad5a68;
+  animation: mint-origin 1080ms ease-out both;
+}
+.mint-column {
+  position: absolute; width: var(--length); height: 40px; translate: 0 -50%; rotate: var(--angle); transform-origin: left center;
+  background: linear-gradient(90deg, #ffcf7060, #ffd28244 32%, #ffab4230 74%, transparent);
+  clip-path: polygon(0 43%, 51% 27%, 100% 0, 100% 100%, 51% 73%, 0 57%);
+  animation: mint-column 790ms cubic-bezier(.17,.66,.3,1) both;
+}
+.mint-sun {
+  width: clamp(160px, 22vw, 192px); height: clamp(160px, 22vw, 192px); border-radius: 50%;
+  background: radial-gradient(circle, #6936118c, #62360e53 39%, #ab651926 59%, transparent 72%);
+  animation: mint-light 1770ms ease-out both;
+}
+.mint-sun i {
+  position: absolute; inset: 18%; border-radius: 50%;
+  background: conic-gradient(from 17deg, transparent, #e5a35014 8%, transparent 17%, transparent 30%, #ffc97830 37%, transparent 47%, transparent 71%, #ffda9431 78%, transparent 87%);
+  animation: mint-sun-turn 1670ms ease both;
+}
+.mint-avatar { width: clamp(104px, 15vw, 124px); height: clamp(104px, 15vw, 124px); animation: mint-rise 650ms cubic-bezier(.19,.65,.28,1) both; }
+.mint-avatar svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.mint-ink { filter: drop-shadow(0 3px 3px #100805bb); animation: mint-ink-out 175ms 865ms ease-out both; }
+.mint-metal { filter: drop-shadow(0 3px 2px #281308d1) drop-shadow(0 0 5px #ffbb5635); }
+.mint-metal__whole { transform-box: view-box; animation: mint-gild 485ms 382ms cubic-bezier(.38,.10,.21,1) both, mint-whole-out 138ms calc(var(--burst-at) - 25ms) ease both; }
+.mint-metal__shine { opacity: 0; animation: mint-shine 525ms 646ms cubic-bezier(.23,.67,.28,1) both; }
+.mint-cracks { opacity: 0; animation: mint-crack 225ms calc(var(--burst-at) - 165ms) linear both; }
+.mint-piece { transform-origin: center; transform-box: fill-box; opacity: 0; animation: mint-piece 730ms calc(var(--burst-at) + var(--lag)) cubic-bezier(.21,.59,.33,1) both; }
+.mint-break, .feed-bite, .feed-kick { width: 0; height: 0; }
+.mint-break__wave {
+  position: absolute; width: 126px; height: 126px; left: -63px; top: -63px; border-radius: 50%;
+  border: 2px solid #ffd589; box-shadow: 0 0 14px #e79b4396, inset 0 0 23px #ffc76052;
+  opacity: 0; animation: mint-ring 490ms var(--burst-at) ease-out forwards;
+}
+:is(.mint-break__sparks, .feed-bite__grit, .feed-kick__grit) { --spark: #ffda86; --spark-alt: #e99541; position: absolute; inset: 0; }
+:is(.mint-break__sparks, .feed-bite__grit, .feed-kick__grit) i {
+  position: absolute; left: -2px; top: -1px; width: 4px; height: 2px;
+  border-radius: 65%; background: var(--spark); box-shadow: 0 0 6px var(--spark-alt);
+  animation: spell-spark 550ms calc(var(--sparks-at) + var(--lag)) ease-out both;
+}
+:is(.mint-break__sparks, .feed-bite__grit, .feed-kick__grit) i:nth-child(3n) { width: 6px; background: var(--spark-alt); }
+.mint-break__sparks { --sparks-at: var(--burst-at); }
+.mint-coin {
+  width: var(--coin-w); height: var(--coin-w); animation: spell-flight var(--travel) var(--jump-at) linear both;
+  filter: drop-shadow(0 0 5px #ffbb5277) drop-shadow(0 3px 2px #351709c9);
+}
+.mint-coin svg { display: block; animation: mint-roll 455ms var(--jump-at) ease-in-out 2 both; }
+.mint-kiss {
+  width: 70px; height: 34px; border-radius: 44%; border: 1px solid #ffd378;
+  box-shadow: 0 0 13px #fdaa53b3, inset 0 0 14px #efab4248; opacity: 0;
+  animation: mint-kiss 680ms calc(var(--credit-at) - 60ms) ease-out forwards;
+}
+.mint-credit {
+  position: absolute; translate: -50% calc(-100% - 16px); display: flex; align-items: center; gap: 6px;
+  color: #fff0c4; background: #2a1a0e; border: 1px solid #d5ab5f; border-radius: 4px;
+  box-shadow: 0 2px 10px #140900b5, inset 0 0 0 1px #fae6a542;
+  padding: 5px 9px; font: 750 14px/1 var(--font-mono); white-space: nowrap;
+  animation: mint-credit 1000ms var(--credit-at) cubic-bezier(.21,.69,.30,1) both;
+}
+.mint-credit[data-below] { translate: -50% 26px; }
+.bench-slot[data-income-target] .spec-icon__plate svg { animation: mint-origin-ink 1660ms ease-in-out both; }
+@keyframes mint-origin { 0% { opacity: .91; transform: scale(.58); } 46% { opacity: .89; transform: scale(1.1); } 100% { opacity: 0; transform: scale(1.4); } }
+@keyframes mint-column { 0% { opacity: .4; transform: scaleX(.04); } 60% { opacity: .72; transform: scaleX(1); } 100% { opacity: 0; transform: scaleX(1); } }
+@keyframes mint-light { 0% { opacity: 0; transform: scale(.46); } 33%, 68% { opacity: .97; transform: scale(1); } 100% { opacity: 0; transform: scale(1.2); } }
+@keyframes mint-sun-turn { from { transform: rotate(-31deg) scale(.8); } to { transform: rotate(59deg) scale(1.35); } }
+@keyframes mint-rise {
+  0% { transform: translate(var(--from-x), var(--from-y)) scale(.27); }
+  34% { transform: translate(calc(var(--from-x) * .66), calc(var(--from-y) * .56)) rotate(-10deg) scale(.64); }
+  80% { transform: translateY(-4px) rotate(3deg) scale(1.05); }
+  100% { transform: none; }
+}
+@keyframes mint-gild { from { clip-path: polygon(0 100%, 0 100%, 0 100%); } to { clip-path: polygon(0 -120%, 214% 100%, 0 100%); } }
+@keyframes mint-ink-out { to { opacity: 0; } }
+@keyframes mint-whole-out { 0%, 33% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes mint-shine { 0% { opacity: 0; transform: translateX(-4px); } 16%, 79% { opacity: .84; } 100% { opacity: 0; transform: translateX(38px); } }
+@keyframes mint-crack { 0% { opacity: 0; } 71%, 100% { opacity: 1; } }
+@keyframes mint-piece {
+  0% { transform: none; opacity: 0; }
+  7%, 49% { opacity: 1; }
+  58% { transform: translate(var(--jx), var(--jy)) rotate(var(--twist)) scale(.87); }
+  100% { transform: translate(calc(var(--jx) * 1.17), calc(var(--jy) + 4px)) rotate(calc(var(--twist) * 1.45)) scale(.20); opacity: 0; }
+}
+@keyframes mint-ring { 0% { opacity: .84; transform: scale(.4); } 100% { opacity: 0; transform: scale(1.35); } }
+@keyframes spell-spark {
+  0% { opacity: 0; transform: rotate(var(--theta)) translateX(7px); }
+  10%, 37% { opacity: .95; }
+  100% { opacity: 0; transform: rotate(var(--theta)) translateX(var(--reach)) scale(.3); }
+}
+@keyframes spell-flight {
+  0% { opacity: 0; transform: scale(.46); animation-timing-function: cubic-bezier(.20,.57,.46,1); }
+  10% { opacity: 1; }
+  35% { transform: translate(var(--mx), var(--my)) scale(1.06) rotate(-9deg); animation-timing-function: cubic-bezier(.42,0,.58,1); }
+  73% { transform: translate(var(--nx), var(--ny)) scale(.92) rotate(11deg); animation-timing-function: cubic-bezier(.4,0,.55,1); }
+  91% { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(.62); opacity: 0; }
+}
+@keyframes mint-roll { 0%, 100% { transform: scaleX(.85) rotate(-10deg); } 34% { transform: scaleX(.31) rotate(-4deg); } 69% { transform: scaleX(1) rotate(13deg); } }
+@keyframes mint-kiss { 0% { opacity: 1; transform: scale(.53); } 100% { opacity: 0; transform: scale(1.3,1.16); } }
+@keyframes mint-credit { 0% { opacity: 0; transform: translateY(6px) scale(.86); } 19% { opacity: 1; transform: translateY(-2px) scale(1.06); } 40%, 78% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-6px); } }
+@keyframes mint-origin-ink { 0%, 100% { opacity: 1; } 18%, 76% { opacity: .28; } }
+
+/* World Worm rises from above the consumed slot, swallows, and kicks out the
+   real arrivals. The body and the two rows of curved teeth articulate. */
+.feed-origin {
+  width: 49px; height: 30px; border-radius: 50%; border: 1px solid #c88668;
+  box-shadow: 0 0 11px #e4a16a63, inset 0 0 9px #b46b494f;
+  background: radial-gradient(ellipse, #191019cb 1%, #4f2829bc 41%, #b36f44a0 65%, #17101607 76%);
+  animation: feed-origin 1930ms ease both;
+}
+.feed-stage { position: absolute; translate: -50% 0; }
+.feed-seam {
+  position: absolute; left: 50%; top: 89%; width: 96%; height: 29%; translate: -50% -50%; border-radius: 50%;
+  background: radial-gradient(ellipse, #120a15 5%, #241218ed 41%, #925536c2 59%, #ad74475e 66%, transparent 74%);
+  box-shadow: 0 6px 17px -6px #0d070dcd; animation: feed-seam 2040ms ease both;
+}
+.feed-worm {
+  display: block; width: 100%; height: auto; transform-origin: 53% 91%;
+  filter: drop-shadow(0 5px 5px #1b0e16dd); animation: feed-rise 1870ms cubic-bezier(.25,.63,.33,1) both;
+}
+.feed-worm__head { transform-origin: 48% 44%; animation: feed-tilt 1720ms ease both; }
+.feed-worm__upper, .feed-worm__lower { animation: feed-jaws 1740ms cubic-bezier(.34,.26,.35,1) both; }
+.feed-worm__upper { --open: -9px; --shut: 12px; }
+.feed-worm__lower { --open: 8px; --shut: -13px; }
+.feed-worm__throat { transform-box: fill-box; transform-origin: center; animation: feed-throat 1740ms ease both; }
+.feed-meal { width: 50px; height: 50px; animation: feed-swallow 865ms cubic-bezier(.37,.27,.54,1) both; filter: drop-shadow(0 2px 5px #150c16); }
+.feed-bite__grit { --sparks-at: 775ms; --spark: #d6ab81; --spark-alt: #a95d47; }
+.feed-kick__grit { --sparks-at: var(--spit-at); --spark: #f3d18d; --spark-alt: #d18157; }
+.feed-recruit {
+  width: 47px; height: 47px; animation: spell-flight var(--travel) var(--depart) linear both;
+  filter: drop-shadow(0 2px 4px #1e1118) drop-shadow(0 0 5px var(--recruit));
+}
+.feed-recruit i { position: absolute; inset: -7px; border-radius: 50%; background: radial-gradient(circle, #f2bc784a, transparent 63%); }
+.feed-recruit svg { position: relative; display: block; }
+.bench-slot[data-worm-source] { box-shadow: inset 0 0 0 1px #d29579ab, inset 0 0 14px #713c41a8 !important; }
+.worm-arrival { position: relative; width: 100%; height: 100%; display: grid; place-items: center; }
+.worm-arrival > .spec-icon { animation: feed-land 485ms var(--arrive) cubic-bezier(.16,.68,.29,1) both; }
+.worm-arrival > i { position: absolute; inset: 1px; border: 1px solid var(--recruit); box-shadow: inset 0 0 13px #ffd6a970; animation: feed-landing-seam 635ms var(--arrive) ease-out both; }
+@keyframes feed-origin { 0% { opacity: .88; transform: scale(.53); } 22%, 73% { transform: scale(1.18); opacity: 1; } 100% { opacity: 0; transform: scale(.17); } }
+@keyframes feed-seam { 0% { opacity: .8; transform: scale(.22,.43); } 19%, 73% { opacity: .94; transform: scale(1); } 100% { opacity: 0; transform: scale(.08,.15); } }
+@keyframes feed-rise {
+  0% { transform: scale(.38,.04); opacity: 0; }
+  14% { transform: scale(.79,.35) rotate(7deg); opacity: 1; }
+  29% { transform: scale(.98,.92) rotate(-4deg); }
+  39% { transform: scale(1.03,1.04) rotate(-1deg); }
+  46% { transform: scale(1.05,.90) rotate(1deg); }
+  54% { transform: scale(1,.94) rotate(3deg); }
+  62% { transform: scale(.97,.86) rotate(5deg); }
+  67% { transform: scale(1.06,1.055) rotate(-2deg); }
+  77% { transform: scale(.98,.97); opacity: 1; }
+  100% { transform: scale(.38,.03) rotate(1deg); opacity: 0; }
+}
+@keyframes feed-tilt { 0% { transform: rotate(-12deg); } 35% { transform: rotate(-4deg); } 49%, 59% { transform: rotate(6deg); } 73% { transform: rotate(-5deg); } 100% { transform: rotate(7deg); } }
+@keyframes feed-jaws {
+  0% { transform: translateY(var(--shut)); }
+  30%, 41% { transform: translateY(var(--open)); }
+  47%, 57%, 65% { transform: translateY(var(--shut)); }
+  71%, 81% { transform: translateY(var(--open)); }
+  100% { transform: translateY(var(--shut)); }
+}
+@keyframes feed-throat { 0%, 47%, 65%, 100% { transform: scaleY(.31); } 30%, 41%, 71%, 81% { transform: scaleY(1.15); } }
+@keyframes feed-swallow {
+  0%, 14% { opacity: 1; transform: scale(.54); }
+  54% { opacity: 1; transform: translate(calc(var(--dx) * .68 - 10px), calc(var(--dy) * .58)) scale(.95) rotate(-15deg); }
+  82% { opacity: 1; transform: translate(var(--dx), var(--dy)) scale(.86) rotate(9deg); }
+  100% { opacity: 0; transform: translate(var(--dx), calc(var(--dy) + 11px)) scale(.25,.13) rotate(22deg); }
+}
+@keyframes feed-land { 0% { opacity: 0; transform: translateY(-4px) scale(.65); } 27% { opacity: 1; transform: translateY(3px) scale(1.09,.93); } 61% { transform: translateY(-2px) scale(.98,1.03); } 100% { opacity: 1; transform: none; } }
+@keyframes feed-landing-seam { 0% { opacity: 0; } 18% { opacity: 1; } 100% { opacity: 0; } }
+
+/* Reduced Motion still shows useful, readable cast illustrations; Potato
+   only reduces decoration, never the lift, bite, or recruit trajectory. */
+.spell-fx[data-quiet] * { animation: none !important; }
+.spell-fx[data-quiet] .mint-avatar { scale: .84; }
+.spell-fx[data-quiet] .feed-stage { scale: .72; transform-origin: bottom center; }
+.spell-fx[data-quiet] .feed-origin { opacity: .75; }
+html[data-motion="reduced"] :is(.worm-arrival > *, .bench-slot[data-income-target] .spec-icon__plate svg) { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  :is(.worm-arrival > *, .bench-slot[data-income-target] .spec-icon__plate svg) { animation: none !important; }
+}
+html[data-potato="1"] :is(.mint-metal, .mint-ink, .mint-coin, .feed-worm, .feed-recruit, .feed-meal) { filter: none; }
+html[data-potato="1"] :is(.mint-sun i, .mint-column) { display: none; }

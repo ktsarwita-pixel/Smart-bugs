@@ -17,7 +17,8 @@ import { UiDoctor } from "./components/UiDoctor";
 import { AdvancedView, DEV_BUILD } from "./components/AdvancedView";
 import { fill, useSettings } from "./i18n";
 import { CommanderSkillControl } from "./components/CommanderSkillControl";
-import { IncomeAssay, PressurePresent, WormBenchArrival, WormBenchCue, WormBenchFlights, screenPoint, type PrepCast, type WormArrival } from "./components/CommanderVignettes";
+import { PressurePresent } from "./components/CommanderVignettes";
+import { IncomesCast, WormBenchArrival, WormFeedCast, screenPoint, type PrepCast, type WormArrival } from "./components/CommanderCasts";
 import { eatAndSpit, freshCommander, incomeFrom, PRESSURE_GOLD, settleCommander, strongestOwned, WORM_CAP, WORM_INTERVAL } from "./game/commander";
 import { INCOME_CUE_MS, WORM_BENCH_CUE_MS, WORM_REVEAL_MS, WORM_STAGGER_MS } from "./game/commander-motifs";
 import { addRecruit, combine, deliverRecruits } from "./game/roster";
@@ -469,7 +470,7 @@ export default function App() {
           arrivals.set(recruit.uid, { star: recruit.star, slot: recruit.slot, delay: WORM_REVEAL_MS + WORM_STAGGER_MS * arrivals.size });
         }
       }
-      setPrepCast({ kind: "eat-spit", serial: ++castSerial.current, slot: target.slot, eaten: target.bugId, arrivals });
+      setPrepCast({ kind: "eat-spit", serial: ++castSerial.current, slot: target.slot, eaten: target.bugId, at: castPoint(target), arrivals });
       setUnits(received.out);
       setCommanderReserve(received.reserve);
       setCommanderProgress(fed.progress);
@@ -2662,7 +2663,7 @@ export default function App() {
                 {commanderReserve.length > 0 && (
                   <p className="commander-reserve" role="status">{tf("Skill recruits in reserve: {n}. Make room on the bench.", { n: commanderReserve.length })}</p>
                 )}
-                <div className="bench-grid relative grid grid-cols-6">
+                <div className="bench-grid grid grid-cols-6">
                   {Array.from({ length: BENCH_SIZE }).map((_, i) => {
                     const u = benchUnits.find((b) => b.slot === i);
                     const isSel = !!u && selected === u.uid;
@@ -2679,6 +2680,8 @@ export default function App() {
                         }}
                         title={u ? skillTargeting ? skillPrompt : benchInspectMode ? tf("Inspect {name}", { name: t(BUGS[u.bugId].name) }) : tf("{name} — tap to deploy instantly", { name: t(BUGS[u.bugId].name) }) : t("Empty bench slot")}
                         data-unit-id={u?.uid}
+                        data-bench-slot={i}
+                        data-worm-source={benchCast?.slot === i || undefined}
                         data-skill-target={!!u && skillTargeting && pickable.some((target) => target.uid === u.uid)}
                         data-income-target={gilded || undefined}
                         className={`lift bench-slot relative grid h-11 w-full place-items-center border sm:h-12 ${
@@ -2707,12 +2710,10 @@ export default function App() {
                         ) : (
                           <span className="bench-slot__index">{i + 1}</span>
                         )}
-                        {benchCast?.slot === i && <WormBenchCue key={benchCast.serial} eaten={benchCast.eaten} />}
                       </button>
                       </div>
                     );
                   })}
-                  {benchCast && <WormBenchFlights key={benchCast.serial} cast={benchCast} bench={benchUnits} />}
                 </div>
               </div>
 
@@ -2913,7 +2914,8 @@ export default function App() {
         </div>
       )}
 
-      {phase === "prep" && prepCast?.kind === "incomes" && <IncomeAssay key={prepCast.serial} cast={prepCast} />}
+      {phase === "prep" && prepCast?.kind === "incomes" && <IncomesCast key={prepCast.serial} cast={prepCast} />}
+      {phase === "prep" && benchCast && <WormFeedCast key={benchCast.serial} cast={benchCast} bench={benchUnits} />}
 
       {/* Toast Feedback */}
       {toast && (
